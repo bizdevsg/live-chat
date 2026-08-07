@@ -1,0 +1,36 @@
+{
+  "name": "@solidchat/database",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
+  "scripts": {
+    "generate": "prisma generate",
+    "migrate": "prisma migrate deploy",
+    "migrate:dev": "prisma migrate dev",
+    "seed": "prisma db seed",
+    "studio": "prisma studio",
+    "build": "tsc -p tsconfig.build.json",
+    "lint": "eslint . --max-warnings=0",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.20.0"
+  },
+  "devDependencies": {
+    "@solidchat/eslint-config": "workspace:*",
+    "@solidchat/typescript-config": "workspace:*",
+    "prisma": "^5.20.0",
+    "tsx": "^4.19.1",
+    "typescript": "^5.6.3",
+    "eslint": "^9.13.0",
+    "@node-rs/argon2": "^2.0.2",
+    "@types/node": "^20.16.11"
+  }
+}

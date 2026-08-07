@@ -1,0 +1,18 @@
+{
+  "name": "@solidchat/widget-loader",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "tsc --noEmit && node build.mjs",
+    "dev": "node build.mjs --watch",
+    "lint": "eslint . --max-warnings=0",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@solidchat/eslint-config": "workspace:*",
+    "@solidchat/typescript-config": "workspace:*",
+    "esbuild": "^0.24.0",
+    "eslint": "^9.13.0",
+    "typescript": "^5.6.3"
+  }
+}

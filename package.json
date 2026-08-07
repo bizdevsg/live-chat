@@ -1,0 +1,27 @@
+{
+  "name": "solidchat-ai",
+  "version": "0.1.0",
+  "private": true,
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "packageManager": "pnpm@9.12.0",
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "clean": "turbo run clean",
+    "db:generate": "pnpm --filter @solidchat/database generate",
+    "db:migrate": "pnpm --filter @solidchat/database migrate",
+    "db:seed": "pnpm --filter @solidchat/database seed",
+    "db:studio": "pnpm --filter @solidchat/database studio"
+  },
+  "devDependencies": {
+    "turbo": "^2.1.3",
+    "typescript": "^5.6.3",
+    "prettier": "^3.3.3"
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "extends": "@solidchat/typescript-config/react-library.json",
+  "compilerOptions": {
+    "baseUrl": "./",
+    "paths": { "@/*": ["src/*"] },
+    "types": ["vite/client"]
+  },
+  "include": ["src"]
+}

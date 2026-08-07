@@ -1,0 +1,78 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_DATABASE: solidchat_test
+          MYSQL_USER: solidchat
+          MYSQL_PASSWORD: solidchat_test_password
+          MYSQL_ROOT_PASSWORD: root_test_password
+        ports: ["3306:3306"]
+        options: >-
+          --health-cmd "mysqladmin ping -h localhost -uroot -proot_test_password"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7.4-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      NODE_ENV: test
+      DATABASE_URL: mysql://solidchat:solidchat_test_password@127.0.0.1:3306/solidchat_test
+      REDIS_HOST: 127.0.0.1
+      REDIS_PORT: 6379
+      JWT_ACCESS_SECRET: ci_access_secret_min_16_chars
+      JWT_REFRESH_SECRET: ci_refresh_secret_min_16_chars
+      ENCRYPTION_KEY: ci_encryption_key_32_characters_min
+      AI_PROVIDER: mock
+      AI_MOCK_MODE: "true"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Enable corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm --filter @solidchat/database generate
+
+      - name: Run database migrations
+        run: pnpm --filter @solidchat/database exec prisma migrate deploy
+
+      - name: Lint
+        run: pnpm -r lint
+
+      - name: Typecheck
+        run: pnpm -r typecheck
+
+      - name: Build
+        run: pnpm -r build
+
+      - name: Test (unit)
+        run: pnpm -r test -- --ci
+
+      - name: Test (API e2e)
+        run: pnpm --filter @solidchat/api test:e2e

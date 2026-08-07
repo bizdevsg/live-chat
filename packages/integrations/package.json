@@ -1,0 +1,25 @@
+{
+  "name": "@solidchat/integrations",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "lint": "eslint . --max-warnings=0",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@solidchat/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@solidchat/eslint-config": "workspace:*",
+    "@solidchat/typescript-config": "workspace:*",
+    "@types/node": "^20.16.11",
+    "eslint": "^9.13.0",
+    "typescript": "^5.6.3"
+  }
+}

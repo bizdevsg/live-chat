@@ -1,0 +1,138 @@
+name: solidchat-ai
+
+networks:
+  solidchat-internal:
+    driver: bridge
+
+volumes:
+  mysql-data:
+  redis-data:
+  minio-data:
+
+services:
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-solidchat}
+      MYSQL_USER: ${MYSQL_USER:-solidchat}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?MYSQL_PASSWORD is required}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD is required}
+    volumes:
+      - mysql-data:/var/lib/mysql
+    networks: [solidchat-internal]
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    # Not published to the host in production — only the api/worker containers reach it
+    # over the internal network. Uncomment for local debugging with a MySQL client:
+    # ports: ["3306:3306"]
+
+  redis:
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    volumes:
+      - redis-data:/data
+    networks: [solidchat-internal]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  minio:
+    image: minio/minio:RELEASE.2024-10-13T13-34-11Z
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-solidchat}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD is required}
+    volumes:
+      - minio-data:/data
+    networks: [solidchat-internal]
+    ports:
+      - "9000:9000" # object API — fronted by nginx/S3 SDK, not meant for public browser access
+      - "9001:9001" # console, for operator use only; do not expose publicly in production
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    env_file: [.env]
+    environment:
+      DATABASE_URL: mysql://${MYSQL_USER:-solidchat}:${MYSQL_PASSWORD}@mysql:3306/${MYSQL_DATABASE:-solidchat}
+      REDIS_HOST: redis
+      S3_ENDPOINT: http://minio:9000
+    depends_on:
+      mysql: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      minio: { condition: service_healthy }
+    networks: [solidchat-internal]
+    ports:
+      - "4000:4000"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:4000/health/live"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  worker:
+    build:
+      context: .
+      dockerfile: apps/worker/Dockerfile
+    restart: unless-stopped
+    env_file: [.env]
+    environment:
+      DATABASE_URL: mysql://${MYSQL_USER:-solidchat}:${MYSQL_PASSWORD}@mysql:3306/${MYSQL_DATABASE:-solidchat}
+      REDIS_HOST: redis
+    depends_on:
+      mysql: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      api: { condition: service_started }
+    networks: [solidchat-internal]
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: apps/dashboard/Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:4000}
+        NEXT_PUBLIC_WIDGET_URL: ${NEXT_PUBLIC_WIDGET_URL:-http://localhost:3001}
+    restart: unless-stopped
+    depends_on:
+      api: { condition: service_started }
+    networks: [solidchat-internal]
+    ports:
+      - "3000:3000"
+
+  widget:
+    build:
+      context: .
+      dockerfile: apps/widget/Dockerfile
+      args:
+        VITE_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:4000}
+        WIDGET_URL: ${NEXT_PUBLIC_WIDGET_URL:-http://localhost:3001}
+        API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:4000}
+    restart: unless-stopped
+    networks: [solidchat-internal]
+    ports:
+      - "3001:80"
+
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    volumes:
+      - ./infrastructure/nginx/solidchat.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on: [api, dashboard, widget]
+    networks: [solidchat-internal]
+    ports:
+      - "80:80"
+    # Production TLS termination example lives in infrastructure/nginx/solidchat.ssl.conf.example

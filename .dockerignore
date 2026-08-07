@@ -1,0 +1,13 @@
+node_modules
+**/node_modules
+**/dist
+**/.next
+**/.turbo
+**/build
+.git
+.env
+.env.*
+!.env.example
+mysql-data
+redis-data
+minio-data
