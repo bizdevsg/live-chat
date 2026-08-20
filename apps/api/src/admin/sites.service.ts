@@ -28,7 +28,7 @@ export class SitesService {
         organizationId,
         siteKey: dto.siteKey,
         name: dto.name,
-        aiName: dto.aiName ?? "Clara",
+        aiName: dto.aiName ?? "Asisten Virtual",
         greeting: dto.greeting ?? "Halo! Ada yang bisa kami bantu?",
         offlineMessage: dto.offlineMessage ?? "Tim kami sedang di luar jam operasional.",
         language: dto.language ?? "id",

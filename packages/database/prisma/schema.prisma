@@ -41,7 +41,7 @@ model Site {
   name           String
   logoUrl        String?  @map("logo_url")
   widgetColor    String   @default("#D4AF37") @map("widget_color")
-  aiName         String   @default("Clara") @map("ai_name")
+  aiName         String   @default("Asisten Virtual") @map("ai_name")
   greeting       String   @db.Text
   offlineMessage String   @db.Text @map("offline_message")
   language       String   @default("id")
@@ -130,12 +130,26 @@ model User {
   roles          UserRole[]
   sessions       Session[]
   agentProfile   AgentProfile?
+  accountSettings UserAccountSettings?
   teamMembers    TeamMember[]
   invitationsSent Invitation[]     @relation("InvitedBy")
 
   @@unique([organizationId, email])
   @@index([organizationId])
   @@map("users")
+}
+
+model UserAccountSettings {
+  userId                  String   @id @map("user_id")
+  playOnConversationSound Boolean  @default(true) @map("play_on_conversation_sound")
+  playNewMessagesSound    Boolean  @default(true) @map("play_new_messages_sound")
+  onConversationSound     String   @default("ding-sound-effect") @map("on_conversation_sound")
+  newMessagesSound        String   @default("funny-laugh") @map("new_messages_sound")
+  updatedAt               DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_account_settings")
 }
 
 model Role {
@@ -735,50 +749,25 @@ model KnowledgeDocument {
   slug           String
   content        String    @db.LongText
   summary        String?   @db.Text
-  tags           Json?
   audience       String    @default("PUBLIC") // KnowledgeAudience
-  status         String    @default("DRAFT") // KnowledgeStatus
+  status         String    @default("NON_ACTIVE") // ACTIVE | NON_ACTIVE
   effectiveDate  DateTime? @map("effective_date")
   expiredDate    DateTime? @map("expired_date")
   version        Int       @default(1)
   createdById    String?   @map("created_by_id")
-  reviewedById   String?   @map("reviewed_by_id")
-  approvedById   String?   @map("approved_by_id")
-  publishedAt    DateTime? @map("published_at")
-  sourceUrl      String?   @map("source_url")
   sourceFile     String?   @map("source_file")
-  metadata       Json?
-  checksum       String?
   createdAt      DateTime  @default(now()) @map("created_at")
   updatedAt      DateTime  @updatedAt @map("updated_at")
 
   site     Site               @relation(fields: [siteId], references: [id], onDelete: Cascade)
   category KnowledgeCategory? @relation(fields: [categoryId], references: [id])
 
-  versions KnowledgeDocumentVersion[]
   chunks   KnowledgeChunk[]
-  tagLinks KnowledgeDocumentTag[]
 
   @@unique([siteId, slug])
   @@index([siteId, status])
   @@fulltext([title, content])
   @@map("knowledge_documents")
-}
-
-model KnowledgeDocumentVersion {
-  id         String   @id @default(cuid())
-  documentId String   @map("document_id")
-  version    Int
-  title      String
-  content    String   @db.LongText
-  status     String
-  changedById String? @map("changed_by_id")
-  createdAt  DateTime @default(now()) @map("created_at")
-
-  document KnowledgeDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
-
-  @@unique([documentId, version])
-  @@map("knowledge_document_versions")
 }
 
 /// Chunk table backing the hybrid MySQL RAG pipeline (§21): FULLTEXT candidate
@@ -808,44 +797,21 @@ model KnowledgeChunk {
   @@map("knowledge_chunks")
 }
 
-model KnowledgeTag {
-  id   String @id @default(cuid())
-  name String @unique
-
-  documents KnowledgeDocumentTag[]
-
-  @@map("knowledge_tags")
-}
-
-model KnowledgeDocumentTag {
-  documentId String @map("document_id")
-  tagId      String @map("tag_id")
-
-  document KnowledgeDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
-  tag      KnowledgeTag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
-
-  @@id([documentId, tagId])
-  @@map("knowledge_document_tags")
-}
 
 // ─── AI Configuration / Runs (§16, §22, §23) ────────────────────────────────
 
+// Per-purpose model names, confidence threshold, and retry/timeout/token limits used to live
+// here as editable columns. In practice every site ran the same values, so they were
+// simplified into fixed constants (see AI_MODELS etc. in @solidchat/shared) instead of
+// per-row configuration nobody actually varied. `provider` stays for now but is always
+// forced to "openai" by AiProviderFactory — there is no mock/dummy AI mode anymore.
 model AiConfiguration {
-  id                    String   @id @default(cuid())
-  organizationId        String   @map("organization_id")
-  siteId                String?  @map("site_id")
-  provider              String   @default("mock")
-  classifierModel       String   @default("gpt-4o-mini") @map("classifier_model")
-  answerModel           String   @default("gpt-4o-mini") @map("answer_model")
-  summaryModel          String   @default("gpt-4o-mini") @map("summary_model")
-  suggestedReplyModel   String   @default("gpt-4o-mini") @map("suggested_reply_model")
-  embeddingModel        String   @default("text-embedding-3-small") @map("embedding_model")
-  confidenceThreshold   Float    @default(0.6) @map("confidence_threshold")
-  maxTokens             Int      @default(800) @map("max_tokens")
-  timeoutMs             Int      @default(20000) @map("timeout_ms")
-  maxRetries            Int      @default(2) @map("max_retries")
-  isActive              Boolean  @default(true) @map("is_active")
-  updatedAt             DateTime @updatedAt @map("updated_at")
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  siteId         String?  @map("site_id")
+  provider       String   @default("openai")
+  isActive       Boolean  @default(true) @map("is_active")
+  updatedAt      DateTime @updatedAt @map("updated_at")
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   site         Site?        @relation(fields: [siteId], references: [id])

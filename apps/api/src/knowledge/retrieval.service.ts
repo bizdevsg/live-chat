@@ -15,7 +15,12 @@ export class RetrievalService {
   async retrieveForCustomer(siteId: string, query: string): Promise<KnowledgeEvidence[]> {
     const { provider } = await this.aiProviderFactory.getProviderForSite(siteId);
     const retriever = new KnowledgeRetriever(this.prisma, provider);
-    return retriever.retrieve({ siteId, query, allowedAudiences: [KnowledgeAudience.PUBLIC] });
+    return retriever.retrieve({
+      siteId,
+      query,
+      allowedAudiences: [KnowledgeAudience.PUBLIC],
+      includeFullContext: true,
+    });
   }
 
   /** Suggested replies for agents may draw on PUBLIC + AGENT_ONLY, never INTERNAL (§19, §47). */

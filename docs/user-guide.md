@@ -8,7 +8,7 @@
 
 1. **Buka website & klik bubble chat** — widget dimuat lewat satu `<script>` tag, tidak mengganggu tampilan halaman.
 2. **(Opsional) isi form singkat** — kalau pre-chat form diaktifkan: nama, email, No. HP, persetujuan privasi. Ini menjadi data *Lead*.
-3. **Ngobrol dengan AI "Clara"** — AI mengambil artikel resmi yang relevan dari Knowledge Base, lalu menjawab berdasarkan artikel itu saja.
+3. **Ngobrol dengan AI** (nama asisten diambil dari **AI Configuration** di dashboard, bukan nama tetap) — AI mengambil artikel resmi yang relevan dari Knowledge Base, lalu menjawab berdasarkan artikel itu saja.
 4. **Percabangan otomatis** dicek di setiap pesan:
    - **Jalur A — AI lanjut menjawab**: AI menemukan artikel cocok & percaya diri di atas ambang batas → jawaban dikirim beserta rujukan sumber (tersimpan untuk audit).
    - **Jalur B — dialihkan ke CS**: visitor minta bicara dengan manusia, topik menyangkut akun/transaksi/data sensitif, komplain serius, atau AI dua kali tidak yakin berturut-turut → masuk antrian tim yang sesuai.

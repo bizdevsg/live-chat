@@ -1,8 +1,9 @@
 # Build context MUST be the monorepo root: `docker build -f apps/widget/Dockerfile .`
 # Produces a single static nginx image serving both the widget iframe app (chat SPA) and
 # widget.js (the loader) from the same origin, matching §42's "chat.sg-berjangka.com" host.
-FROM node:20-alpine AS build
-RUN corepack enable
+# Prisma workspace dependencies are more stable on Debian-based Node images.
+FROM node:20-bookworm-slim AS build
+RUN corepack enable && apt-get update && apt-get install -y --no-install-recommends openssl ca-certificates && rm -rf /var/lib/apt/lists/*
 WORKDIR /repo
 ARG VITE_API_URL=http://localhost:4000
 ARG WIDGET_URL=http://localhost:3001
@@ -14,7 +15,23 @@ COPY package.json pnpm-workspace.yaml pnpm-lock.yaml turbo.json ./
 COPY packages ./packages
 COPY apps/widget ./apps/widget
 COPY apps/widget-loader ./apps/widget-loader
-RUN pnpm install --frozen-lockfile
+# --prefer-frozen-lockfile, not --frozen-lockfile: install straight from pnpm-lock.yaml when it
+# already matches every package.json (fast, byte-for-byte reproducible), but resolve normally
+# instead of hard-failing when a dependency was just added and the lockfile hasn't caught up.
+# Plain --frozen-lockfile aborts the whole build with ERR_PNPM_OUTDATED_LOCKFILE in that case,
+# which forces a local `pnpm install` before Docker can build at all.
+RUN set -eux; \
+    attempt=1; \
+    max_attempts=3; \
+    until pnpm install --prefer-frozen-lockfile; do \
+      if [ "$attempt" -ge "$max_attempts" ]; then \
+        echo "pnpm install failed after ${max_attempts} attempts"; \
+        exit 1; \
+      fi; \
+      echo "pnpm install failed (attempt ${attempt}/${max_attempts}); retrying in 5s..."; \
+      attempt=$((attempt + 1)); \
+      sleep 5; \
+    done
 RUN pnpm exec turbo run build --filter=@solidchat/widget...
 RUN pnpm --filter @solidchat/widget-loader build
 

@@ -1,6 +1,7 @@
 const VISITOR_ID_KEY = "solidchat_visitor_id";
 const VISITOR_TOKEN_KEY = "solidchat_visitor_token";
 const CONVERSATION_ID_KEY = "solidchat_conversation_id";
+const LEAD_CONVERSATION_ID_KEY = "solidchat_lead_conversation_id";
 
 function randomId(): string {
   return `visitor_${crypto.randomUUID()}`;
@@ -20,9 +21,14 @@ export const widgetStorage = {
   setVisitorToken: (token: string) => sessionStorage.setItem(VISITOR_TOKEN_KEY, token),
   getConversationId: () => localStorage.getItem(CONVERSATION_ID_KEY),
   setConversationId: (id: string) => localStorage.setItem(CONVERSATION_ID_KEY, id),
+  clearConversationId: () => localStorage.removeItem(CONVERSATION_ID_KEY),
+  getLeadConversationId: () => sessionStorage.getItem(LEAD_CONVERSATION_ID_KEY),
+  setLeadConversationId: (id: string) => sessionStorage.setItem(LEAD_CONVERSATION_ID_KEY, id),
+  clearLeadConversationId: () => sessionStorage.removeItem(LEAD_CONVERSATION_ID_KEY),
   reset() {
     localStorage.removeItem(VISITOR_ID_KEY);
     localStorage.removeItem(CONVERSATION_ID_KEY);
     sessionStorage.removeItem(VISITOR_TOKEN_KEY);
+    sessionStorage.removeItem(LEAD_CONVERSATION_ID_KEY);
   },
 };

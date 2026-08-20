@@ -35,6 +35,7 @@ export interface AnswerInput {
   evidence: KnowledgeEvidence[];
   aiName: string;
   organizationName: string;
+  systemPrompt?: string | null;
 }
 
 export interface SummaryInput {

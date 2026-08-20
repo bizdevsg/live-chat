@@ -7,7 +7,13 @@ import { CurrentUser } from "../common/decorators/current-user.decorator";
 import { PrismaService } from "../prisma/prisma.service";
 import { AuditLogService } from "../common/audit/audit-log.service";
 import { AiOrchestratorService } from "./ai-orchestrator.service";
+import { AiProviderFactory } from "./ai-provider.factory";
 import { UpdateAiConfigurationDto, AiFeedbackDto } from "./dto/ai.dto";
+import { ForbiddenApiException } from "../common/errors/api.exception";
+
+const ANSWER_PROMPT_PURPOSE = "ANSWER";
+const DEFAULT_AI_NAME = "Asisten Virtual";
+const DEFAULT_GREETING = "Halo! Ada yang bisa kami bantu?";
 
 @ApiTags("ai")
 @UseGuards(PermissionsGuard)
@@ -17,15 +23,48 @@ export class AiController {
     private readonly prisma: PrismaService,
     private readonly auditLog: AuditLogService,
     private readonly aiOrchestrator: AiOrchestratorService,
+    private readonly aiProviderFactory: AiProviderFactory,
   ) {}
+
+  private async resolveSiteForConfiguration(organizationId: string, siteId?: string | null) {
+    if (siteId) {
+      return this.prisma.site.findUnique({ where: { id: siteId } });
+    }
+
+    return this.prisma.site.findFirst({
+      where: { organizationId },
+      orderBy: { createdAt: "asc" },
+    });
+  }
+
+  private async buildConfigurationResponse(organizationId: string) {
+    const config = await this.aiProviderFactory.getConfigForOrganization(organizationId);
+    if (!config) return null;
+
+    const [site, prompt] = await Promise.all([
+      this.resolveSiteForConfiguration(organizationId, config.siteId),
+      this.prisma.aiPrompt.findFirst({
+        where: {
+          aiConfigurationId: config.id,
+          purpose: ANSWER_PROMPT_PURPOSE,
+          isActive: true,
+        },
+        orderBy: { version: "desc" },
+      }),
+    ]);
+
+    return {
+      ...config,
+      aiName: site?.aiName ?? DEFAULT_AI_NAME,
+      greeting: site?.greeting ?? DEFAULT_GREETING,
+      systemPrompt: prompt?.content ?? "",
+    };
+  }
 
   @Get("configuration")
   @RequirePermissions(Permission.AI_CONFIG_MANAGE)
   async getConfiguration(@CurrentUser() user: JwtAccessPayload) {
-    const config = await this.prisma.aiConfiguration.findFirst({
-      where: { organizationId: user.organizationId, isActive: true },
-      orderBy: { updatedAt: "desc" },
-    });
+    const config = await this.buildConfigurationResponse(user.organizationId);
     return { success: true, data: config };
   }
 
@@ -33,7 +72,53 @@ export class AiController {
   @RequirePermissions(Permission.AI_CONFIG_MANAGE)
   async updateConfiguration(@Param("id") id: string, @Body() dto: UpdateAiConfigurationDto, @CurrentUser() user: JwtAccessPayload) {
     const before = await this.prisma.aiConfiguration.findUniqueOrThrow({ where: { id } });
-    const data = await this.prisma.aiConfiguration.update({ where: { id }, data: dto });
+    if (before.organizationId !== user.organizationId) {
+      throw new ForbiddenApiException("Anda tidak memiliki akses ke konfigurasi AI ini.");
+    }
+
+    const { aiName, greeting, systemPrompt, ...configData } = dto;
+    const site = await this.resolveSiteForConfiguration(user.organizationId, before.siteId);
+    const beforePrompt = await this.prisma.aiPrompt.findFirst({
+      where: { aiConfigurationId: id, purpose: ANSWER_PROMPT_PURPOSE, isActive: true },
+      orderBy: { version: "desc" },
+    });
+
+    const data = await this.prisma.aiConfiguration.update({
+      where: { id },
+      data: configData,
+    });
+
+    if (site && (aiName !== undefined || greeting !== undefined)) {
+      await this.prisma.site.update({
+        where: { id: site.id },
+        data: {
+          ...(aiName !== undefined ? { aiName: aiName.trim() || DEFAULT_AI_NAME } : {}),
+          ...(greeting !== undefined ? { greeting: greeting.trim() || DEFAULT_GREETING } : {}),
+        },
+      });
+    }
+
+    if (systemPrompt !== undefined) {
+      const normalizedPrompt = systemPrompt.trim();
+      await this.prisma.aiPrompt.updateMany({
+        where: { aiConfigurationId: id, purpose: ANSWER_PROMPT_PURPOSE, isActive: true },
+        data: { isActive: false },
+      });
+
+      if (normalizedPrompt) {
+        await this.prisma.aiPrompt.create({
+          data: {
+            aiConfigurationId: id,
+            purpose: ANSWER_PROMPT_PURPOSE,
+            content: normalizedPrompt,
+            version: (beforePrompt?.version ?? 0) + 1,
+            isActive: true,
+          },
+        });
+      }
+    }
+
+    const afterData = await this.buildConfigurationResponse(user.organizationId);
     await this.auditLog.record({
       organizationId: user.organizationId,
       actorType: "USER",
@@ -41,10 +126,16 @@ export class AiController {
       action: "ai_config.updated",
       resourceType: "ai_configuration",
       resourceId: id,
-      beforeData: before,
-      afterData: data,
+      beforeData: {
+        ...before,
+        aiName: site?.aiName ?? DEFAULT_AI_NAME,
+        greeting: site?.greeting ?? DEFAULT_GREETING,
+        systemPrompt: beforePrompt?.content ?? "",
+      },
+      afterData,
     });
-    return { success: true, data };
+
+    return { success: true, data: afterData ?? data };
   }
 
   @Get("runs")

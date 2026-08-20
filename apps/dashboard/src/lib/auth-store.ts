@@ -1,5 +1,6 @@
 import { create } from "zustand";
-import type { Permission } from "@solidchat/shared";
+import type { Permission } from "@/lib/permissions";
+import type { UserAccountSettings } from "@/lib/account-settings";
 
 export interface AuthUser {
   userId: string;
@@ -8,6 +9,7 @@ export interface AuthUser {
   name: string;
   roles: string[];
   permissions: string[];
+  accountSettings: UserAccountSettings;
 }
 
 interface AuthState {

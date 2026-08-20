@@ -88,7 +88,7 @@ export class WidgetGateway implements OnGatewayInit, OnGatewayConnection {
         messageType: MessageType.TEXT,
         clientMessageId: body.clientMessageId,
       });
-      this.aiOrchestrator.processVisitorTurn(body.conversationId).catch((error) => this.logger.error(error));
+      this.aiOrchestrator.scheduleVisitorTurn(body.conversationId).catch((error) => this.logger.error(error));
     } catch {
       client.emit("error", { code: "FORBIDDEN", message: "Tidak dapat mengirim pesan." });
     }

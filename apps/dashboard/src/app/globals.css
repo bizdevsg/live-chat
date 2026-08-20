@@ -1,3 +1,6 @@
+@import "@uiw/react-md-editor/markdown-editor.css";
+@import "@uiw/react-markdown-preview/markdown.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -8,6 +11,55 @@
 
 body {
   @apply bg-ink-900 text-zinc-100 antialiased;
+}
+
+[data-color-mode="dark"] .w-md-editor,
+[data-color-mode="dark"] .w-md-editor-toolbar,
+[data-color-mode="dark"] .w-md-editor-content,
+[data-color-mode="dark"] .w-md-editor-input,
+[data-color-mode="dark"] .w-md-editor-preview {
+  background-color: transparent !important;
+}
+
+[data-color-mode="dark"] .w-md-editor {
+  border: 1px solid rgb(63 63 70 / 1) !important;
+  box-shadow: none !important;
+}
+
+[data-color-mode="dark"] .w-md-editor-toolbar {
+  border-bottom: 1px solid rgb(63 63 70 / 1) !important;
+  padding: 10px 12px !important;
+}
+
+[data-color-mode="dark"] .w-md-editor-toolbar li > button {
+  border-radius: 10px !important;
+}
+
+[data-color-mode="dark"] .w-md-editor-toolbar li > button:hover,
+[data-color-mode="dark"] .w-md-editor-toolbar li > button:focus {
+  background-color: rgb(39 39 42 / 1) !important;
+}
+
+[data-color-mode="dark"] .w-md-editor-text-pre > code,
+[data-color-mode="dark"] .w-md-editor-text-input {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace !important;
+  font-size: 0.95rem !important;
+  line-height: 1.75 !important;
+}
+
+[data-color-mode="dark"] .wmde-markdown,
+[data-color-mode="dark"] .wmde-markdown-var {
+  background-color: transparent !important;
+  color: rgb(244 244 245 / 1) !important;
+}
+
+[data-color-mode="dark"] .wmde-markdown {
+  padding: 20px !important;
+}
+
+[data-color-mode="dark"] .wmde-markdown code,
+[data-color-mode="dark"] .wmde-markdown pre {
+  background-color: rgb(24 24 27 / 1) !important;
 }
 
 ::selection {

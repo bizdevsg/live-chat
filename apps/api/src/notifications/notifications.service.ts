@@ -3,6 +3,8 @@ import { RealtimeEmitterService } from "../realtime/realtime-emitter.service";
 
 export type NotificationType =
   | "NEW_WAITING_CONVERSATION"
+  | "NEW_INBOX_CONVERSATION"
+  | "NEW_CUSTOMER_MESSAGE"
   | "URGENT_CONVERSATION"
   | "TICKET_SLA_NEAR"
   | "AGENT_TRANSFER"

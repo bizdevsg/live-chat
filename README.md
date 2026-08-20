@@ -68,7 +68,7 @@ Nothing above was left as a TODO stub or a non-functional button — each is eit
 
 ## 5. Environment variables
 
-See [`.env.example`](.env.example) for the full list with inline comments. Key groups: app URLs, `DATABASE_URL` (MySQL), Redis, JWT secrets (access/refresh/visitor), `CUSTOMER_IDENTITY_*` (§9), `AI_PROVIDER`/`OPENAI_*`, `CRM_PROVIDER`/`CRM_*`, `S3_*`/MinIO, `ENCRYPTION_KEY`, `CORS_ALLOWED_ORIGINS`, `INITIAL_ADMIN_*`, and `NEXT_PUBLIC_*`/`VITE_*` for the browser-facing apps.
+See [`.env.example`](.env.example) for the full list with inline comments. Key groups: app URLs, `DATABASE_URL` (MySQL), Redis, JWT secrets (access/refresh/visitor), `CUSTOMER_IDENTITY_*` (§9), `OPENAI_API_KEY` (required — no mock AI mode; model names are fixed in `packages/shared/src/constants.ts`), `CRM_PROVIDER`/`CRM_*`, `S3_*`/MinIO, `ENCRYPTION_KEY`, `CORS_ALLOWED_ORIGINS`, `INITIAL_ADMIN_*`, and `NEXT_PUBLIC_*`/`VITE_*` for the browser-facing apps.
 
 ## 6. Install (development)
 
@@ -90,7 +90,7 @@ pnpm --filter @solidchat/database migrate:dev   # or `migrate` (deploy) against 
 pnpm --filter @solidchat/database seed
 ```
 
-Creates: organization + `solid-gold-main` site (domain `localhost`), all roles/permissions, two teams, default AI config (mock provider), a default routing + two handoff rules, one DRAFT sample knowledge article (intentionally unpublished — see §43), an admin user, and a demo CS agent. Credentials are printed to the console; defaults are `admin@solidgold.local` / `ChangeMe!12345` and `agent@solidgold.local` / `ChangeMe!12345`.
+Creates: organization + `solid-gold-main` site (domain `localhost`), all roles/permissions, two teams, default AI config (OpenAI — requires `OPENAI_API_KEY`), a default routing + two handoff rules, one DRAFT sample knowledge article (intentionally unpublished — see §43), an admin user, and a demo CS agent. Credentials are printed to the console; defaults are `admin@solidgold.local` / `ChangeMe!12345` and `agent@solidgold.local` / `ChangeMe!12345`.
 
 ## 9. Test
 
@@ -115,7 +115,7 @@ pnpm --filter @solidchat/widget-loader build
 # or simply: pnpm -r build (turbo resolves the whole dependency graph)
 ```
 
-## 11. Run with Docker
+## 11. Run with Docker (production-like)
 
 ```bash
 cp .env.example .env   # fill in real secrets
@@ -125,6 +125,34 @@ docker compose exec api pnpm --filter @solidchat/database seed
 ```
 
 Full detail (including production TLS setup) in [`docs/deployment.md`](docs/deployment.md).
+
+## 11a. Run with Docker (development + hot reload)
+
+```bash
+cp .env.example .env
+docker compose -f docker-compose.dev.yml up --build
+docker compose -f docker-compose.dev.yml exec api pnpm --filter @solidchat/database migrate
+docker compose -f docker-compose.dev.yml exec api pnpm --filter @solidchat/database seed
+```
+
+Behavior:
+- `api`, `worker`, `dashboard`, `widget`, and `widget-loader` all stay inside Docker
+- source code is bind-mounted, so app changes reload automatically without `docker compose up --build` again
+- MySQL/Redis/MinIO/phpMyAdmin/nginx stay in Docker as usual
+- dev stack is standalone and uses a different Docker project name: `solidchat-ai-dev`, so it can run side-by-side with the production-like stack
+
+Useful URLs in dev Docker mode:
+- dashboard: `http://localhost:5276`
+- api: `http://localhost:4400`
+- widget app: `http://localhost:3101`
+- phpMyAdmin: `http://localhost:8082`
+- MinIO: `http://localhost:9100` and `http://localhost:9101`
+- nginx reverse proxy: `http://localhost:8088`
+- MySQL host port: `3308`
+
+Notes:
+- if you change dependencies (`package.json` / `pnpm-lock.yaml`) or the Docker config itself, rebuild is still needed
+- if you change Prisma schema, regenerate/migrate may still be needed manually
 
 ## 12. Create the first admin
 
@@ -150,7 +178,7 @@ Dashboard: **Knowledge Base → + Artikel Baru**, write the content, then **Ajuk
 
 ## 15. Connect OpenAI
 
-In the dashboard, go to **AI Configuration**, set **Provider** to `openai`, fill in the per-purpose model names, and set `OPENAI_API_KEY` in the API's environment (restart the API after changing env vars — the key itself is never editable from the dashboard for security). Falls back to the mock provider automatically if `OPENAI_API_KEY` is unset, rather than crashing conversations.
+Set `OPENAI_API_KEY` in the API's environment and restart the API (the key itself is never editable from the dashboard for security). There is no mock provider to fall back to — the API refuses to start without a real key. Model names, confidence threshold, and retry/timeout settings are fixed in `packages/shared/src/constants.ts`, not configured per-organization; in the dashboard, **AI Configuration** only edits `aiName` and `systemPrompt`.
 
 ## 16. Connect a CRM
 

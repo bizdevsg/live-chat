@@ -1,4 +1,6 @@
 import { PrismaService } from "../prisma/prisma.service";
+import type { UserAccountSettings } from "./account-settings.constants";
+import { loadUserAccountSettings } from "./account-settings.util";
 
 export interface UserAuthContext {
   userId: string;
@@ -7,6 +9,7 @@ export interface UserAuthContext {
   name: string;
   roles: string[];
   permissions: string[];
+  accountSettings: UserAccountSettings;
 }
 
 export async function loadUserAuthContext(prisma: PrismaService, userId: string): Promise<UserAuthContext | null> {
@@ -25,6 +28,8 @@ export async function loadUserAuthContext(prisma: PrismaService, userId: string)
     }
   }
 
+  const accountSettings = await loadUserAccountSettings(prisma, user.id);
+
   return {
     userId: user.id,
     organizationId: user.organizationId,
@@ -32,5 +37,6 @@ export async function loadUserAuthContext(prisma: PrismaService, userId: string)
     name: user.name,
     roles: [...roleSlugs],
     permissions: [...permissionSlugs],
+    accountSettings,
   };
 }

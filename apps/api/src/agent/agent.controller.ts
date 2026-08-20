@@ -33,13 +33,14 @@ export class AgentController {
   }
 
   @Get("conversations/:id")
-  async getConversation(@Param("id") id: string) {
-    const data = await this.agentService.getConversationDetail(id);
+  async getConversation(@Param("id") id: string, @CurrentUser() user: JwtAccessPayload) {
+    const data = await this.agentService.getConversationDetail(user, id);
     return { success: true, data };
   }
 
   @Post("conversations/:id/accept")
   async accept(@Param("id") id: string, @CurrentUser() user: JwtAccessPayload) {
+    await this.agentService.assertConversationAccess(user, id);
     const data = await this.conversations.accept(id, user.sub);
     return { success: true, data };
   }
@@ -47,18 +48,21 @@ export class AgentController {
   @Post("conversations/:id/takeover")
   @RequirePermissions(Permission.CONVERSATION_TAKEOVER)
   async takeover(@Param("id") id: string, @CurrentUser() user: JwtAccessPayload) {
+    await this.agentService.assertConversationAccess(user, id);
     const data = await this.conversations.takeover(id, user.sub);
     return { success: true, data };
   }
 
   @Post("conversations/:id/return-to-ai")
   async returnToAi(@Param("id") id: string, @CurrentUser() user: JwtAccessPayload) {
+    await this.agentService.assertConversationAccess(user, id);
     const data = await this.conversations.returnToAi(id, user.sub);
     return { success: true, data };
   }
 
   @Post("conversations/:id/messages")
   async sendMessage(@Param("id") id: string, @Body() dto: SendAgentMessageDto, @CurrentUser() user: JwtAccessPayload) {
+    await this.agentService.assertConversationAccess(user, id);
     const result = await this.conversations.postMessage({
       conversationId: id,
       senderType: "AGENT",
@@ -71,6 +75,7 @@ export class AgentController {
 
   @Post("conversations/:id/internal-notes")
   async internalNote(@Param("id") id: string, @Body() dto: InternalNoteDto, @CurrentUser() user: JwtAccessPayload) {
+    await this.agentService.assertConversationAccess(user, id);
     const result = await this.conversations.addInternalNote(id, user.sub, dto.content);
     return { success: true, data: result.message };
   }
@@ -78,12 +83,14 @@ export class AgentController {
   @Post("conversations/:id/transfer")
   @RequirePermissions(Permission.CONVERSATION_TRANSFER)
   async transfer(@Param("id") id: string, @Body() dto: TransferConversationDto, @CurrentUser() user: JwtAccessPayload) {
+    await this.agentService.assertConversationAccess(user, id);
     const data = await this.conversations.transfer(id, user.sub, dto);
     return { success: true, data };
   }
 
   @Post("conversations/:id/resolve")
   async resolve(@Param("id") id: string, @CurrentUser() user: JwtAccessPayload) {
+    await this.agentService.assertConversationAccess(user, id);
     const data = await this.conversations.resolve(id, user.sub);
     this.aiOrchestrator.summarize(id, "RESOLVED").catch(() => undefined);
     return { success: true, data };
@@ -91,18 +98,21 @@ export class AgentController {
 
   @Post("conversations/:id/reopen")
   async reopen(@Param("id") id: string, @CurrentUser() user: JwtAccessPayload) {
+    await this.agentService.assertConversationAccess(user, id);
     const data = await this.conversations.reopen(id, user.sub);
     return { success: true, data };
   }
 
   @Post("conversations/:id/suggested-reply")
   async suggestedReply(@Param("id") id: string, @CurrentUser() user: JwtAccessPayload) {
+    await this.agentService.assertConversationAccess(user, id);
     const data = await this.aiOrchestrator.generateSuggestedReplyForAgent(id, user.sub);
     return { success: true, data };
   }
 
   @Post("conversations/:id/summary")
-  async summary(@Param("id") id: string) {
+  async summary(@Param("id") id: string, @CurrentUser() user: JwtAccessPayload) {
+    await this.agentService.assertConversationAccess(user, id);
     const data = await this.aiOrchestrator.summarize(id, "MANUAL");
     return { success: true, data };
   }

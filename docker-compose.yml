@@ -28,7 +28,7 @@ services:
       retries: 10
     # Not published to the host in production — only the api/worker containers reach it
     # over the internal network. Uncomment for local debugging with a MySQL client:
-    # ports: ["3306:3306"]
+    ports: ["3307:3306"]
 
   redis:
     image: redis:7.4-alpine
@@ -60,6 +60,17 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
+
+  phpmyadmin:
+    image: phpmyadmin:latest
+    restart: unless-stopped
+    environment:
+      PMA_HOST: mysql
+    depends_on:
+      mysql: { condition: service_healthy }
+    networks: [solidchat-internal]
+    ports:
+      - "8081:80" # browser access: http://localhost:8081
 
   api:
     build:
@@ -111,7 +122,7 @@ services:
       api: { condition: service_started }
     networks: [solidchat-internal]
     ports:
-      - "3000:3000"
+      - "5176:3000"
 
   widget:
     build:

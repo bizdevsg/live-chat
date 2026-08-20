@@ -8,5 +8,6 @@ import { AiModule } from "../ai/ai.module";
   imports: [ConversationsModule, AiModule],
   controllers: [AgentController],
   providers: [AgentService],
+  exports: [AgentService],
 })
 export class AgentModule {}

@@ -1,0 +1,28 @@
+export const Permission = {
+  ORG_MANAGE: "org.manage",
+  SITE_MANAGE: "site.manage",
+  INTEGRATION_MANAGE: "integration.manage",
+  SECURITY_MANAGE: "security.manage",
+  AUDIT_LOG_VIEW: "audit_log.view",
+  USER_MANAGE: "user.manage",
+  ROLE_MANAGE: "role.manage",
+  TEAM_MANAGE: "team.manage",
+  KNOWLEDGE_EDIT: "knowledge.edit",
+  KNOWLEDGE_APPROVE: "knowledge.approve",
+  KNOWLEDGE_PUBLISH: "knowledge.publish",
+  AI_CONFIG_MANAGE: "ai_config.manage",
+  ROUTING_MANAGE: "routing.manage",
+  TEMPLATE_MANAGE: "template.manage",
+  WIDGET_MANAGE: "widget.manage",
+  ANALYTICS_VIEW: "analytics.view",
+  CONVERSATION_VIEW_ALL: "conversation.view_all",
+  CONVERSATION_VIEW_TEAM: "conversation.view_team",
+  CONVERSATION_HANDLE: "conversation.handle",
+  CONVERSATION_TAKEOVER: "conversation.takeover",
+  CONVERSATION_TRANSFER: "conversation.transfer",
+  TICKET_MANAGE: "ticket.manage",
+  CUSTOMER_VIEW: "customer.view",
+  LEAD_VIEW: "lead.view",
+} as const;
+
+export type Permission = (typeof Permission)[keyof typeof Permission];

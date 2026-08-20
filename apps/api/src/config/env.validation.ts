@@ -1,5 +1,23 @@
 import { z } from "zod";
 
+/**
+ * z.coerce.boolean() is a footgun for env vars: it just runs JS `Boolean(value)`,
+ * so a literal string "false" (non-empty) coerces to `true`. That bug previously made
+ * AI_MOCK_MODE=false in .env evaluate to `true`, silently forcing every conversation
+ * onto MockAiProvider even with AI_PROVIDER=openai and a valid OPENAI_API_KEY set.
+ * This helper parses "true"/"1" as true and everything else (including "false") as false.
+ */
+function booleanEnv(defaultValue: boolean) {
+  return z
+    .union([z.boolean(), z.string()])
+    .optional()
+    .transform((value) => {
+      if (value === undefined) return defaultValue;
+      if (typeof value === "boolean") return value;
+      return value.trim().toLowerCase() === "true" || value.trim() === "1";
+    });
+}
+
 const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   API_PORT: z.coerce.number().default(4000),
@@ -23,13 +41,9 @@ const envSchema = z.object({
   CUSTOMER_IDENTITY_ISSUER: z.string().default("sg-berjangka.com"),
   CUSTOMER_IDENTITY_AUDIENCE: z.string().default("solidchat"),
 
-  AI_PROVIDER: z.enum(["mock", "openai"]).default("mock"),
-  AI_MOCK_MODE: z.coerce.boolean().default(true),
-  OPENAI_API_KEY: z.string().optional(),
-  OPENAI_DEFAULT_MODEL: z.string().default("gpt-4o-mini"),
-  OPENAI_CLASSIFIER_MODEL: z.string().default("gpt-4o-mini"),
-  OPENAI_SUMMARY_MODEL: z.string().default("gpt-4o-mini"),
-  OPENAI_EMBEDDING_MODEL: z.string().default("text-embedding-3-small"),
+  // Model names are fixed constants in @solidchat/shared (AI_MODELS) — there is no mock
+  // provider anymore, so the API refuses to boot without a real OpenAI key.
+  OPENAI_API_KEY: z.string().min(1, "OPENAI_API_KEY is required — there is no mock AI mode"),
 
   CRM_PROVIDER: z.enum(["mock", "rest"]).default("mock"),
   CRM_BASE_URL: z.string().optional(),
@@ -40,7 +54,7 @@ const envSchema = z.object({
   S3_ACCESS_KEY: z.string().default("solidchat"),
   S3_SECRET_KEY: z.string().default("solidchat-secret"),
   S3_BUCKET: z.string().default("solidchat"),
-  S3_FORCE_PATH_STYLE: z.coerce.boolean().default(true),
+  S3_FORCE_PATH_STYLE: booleanEnv(true),
 
   ENCRYPTION_KEY: z.string().min(32, "ENCRYPTION_KEY must be at least 32 chars"),
   COOKIE_DOMAIN: z.string().default("localhost"),

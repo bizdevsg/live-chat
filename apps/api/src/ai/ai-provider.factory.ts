@@ -1,16 +1,20 @@
 import { Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { MockAiProvider, OpenAiProvider } from "@solidchat/ai-core";
+import { OpenAiProvider } from "@solidchat/ai-core";
+import { AI_MAX_RETRIES, AI_MODELS, AI_TIMEOUT_MS } from "@solidchat/shared";
 import type { AiProvider } from "@solidchat/shared";
 import { PrismaService } from "../prisma/prisma.service";
 import type { AiConfiguration } from "@solidchat/database";
 
-const mockProviderSingleton = new MockAiProvider();
-
 /**
  * Resolves the active AiConfiguration for a site (falling back to the org-level config,
- * then a safe default) and builds the matching AiProvider. Configuration lives in the DB
- * so admins can change models/thresholds from the dashboard without a redeploy (§16).
+ * then a safe default) and builds the AI provider. Model names, confidence threshold, and
+ * retry/timeout settings are fixed constants (see @solidchat/shared) — only `aiName`,
+ * `greeting`, `systemPrompt`, and `isActive` are still per-site/DB-driven.
+ *
+ * Always builds a real OpenAiProvider — there is no mock/dummy fallback. Previously, a missing
+ * or misread OPENAI_API_KEY silently degraded every conversation to a canned mock template with
+ * no explanation; that's exactly the failure mode this avoids by failing loudly instead.
  */
 @Injectable()
 export class AiProviderFactory {
@@ -38,27 +42,34 @@ export class AiProviderFactory {
     throw new Error(`No AiConfiguration found for site ${siteId}`);
   }
 
-  buildProvider(aiConfig: AiConfiguration): AiProvider {
-    if (aiConfig.provider === "openai") {
-      const apiKey = this.config.get<string>("OPENAI_API_KEY");
-      if (!apiKey) return mockProviderSingleton; // fail safe to mock rather than crash the conversation
-      return new OpenAiProvider({
-        apiKey,
-        classifierModel: aiConfig.classifierModel,
-        answerModel: aiConfig.answerModel,
-        summaryModel: aiConfig.summaryModel,
-        suggestedReplyModel: aiConfig.suggestedReplyModel,
-        embeddingModel: aiConfig.embeddingModel,
-        timeoutMs: aiConfig.timeoutMs,
-        maxRetries: aiConfig.maxRetries,
-        maxOutputTokens: aiConfig.maxTokens,
-      });
+  async getConfigForOrganization(organizationId: string): Promise<AiConfiguration | null> {
+    return this.prisma.aiConfiguration.findFirst({
+      where: { organizationId, isActive: true },
+      orderBy: { updatedAt: "desc" },
+    });
+  }
+
+  buildProvider(): AiProvider {
+    const apiKey = this.config.get<string>("OPENAI_API_KEY");
+    if (!apiKey) {
+      // Should not happen in practice — env.validation.ts requires OPENAI_API_KEY at startup —
+      // but keep a loud, actionable failure here too rather than ever silently downgrading.
+      throw new Error("OPENAI_API_KEY belum diset. Isi OPENAI_API_KEY di environment API lalu restart.");
     }
-    return mockProviderSingleton;
+    return new OpenAiProvider({
+      apiKey,
+      classifierModel: AI_MODELS.classifier,
+      answerModel: AI_MODELS.answer,
+      summaryModel: AI_MODELS.summary,
+      suggestedReplyModel: AI_MODELS.suggestedReply,
+      embeddingModel: AI_MODELS.embedding,
+      timeoutMs: AI_TIMEOUT_MS,
+      maxRetries: AI_MAX_RETRIES,
+    });
   }
 
   async getProviderForSite(siteId: string): Promise<{ provider: AiProvider; config: AiConfiguration }> {
     const config = await this.getConfigForSite(siteId);
-    return { provider: this.buildProvider(config), config };
+    return { provider: this.buildProvider(), config };
   }
 }

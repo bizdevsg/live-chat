@@ -1,7 +1,10 @@
 import {
+  BadRequestException,
   Body,
+  Delete,
   Controller,
   Get,
+  HttpStatus,
   Param,
   Post,
   Put,
@@ -12,7 +15,7 @@ import {
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
 import { ApiTags } from "@nestjs/swagger";
-import { Permission } from "@solidchat/shared";
+import { Permission, SystemRole } from "@solidchat/shared";
 import { PermissionsGuard } from "../common/guards/permissions.guard";
 import { RequirePermissions } from "../common/decorators/permissions.decorator";
 import { CurrentUser } from "../common/decorators/current-user.decorator";
@@ -22,11 +25,15 @@ import { StorageService } from "../storage/storage.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { extractTextFromFile } from "./text-extraction.util";
 import { CreateKnowledgeDocumentDto, ListKnowledgeQueryDto, UpdateKnowledgeDocumentDto } from "./dto/knowledge.dto";
-import { ApiException } from "../common/errors/api.exception";
+import { ApiException, ForbiddenApiException } from "../common/errors/api.exception";
 import { ErrorCode } from "@solidchat/shared";
-import { HttpStatus, BadRequestException } from "@nestjs/common";
 
 const MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
+const MARKDOWN_EXTENSION = ".md";
+
+function hasSuperAdminRole(roles: string[]) {
+  return roles.some((role) => role.trim().toLowerCase().replace(/[\s-]+/g, "_") === SystemRole.SUPER_ADMIN);
+}
 
 @ApiTags("knowledge")
 @UseGuards(PermissionsGuard)
@@ -42,6 +49,12 @@ export class KnowledgeController {
     const site = await this.prisma.site.findFirst({ where: { organizationId: user.organizationId } });
     if (!site) throw new ApiException(ErrorCode.SITE_NOT_FOUND, "Site tidak ditemukan untuk organization ini.", HttpStatus.NOT_FOUND);
     return site.id;
+  }
+
+  private assertSuperAdmin(user: JwtAccessPayload) {
+    if (!hasSuperAdminRole(user.roles)) {
+      throw new ForbiddenApiException("Hanya Super Admin yang dapat mengubah Knowledge Base.");
+    }
   }
 
   @Get("categories")
@@ -61,6 +74,7 @@ export class KnowledgeController {
   @Post("documents")
   @RequirePermissions(Permission.KNOWLEDGE_EDIT)
   async create(@CurrentUser() user: JwtAccessPayload, @Body() dto: CreateKnowledgeDocumentDto) {
+    this.assertSuperAdmin(user);
     const siteId = await this.resolveSiteId(user);
     const data = await this.knowledgeService.create(siteId, dto, user.sub);
     return { success: true, data };
@@ -76,48 +90,79 @@ export class KnowledgeController {
   @Put("documents/:id")
   @RequirePermissions(Permission.KNOWLEDGE_EDIT)
   async update(@Param("id") id: string, @Body() dto: UpdateKnowledgeDocumentDto, @CurrentUser() user: JwtAccessPayload) {
+    this.assertSuperAdmin(user);
     const data = await this.knowledgeService.update(id, dto, user.sub);
+    return { success: true, data };
+  }
+
+  @Delete("documents/:id")
+  @RequirePermissions(Permission.KNOWLEDGE_EDIT)
+  async remove(@Param("id") id: string, @CurrentUser() user: JwtAccessPayload) {
+    this.assertSuperAdmin(user);
+    const data = await this.knowledgeService.remove(id, user.sub);
+    return { success: true, data };
+  }
+
+  @Post("documents/:id/activate")
+  @RequirePermissions(Permission.KNOWLEDGE_EDIT)
+  async activate(@Param("id") id: string, @CurrentUser() user: JwtAccessPayload) {
+    this.assertSuperAdmin(user);
+    const data = await this.knowledgeService.activate(id, user.sub);
+    return { success: true, data };
+  }
+
+  @Post("documents/:id/deactivate")
+  @RequirePermissions(Permission.KNOWLEDGE_EDIT)
+  async deactivate(@Param("id") id: string, @CurrentUser() user: JwtAccessPayload) {
+    this.assertSuperAdmin(user);
+    const data = await this.knowledgeService.deactivate(id, user.sub);
     return { success: true, data };
   }
 
   @Post("documents/:id/submit-review")
   @RequirePermissions(Permission.KNOWLEDGE_EDIT)
   async submitReview(@Param("id") id: string, @CurrentUser() user: JwtAccessPayload) {
-    const data = await this.knowledgeService.submitReview(id, user.sub);
+    this.assertSuperAdmin(user);
+    const data = await this.knowledgeService.activate(id, user.sub);
     return { success: true, data };
   }
 
   @Post("documents/:id/approve")
   @RequirePermissions(Permission.KNOWLEDGE_APPROVE)
   async approve(@Param("id") id: string, @CurrentUser() user: JwtAccessPayload) {
-    const data = await this.knowledgeService.approve(id, user.sub);
+    this.assertSuperAdmin(user);
+    const data = await this.knowledgeService.activate(id, user.sub);
     return { success: true, data };
   }
 
   @Post("documents/:id/reject")
   @RequirePermissions(Permission.KNOWLEDGE_APPROVE)
   async reject(@Param("id") id: string, @CurrentUser() user: JwtAccessPayload) {
-    const data = await this.knowledgeService.reject(id, user.sub);
+    this.assertSuperAdmin(user);
+    const data = await this.knowledgeService.deactivate(id, user.sub);
     return { success: true, data };
   }
 
   @Post("documents/:id/publish")
   @RequirePermissions(Permission.KNOWLEDGE_PUBLISH)
   async publish(@Param("id") id: string, @CurrentUser() user: JwtAccessPayload) {
-    const data = await this.knowledgeService.publish(id, user.sub);
+    this.assertSuperAdmin(user);
+    const data = await this.knowledgeService.activate(id, user.sub);
     return { success: true, data };
   }
 
   @Post("documents/:id/archive")
   @RequirePermissions(Permission.KNOWLEDGE_EDIT)
   async archive(@Param("id") id: string, @CurrentUser() user: JwtAccessPayload) {
-    const data = await this.knowledgeService.archive(id, user.sub);
+    this.assertSuperAdmin(user);
+    const data = await this.knowledgeService.deactivate(id, user.sub);
     return { success: true, data };
   }
 
   @Post("documents/:id/reprocess")
   @RequirePermissions(Permission.KNOWLEDGE_EDIT)
-  async reprocess(@Param("id") id: string) {
+  async reprocess(@Param("id") id: string, @CurrentUser() user: JwtAccessPayload) {
+    this.assertSuperAdmin(user);
     const data = await this.knowledgeService.reprocess(id);
     return { success: true, data };
   }
@@ -126,7 +171,11 @@ export class KnowledgeController {
   @RequirePermissions(Permission.KNOWLEDGE_EDIT)
   @UseInterceptors(FileInterceptor("file", { limits: { fileSize: MAX_UPLOAD_BYTES } }))
   async upload(@UploadedFile() file: Express.Multer.File, @CurrentUser() user: JwtAccessPayload) {
+    this.assertSuperAdmin(user);
     if (!file) throw new BadRequestException("File tidak ditemukan pada request.");
+    if (!file.originalname.toLowerCase().endsWith(MARKDOWN_EXTENSION)) {
+      throw new BadRequestException("Knowledge hanya menerima file Markdown (.md).");
+    }
     const siteId = await this.resolveSiteId(user);
 
     const text = await extractTextFromFile(file.buffer, file.mimetype, file.originalname);
@@ -144,6 +193,6 @@ export class KnowledgeController {
     );
     await this.prisma.knowledgeDocument.update({ where: { id: data.id }, data: { sourceFile: storageKey } });
 
-    return { success: true, data: { ...data, sourceFile: storageKey, status: "DRAFT" } };
+    return { success: true, data: { ...data, sourceFile: storageKey, status: "NON_ACTIVE" } };
   }
 }

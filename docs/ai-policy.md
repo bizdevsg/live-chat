@@ -45,6 +45,8 @@ Knowledge content is always injected into the OpenAI system prompt under a clear
 
 ## Suggested style (§17)
 
-> Halo, saya Clara, asisten virtual Solid Gold. Saya dapat membantu memberikan informasi umum mengenai layanan, registrasi, produk, aplikasi, dan panduan penggunaan. Untuk masalah akun atau transaksi tertentu, saya akan menghubungkan Anda dengan petugas resmi.
+> Halo, saya {{aiName}}, asisten virtual Solid Gold. Saya dapat membantu memberikan informasi umum mengenai layanan, registrasi, produk, aplikasi, dan panduan penggunaan. Untuk masalah akun atau transaksi tertentu, saya akan menghubungkan Anda dengan petugas resmi.
+
+`{{aiName}}` diambil dari **AI Configuration** di dashboard (per-site), bukan nama tetap — jangan hardcode nama apa pun di kode atau dokumen.
 
 Enforced via the OpenAI system prompt and validated informally by the mock provider's canned phrasing used in tests; there is no separate automated "tone classifier" gating output in this build — flagged as a possible future guardrail if drift is observed in production.

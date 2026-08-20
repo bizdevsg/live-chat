@@ -4,29 +4,105 @@ import { hash } from "@node-rs/argon2";
 const prisma = new PrismaClient();
 
 const PERMISSIONS: { slug: string; category: string; description: string }[] = [
-  { slug: "org.manage", category: "system", description: "Mengelola organization dan tenant" },
+  {
+    slug: "org.manage",
+    category: "system",
+    description: "Mengelola organization dan tenant",
+  },
   { slug: "site.manage", category: "system", description: "Mengelola site" },
-  { slug: "integration.manage", category: "system", description: "Mengelola integrasi" },
-  { slug: "security.manage", category: "system", description: "Mengubah pengaturan keamanan" },
-  { slug: "audit_log.view", category: "system", description: "Melihat audit log" },
+  {
+    slug: "integration.manage",
+    category: "system",
+    description: "Mengelola integrasi",
+  },
+  {
+    slug: "security.manage",
+    category: "system",
+    description: "Mengubah pengaturan keamanan",
+  },
+  {
+    slug: "audit_log.view",
+    category: "system",
+    description: "Melihat audit log",
+  },
   { slug: "user.manage", category: "people", description: "Mengelola user" },
-  { slug: "role.manage", category: "people", description: "Mengelola role dan permission" },
+  {
+    slug: "role.manage",
+    category: "people",
+    description: "Mengelola role dan permission",
+  },
   { slug: "team.manage", category: "people", description: "Mengelola tim" },
-  { slug: "knowledge.edit", category: "knowledge", description: "Membuat dan mengedit artikel" },
-  { slug: "knowledge.approve", category: "knowledge", description: "Menyetujui artikel" },
-  { slug: "knowledge.publish", category: "knowledge", description: "Mempublikasikan artikel" },
-  { slug: "ai_config.manage", category: "ai", description: "Mengelola konfigurasi AI" },
-  { slug: "routing.manage", category: "ops", description: "Mengelola routing rules" },
-  { slug: "template.manage", category: "ops", description: "Mengelola response template" },
-  { slug: "widget.manage", category: "ops", description: "Mengelola widget settings" },
-  { slug: "analytics.view", category: "reporting", description: "Melihat analytics" },
-  { slug: "conversation.view_all", category: "chat", description: "Melihat seluruh conversation" },
-  { slug: "conversation.view_team", category: "chat", description: "Melihat conversation tim sendiri" },
-  { slug: "conversation.handle", category: "chat", description: "Menangani conversation" },
-  { slug: "conversation.takeover", category: "chat", description: "Mengambil alih conversation dari AI" },
-  { slug: "conversation.transfer", category: "chat", description: "Transfer conversation" },
+  {
+    slug: "knowledge.edit",
+    category: "knowledge",
+    description: "Membuat dan mengedit artikel",
+  },
+  {
+    slug: "knowledge.approve",
+    category: "knowledge",
+    description: "Menyetujui artikel",
+  },
+  {
+    slug: "knowledge.publish",
+    category: "knowledge",
+    description: "Mempublikasikan artikel",
+  },
+  {
+    slug: "ai_config.manage",
+    category: "ai",
+    description: "Mengelola konfigurasi AI",
+  },
+  {
+    slug: "routing.manage",
+    category: "ops",
+    description: "Mengelola routing rules",
+  },
+  {
+    slug: "template.manage",
+    category: "ops",
+    description: "Mengelola response template",
+  },
+  {
+    slug: "widget.manage",
+    category: "ops",
+    description: "Mengelola widget settings",
+  },
+  {
+    slug: "analytics.view",
+    category: "reporting",
+    description: "Melihat analytics",
+  },
+  {
+    slug: "conversation.view_all",
+    category: "chat",
+    description: "Melihat seluruh conversation",
+  },
+  {
+    slug: "conversation.view_team",
+    category: "chat",
+    description: "Melihat conversation tim sendiri",
+  },
+  {
+    slug: "conversation.handle",
+    category: "chat",
+    description: "Menangani conversation",
+  },
+  {
+    slug: "conversation.takeover",
+    category: "chat",
+    description: "Mengambil alih conversation dari AI",
+  },
+  {
+    slug: "conversation.transfer",
+    category: "chat",
+    description: "Transfer conversation",
+  },
   { slug: "ticket.manage", category: "chat", description: "Mengelola ticket" },
-  { slug: "customer.view", category: "chat", description: "Melihat profil customer" },
+  {
+    slug: "customer.view",
+    category: "chat",
+    description: "Melihat profil customer",
+  },
   { slug: "lead.view", category: "chat", description: "Melihat lead" },
 ];
 
@@ -69,13 +145,21 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     "customer.view",
   ],
   knowledge_editor: ["knowledge.edit"],
-  auditor: ["audit_log.view", "analytics.view", "conversation.view_all", "ticket.manage"],
+  auditor: [
+    "audit_log.view",
+    "analytics.view",
+    "conversation.view_all",
+    "ticket.manage",
+  ],
 };
 
 async function main() {
   console.log("Seeding SolidChat AI reference data...");
 
-  await prisma.permission.createMany({ data: PERMISSIONS, skipDuplicates: true });
+  await prisma.permission.createMany({
+    data: PERMISSIONS,
+    skipDuplicates: true,
+  });
 
   const organization = await prisma.organization.upsert({
     where: { slug: "solid-gold" },
@@ -102,9 +186,13 @@ async function main() {
     roles[slug] = role.id;
 
     for (const permSlug of ROLE_PERMISSIONS[slug] ?? []) {
-      const permission = await prisma.permission.findUniqueOrThrow({ where: { slug: permSlug } });
+      const permission = await prisma.permission.findUniqueOrThrow({
+        where: { slug: permSlug },
+      });
       await prisma.rolePermission.upsert({
-        where: { roleId_permissionId: { roleId: role.id, permissionId: permission.id } },
+        where: {
+          roleId_permissionId: { roleId: role.id, permissionId: permission.id },
+        },
         update: {},
         create: { roleId: role.id, permissionId: permission.id },
       });
@@ -117,11 +205,11 @@ async function main() {
     create: {
       organizationId: organization.id,
       siteKey: "solid-gold-main",
-      name: "Solid Gold — Website Utama",
+      name: "Customer Service SGB",
       widgetColor: "#D4AF37",
-      aiName: "Clara",
+      aiName: "Asisten Solid Gold",
       greeting:
-        "Halo, saya Clara, asisten virtual Solid Gold. Ada yang bisa saya bantu mengenai layanan, registrasi, atau panduan penggunaan?",
+        "Halo, saya asisten virtual Solid Gold. Ada yang bisa saya bantu mengenai layanan, registrasi, atau panduan penggunaan?",
       offlineMessage:
         "Tim kami sedang di luar jam operasional. Silakan tinggalkan pesan dan kami akan membalas secepatnya.",
       language: "id",
@@ -153,7 +241,12 @@ async function main() {
       preChatFormEnabled: false,
       showAgentButton: true,
       allowAttachments: true,
-      allowedFileTypes: ["image/png", "image/jpeg", "image/webp", "application/pdf"],
+      allowedFileTypes: [
+        "image/png",
+        "image/jpeg",
+        "image/webp",
+        "application/pdf",
+      ],
       maxFileSizeBytes: 10 * 1024 * 1024,
       ratingFormEnabled: true,
       showAiSourcesToCustomer: false,
@@ -187,7 +280,12 @@ async function main() {
   const passwordHash = await hash(adminPassword);
 
   const admin = await prisma.user.upsert({
-    where: { organizationId_email: { organizationId: organization.id, email: adminEmail } },
+    where: {
+      organizationId_email: {
+        organizationId: organization.id,
+        email: adminEmail,
+      },
+    },
     update: {},
     create: {
       organizationId: organization.id,
@@ -206,7 +304,12 @@ async function main() {
   const agentEmail = "agent@solidgold.local";
   const agentPasswordHash = await hash("ChangeMe!12345");
   const agent = await prisma.user.upsert({
-    where: { organizationId_email: { organizationId: organization.id, email: agentEmail } },
+    where: {
+      organizationId_email: {
+        organizationId: organization.id,
+        email: agentEmail,
+      },
+    },
     update: {},
     create: {
       organizationId: organization.id,
@@ -224,7 +327,11 @@ async function main() {
   await prisma.agentProfile.upsert({
     where: { userId: agent.id },
     update: {},
-    create: { userId: agent.id, availability: "OFFLINE", maxConcurrentChats: 5 },
+    create: {
+      userId: agent.id,
+      availability: "OFFLINE",
+      maxConcurrentChats: 5,
+    },
   });
   await prisma.teamMember.upsert({
     where: { teamId_userId: { teamId: generalTeam.id, userId: agent.id } },
@@ -232,17 +339,14 @@ async function main() {
     create: { teamId: generalTeam.id, userId: agent.id },
   });
 
+  // Model names, confidence threshold, and retry/timeout/token limits are fixed app
+  // constants now (see AI_MODELS etc. in packages/shared) — this row only needs to exist
+  // and be active; provider is always "openai" in practice (AiProviderFactory forces it).
   await prisma.aiConfiguration.create({
     data: {
       organizationId: organization.id,
       siteId: site.id,
-      provider: process.env.AI_PROVIDER ?? "mock",
-      classifierModel: process.env.OPENAI_CLASSIFIER_MODEL ?? "gpt-4o-mini",
-      answerModel: process.env.OPENAI_DEFAULT_MODEL ?? "gpt-4o-mini",
-      summaryModel: process.env.OPENAI_SUMMARY_MODEL ?? "gpt-4o-mini",
-      suggestedReplyModel: process.env.OPENAI_DEFAULT_MODEL ?? "gpt-4o-mini",
-      embeddingModel: process.env.OPENAI_EMBEDDING_MODEL ?? "text-embedding-3-small",
-      confidenceThreshold: 0.6,
+      provider: "openai",
       isActive: true,
     },
   });
@@ -279,7 +383,12 @@ async function main() {
   });
 
   const category = await prisma.knowledgeCategory.upsert({
-    where: { organizationId_slug: { organizationId: organization.id, slug: "account-registration" } },
+    where: {
+      organizationId_slug: {
+        organizationId: organization.id,
+        slug: "account-registration",
+      },
+    },
     update: {},
     create: {
       organizationId: organization.id,
@@ -292,7 +401,9 @@ async function main() {
   // Sample article only — intentionally left as DRAFT per §43: it must go through
   // review/approval before AI can use it (see acceptance criteria #8, #12).
   await prisma.knowledgeDocument.upsert({
-    where: { siteId_slug: { siteId: site.id, slug: "panduan-registrasi-akun" } },
+    where: {
+      siteId_slug: { siteId: site.id, slug: "panduan-registrasi-akun" },
+    },
     update: {},
     create: {
       siteId: site.id,
@@ -301,9 +412,10 @@ async function main() {
       slug: "panduan-registrasi-akun",
       content:
         "Ini adalah artikel contoh untuk keperluan demonstrasi. Silakan lengkapi dengan informasi resmi perusahaan, lalu kirimkan untuk review dan publikasikan melalui dashboard Knowledge Base sebelum digunakan oleh AI.",
-      summary: "Contoh artikel demonstrasi — belum berisi data resmi perusahaan.",
+      summary:
+        "Contoh artikel demonstrasi — belum berisi data resmi perusahaan.",
       audience: "PUBLIC",
-      status: "DRAFT",
+      status: "NON_ACTIVE",
       version: 1,
       createdById: admin.id,
     },

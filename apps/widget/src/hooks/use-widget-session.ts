@@ -8,7 +8,6 @@ export interface SiteConfig {
   aiName: string;
   logoUrl: string | null;
   widgetColor: string;
-  greeting: string;
   offlineMessage: string;
   language: string;
   settings: {

@@ -5,7 +5,11 @@
  * and the iframe with strict origin checks on both sides.
  */
 
-type SolidChatContext = { pageType?: string; campaign?: string; product?: string };
+type SolidChatContext = {
+  pageType?: string;
+  campaign?: string;
+  product?: string;
+};
 
 interface SolidChatApi {
   open(): void;
@@ -36,7 +40,10 @@ function supportsRequiredFeatures(): boolean {
 function readConfig(script: HTMLOrSVGScriptElement & HTMLElement) {
   return {
     siteId: script.dataset.siteId ?? "",
-    position: script.dataset.position === "bottom-left" ? "bottom-left" : "bottom-right",
+    position:
+      script.dataset.position === "bottom-left"
+        ? "bottom-left"
+        : "bottom-right",
     language: script.dataset.language ?? "id",
   };
 }
@@ -44,7 +51,9 @@ function readConfig(script: HTMLOrSVGScriptElement & HTMLElement) {
 function currentScript(): HTMLScriptElement | null {
   const el = document.currentScript;
   if (el instanceof HTMLScriptElement) return el;
-  const scripts = document.querySelectorAll<HTMLScriptElement>("script[data-site-id]");
+  const scripts = document.querySelectorAll<HTMLScriptElement>(
+    "script[data-site-id]",
+  );
   return scripts.length > 0 ? scripts[scripts.length - 1]! : null;
 }
 
@@ -56,7 +65,9 @@ function init() {
   if (!script) return;
   const config = readConfig(script);
   if (!config.siteId) {
-    console.warn("[SolidChat] data-site-id is required on the widget.js <script> tag.");
+    console.warn(
+      "[SolidChat] data-site-id is required on the widget.js <script> tag.",
+    );
     return;
   }
 
@@ -72,10 +83,19 @@ function init() {
   const style = document.createElement("style");
   style.textContent = `
     .bubble { position: fixed; bottom: 20px; ${config.position === "bottom-left" ? "left: 20px;" : "right: 20px;"}
-      width: 60px; height: 60px; border-radius: 50%; border: none; cursor: pointer;
-      background: #D4AF37; color: #0b0b0c; font-size: 26px; box-shadow: 0 6px 20px rgba(0,0,0,.35);
+      width: 88px; height: 88px; border: none; cursor: pointer; padding: 0;
+      background: transparent; color: #0b0b0c; font-size: 26px; box-shadow: none;
       display: flex; align-items: center; justify-content: center; transition: transform .15s ease; }
     .bubble:hover { transform: scale(1.05); }
+    .bubble-image { width: 100%; height: 100%; display: block; object-fit: contain; }
+    .bubble-close { width: 60px; height: 60px; border-radius: 50%; background: #D4AF37; color: #0b0b0c;
+      display: none; align-items: center; justify-content: center; font: 700 26px/1 system-ui, sans-serif; }
+    .bubble.open .bubble-image { display: none; }
+    .bubble.open .bubble-close { display: flex; }
+    .badge { position: fixed; bottom: 62px; ${config.position === "bottom-left" ? "left: 62px;" : "right: 62px;"}
+      min-width: 20px; height: 20px; padding: 0 5px; border-radius: 10px; background: #e5484d;
+      color: #fff; font: 600 11px/20px system-ui, sans-serif; text-align: center; display: none; }
+    .badge.visible { display: block; }
     .panel { position: fixed; bottom: 96px; ${config.position === "bottom-left" ? "left: 20px;" : "right: 20px;"}
       width: 370px; height: 560px; max-height: calc(100vh - 120px); border: none; border-radius: 16px;
       box-shadow: 0 10px 40px rgba(0,0,0,.45); display: none; background: #0b0b0c; }
@@ -89,13 +109,41 @@ function init() {
   const bubble = document.createElement("button");
   bubble.className = "bubble";
   bubble.setAttribute("aria-label", "Buka live chat");
-  bubble.textContent = "💬";
+  const bubbleImage = document.createElement("img");
+  bubbleImage.className = "bubble-image";
+  bubbleImage.src = `${__WIDGET_URL__}/live-bubble.png`;
+  bubbleImage.alt = "";
+  bubbleImage.setAttribute("aria-hidden", "true");
+  bubbleImage.setAttribute("draggable", "false");
+  bubble.appendChild(bubbleImage);
+
+  const bubbleClose = document.createElement("span");
+  bubbleClose.className = "bubble-close";
+  bubbleClose.setAttribute("aria-hidden", "true");
+  bubbleClose.textContent = "X";
+  bubble.appendChild(bubbleClose);
   shadow.appendChild(bubble);
+
+  const badge = document.createElement("div");
+  badge.className = "badge";
+  badge.setAttribute("aria-hidden", "true");
+  shadow.appendChild(badge);
 
   let iframe: HTMLIFrameElement | null = null;
   let isOpen = false;
   let pendingContext: SolidChatContext | null = null;
   let pendingIdentity: string | null = null;
+
+  function setUnreadBadge(count: number) {
+    if (isOpen || count <= 0) {
+      badge.classList.remove("visible");
+      bubble.setAttribute("aria-label", "Buka live chat");
+      return;
+    }
+    badge.textContent = count > 9 ? "9+" : String(count);
+    badge.classList.add("visible");
+    bubble.setAttribute("aria-label", `Buka live chat, ${count} pesan baru`);
+  }
 
   function ensureIframe(): HTMLIFrameElement {
     if (iframe) return iframe;
@@ -103,7 +151,10 @@ function init() {
     iframe.className = "panel";
     iframe.title = "SolidChat AI Live Chat";
     iframe.setAttribute("allow", "clipboard-write");
-    const params = new URLSearchParams({ siteId: config.siteId, language: config.language });
+    const params = new URLSearchParams({
+      siteId: config.siteId,
+      language: config.language,
+    });
     iframe.src = `${__WIDGET_URL__}/?${params.toString()}`;
     shadow.appendChild(iframe);
     return iframe;
@@ -117,15 +168,23 @@ function init() {
     const frame = ensureIframe();
     frame.classList.add("open");
     isOpen = true;
-    bubble.textContent = "✕";
-    if (pendingContext) postToIframe({ type: "solidchat:context", context: pendingContext });
-    if (pendingIdentity) postToIframe({ type: "solidchat:identify", identityToken: pendingIdentity });
+    bubble.classList.add("open");
+    setUnreadBadge(0);
+    postToIframe({ type: "solidchat:open" });
+    if (pendingContext)
+      postToIframe({ type: "solidchat:context", context: pendingContext });
+    if (pendingIdentity)
+      postToIframe({
+        type: "solidchat:identify",
+        identityToken: pendingIdentity,
+      });
   }
 
   function close() {
     iframe?.classList.remove("open");
     isOpen = false;
-    bubble.textContent = "💬";
+    bubble.classList.remove("open");
+    postToIframe({ type: "solidchat:close" });
   }
 
   bubble.addEventListener("click", () => (isOpen ? close() : open()));
@@ -133,12 +192,20 @@ function init() {
   function onMessage(event: MessageEvent) {
     if (event.origin !== WIDGET_ORIGIN) return; // only trust our own iframe's origin
     if (!iframe || event.source !== iframe.contentWindow) return;
-    const data = event.data as { type?: string; height?: number } | undefined;
+    const data = event.data as
+      { type?: string; height?: number; count?: number } | undefined;
     if (!data || typeof data.type !== "string") return;
 
     if (data.type === "solidchat:request-close") close();
-    if (data.type === "solidchat:resize" && typeof data.height === "number" && iframe) {
+    if (
+      data.type === "solidchat:resize" &&
+      typeof data.height === "number" &&
+      iframe
+    ) {
       iframe.style.height = `${Math.min(data.height, window.innerHeight - 120)}px`;
+    }
+    if (data.type === "solidchat:unread" && typeof data.count === "number") {
+      setUnreadBadge(data.count);
     }
   }
   window.addEventListener("message", onMessage);
@@ -163,6 +230,7 @@ function init() {
         iframe = null;
       }
       close();
+      setUnreadBadge(0);
     },
   };
 

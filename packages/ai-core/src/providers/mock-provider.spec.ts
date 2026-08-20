@@ -1,5 +1,5 @@
-import { MockAiProvider } from "./mock-provider";
 import { AiIntent } from "@solidchat/shared";
+import { MockAiProvider } from "./mock-provider";
 
 describe("MockAiProvider", () => {
   const provider = new MockAiProvider();
@@ -22,14 +22,30 @@ describe("MockAiProvider", () => {
   });
 
   describe("generateAnswer", () => {
-    it("declines to answer and requests handoff when there is no evidence (never fabricates, §17)", async () => {
+    it("replies naturally to greetings without requiring knowledge evidence", async () => {
+      const result = await provider.generateAnswer({
+        message: "Hallo",
+        history: [],
+        language: "id",
+        intent: AiIntent.GENERAL_INQUIRY,
+        evidence: [],
+        aiName: "Asisten Virtual",
+        organizationName: "Solid Gold",
+      });
+      expect(result.handoffRequired).toBe(false);
+      expect(result.sources).toHaveLength(0);
+      expect(result.confidence).toBeGreaterThan(0.9);
+      expect(result.answer).toContain("Asisten Virtual");
+    });
+
+    it("declines to answer and requests handoff when there is no evidence for a substantive question", async () => {
       const result = await provider.generateAnswer({
         message: "bagaimana cara withdrawal?",
         history: [],
         language: "id",
         intent: AiIntent.WITHDRAWAL,
         evidence: [],
-        aiName: "Clara",
+        aiName: "Asisten Virtual",
         organizationName: "Solid Gold",
       });
       expect(result.handoffRequired).toBe(true);
@@ -53,7 +69,7 @@ describe("MockAiProvider", () => {
             audience: "PUBLIC",
           },
         ],
-        aiName: "Clara",
+        aiName: "Asisten Virtual",
         organizationName: "Solid Gold",
       });
       expect(result.answer).toContain("Cara Withdrawal");

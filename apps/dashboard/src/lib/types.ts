@@ -12,6 +12,21 @@ export interface ConversationSummary {
   lastMessageAt: string | null;
   ratingScore: number | null;
   context?: { pageUrl?: string | null; pageTitle?: string | null } | null;
+  customer?: { id: string; name: string; email: string | null } | null;
+  leads?: Array<{ id: string; name: string; email: string | null; phone: string | null }>;
+  messages?: Array<{
+    id: string;
+    senderType: string;
+    createdAt: string;
+    receipts?: MessageReceiptItem[];
+  }>;
+}
+
+export interface MessageReceiptItem {
+  id: string;
+  readerType: string;
+  readerId: string | null;
+  readAt: string;
 }
 
 export interface MessageItem {
@@ -19,17 +34,20 @@ export interface MessageItem {
   conversationId: string;
   senderType: string;
   senderId: string | null;
+  senderName?: string | null;
   messageType: string;
   content: string;
   isInternal: boolean;
   metadata: Record<string, unknown> | null;
   createdAt: string;
+  receipts?: MessageReceiptItem[];
 }
 
 export interface ConversationDetail {
   conversation: ConversationSummary & {
     customer?: { id: string; name: string; email: string | null } | null;
     visitor?: { id: string; visitorKey: string } | null;
+    leads?: Array<{ id: string; name: string; email: string | null; phone: string | null }>;
   };
   messages: MessageItem[];
   summary: {

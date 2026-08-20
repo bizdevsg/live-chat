@@ -42,7 +42,7 @@ Widget Iframe App (chat.sg-berjangka.com)      Dashboard Admin/CS (cs-chat.sg-be
 |---|---|
 | `packages/database` | Prisma schema (MySQL), migrations, seed script, generated client re-export |
 | `packages/shared` | Cross-app enums, types, constants, the `AiProvider`/`CrmAdapter` interfaces |
-| `packages/ai-core` | Provider-agnostic AI logic: chunking, cosine similarity, `MockAiProvider`, `OpenAiProvider`, `KnowledgeRetriever` (the MySQL hybrid RAG adapter) |
+| `packages/ai-core` | Provider-agnostic AI logic: chunking, cosine similarity, `OpenAiProvider`, `KnowledgeRetriever` (the MySQL hybrid RAG adapter). `MockAiProvider` also lives here for unit tests only — `AiProviderFactory` never selects it; the app always runs on real OpenAI. |
 | `packages/integrations` | `MockCrmAdapter`, `RestCrmAdapter` implementing `CrmAdapter` |
 | `packages/typescript-config`, `packages/eslint-config` | Shared tooling config |
 

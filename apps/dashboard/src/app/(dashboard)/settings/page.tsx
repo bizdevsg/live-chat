@@ -47,7 +47,7 @@ export default function SettingsPage() {
           </table>
         </Card>
         <p className="text-xs text-zinc-600">
-          Pengaturan widget per-site tersedia di halaman Widget Settings. Konfigurasi AI tersedia di halaman AI Configuration.
+          Pengaturan personal admin seperti notifikasi sekarang tersedia di Account Settings. Halaman ini khusus untuk konfigurasi level site/system.
         </p>
       </main>
     </>

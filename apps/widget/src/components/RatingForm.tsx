@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Star } from "lucide-react";
 
 export function RatingForm({ onSubmit, widgetColor }: { onSubmit: (score: number, comment?: string) => void; widgetColor: string }) {
   const [score, setScore] = useState(0);
@@ -13,17 +14,24 @@ export function RatingForm({ onSubmit, widgetColor }: { onSubmit: (score: number
     <div className="mx-auto max-w-[90%] rounded-2xl bg-zinc-800 p-4">
       <p className="mb-2 text-center text-sm text-zinc-200">Bagaimana pengalaman Anda dengan layanan kami?</p>
       <div className="mb-3 flex justify-center gap-1">
-        {[1, 2, 3, 4, 5].map((n) => (
-          <button
-            key={n}
-            aria-label={`${n} bintang`}
-            onClick={() => setScore(n)}
-            className="text-2xl transition-transform hover:scale-110"
-            style={{ color: n <= score ? widgetColor : "#52525b" }}
-          >
-            ★
-          </button>
-        ))}
+        {[1, 2, 3, 4, 5].map((n) => {
+          const active = n <= score;
+          return (
+            <button
+              key={n}
+              aria-label={`${n} bintang`}
+              onClick={() => setScore(n)}
+              className="p-0.5 transition-transform hover:scale-110"
+            >
+              {/* fill follows the site's widget colour when selected; unselected stays a hollow outline */}
+              <Star
+                className="h-6 w-6"
+                style={{ color: active ? widgetColor : "#52525b" }}
+                fill={active ? widgetColor : "none"}
+              />
+            </button>
+          );
+        })}
       </div>
       <textarea
         value={comment}

@@ -15,6 +15,7 @@ import {
   type SuggestedReplyInput,
   type SuggestedReplyResult,
 } from "@solidchat/shared";
+import { buildSmallTalkReply } from "./small-talk";
 
 const INTENT_KEYWORDS: Array<{ intent: AiIntent; keywords: RegExp }> = [
   { intent: AiIntent.ACCOUNT_REGISTRATION, keywords: /(daftar|registrasi|buat akun|sign ?up)/i },
@@ -72,6 +73,17 @@ export class MockAiProvider implements AiProvider {
   }
 
   async generateAnswer(input: AnswerInput): Promise<AnswerResult> {
+    const smallTalk = input.evidence.length === 0 ? buildSmallTalkReply(input) : null;
+    if (smallTalk) {
+      return {
+        answer: smallTalk.answer,
+        confidence: smallTalk.confidence,
+        intent: input.intent,
+        sources: [],
+        handoffRequired: false,
+      };
+    }
+
     if (input.evidence.length === 0) {
       return {
         answer:

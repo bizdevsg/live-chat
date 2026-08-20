@@ -1,9 +1,9 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Post, Req, Res } from "@nestjs/common";
+import { Body, Controller, Get, HttpCode, HttpStatus, Post, Put, Req, Res } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import type { Request, Response } from "express";
 import { ApiTags } from "@nestjs/swagger";
 import { AuthService } from "./auth.service";
-import { ForgotPasswordDto, LoginDto, RefreshDto, ResetPasswordDto } from "./dto/auth.dto";
+import { ForgotPasswordDto, LoginDto, RefreshDto, ResetPasswordDto, UpdateAccountSettingsDto } from "./dto/auth.dto";
 import { Public } from "../common/decorators/public.decorator";
 import { CurrentUser } from "../common/decorators/current-user.decorator";
 import type { JwtAccessPayload } from "@solidchat/shared";
@@ -80,6 +80,16 @@ export class AuthController {
   async me(@CurrentUser() user: JwtAccessPayload) {
     const context = await this.authService.me(user.sub);
     return { success: true, data: context };
+  }
+
+  @Get("account-settings")
+  async accountSettings(@CurrentUser() user: JwtAccessPayload) {
+    return { success: true, data: await this.authService.getAccountSettings(user.sub) };
+  }
+
+  @Put("account-settings")
+  async updateAccountSettings(@CurrentUser() user: JwtAccessPayload, @Body() dto: UpdateAccountSettingsDto) {
+    return { success: true, data: await this.authService.updateAccountSettings(user.sub, dto) };
   }
 
   private setCookies(res: Response, accessToken: string, refreshToken: string) {

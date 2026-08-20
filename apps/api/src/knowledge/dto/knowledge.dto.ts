@@ -24,6 +24,14 @@ export class CreateKnowledgeDocumentDto {
   audience?: string;
 
   @IsOptional()
+  @IsISO8601()
+  effectiveDate?: string;
+
+  @IsOptional()
+  @IsISO8601()
+  expiredDate?: string;
+
+  @IsOptional()
   @IsArray()
   @IsString({ each: true })
   tags?: string[];
@@ -65,6 +73,10 @@ export class ListKnowledgeQueryDto {
   @IsOptional()
   @IsString()
   status?: string;
+
+  @IsOptional()
+  @IsIn(Object.values(KnowledgeAudience))
+  audience?: string;
 
   @IsOptional()
   @IsString()

@@ -1,12 +1,12 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { chunkText, checksumText } from "@solidchat/ai-core";
-import { KnowledgeStatus, ErrorCode } from "@solidchat/shared";
+import { chunkText } from "@solidchat/ai-core";
+import { AI_MODELS, KnowledgeStatus, ErrorCode } from "@solidchat/shared";
 import { PrismaService } from "../prisma/prisma.service";
 import { AuditLogService } from "../common/audit/audit-log.service";
 import { AiProviderFactory } from "../ai/ai-provider.factory";
-import { ApiException, ForbiddenApiException, NotFoundApiException } from "../common/errors/api.exception";
-import { HttpStatus } from "@nestjs/common";
+import { NotFoundApiException } from "../common/errors/api.exception";
 import type { CreateKnowledgeDocumentDto, ListKnowledgeQueryDto, UpdateKnowledgeDocumentDto } from "./dto/knowledge.dto";
+import { StorageService } from "../storage/storage.service";
 
 function slugify(title: string): string {
   return title
@@ -14,6 +14,21 @@ function slugify(title: string): string {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)/g, "")
     .slice(0, 80);
+}
+
+const ACTIVE_STATUSES = [KnowledgeStatus.ACTIVE, KnowledgeStatus.PUBLISHED] as const;
+const NON_ACTIVE_STATUSES = [
+  KnowledgeStatus.NON_ACTIVE,
+  KnowledgeStatus.DRAFT,
+  KnowledgeStatus.IN_REVIEW,
+  KnowledgeStatus.APPROVED,
+  KnowledgeStatus.EXPIRED,
+  KnowledgeStatus.ARCHIVED,
+  KnowledgeStatus.REJECTED,
+] as const;
+
+function normalizeKnowledgeStatus(status: string) {
+  return ACTIVE_STATUSES.includes(status as (typeof ACTIVE_STATUSES)[number]) ? KnowledgeStatus.ACTIVE : KnowledgeStatus.NON_ACTIVE;
 }
 
 @Injectable()
@@ -24,14 +39,22 @@ export class KnowledgeService {
     private readonly prisma: PrismaService,
     private readonly auditLog: AuditLogService,
     private readonly aiProviderFactory: AiProviderFactory,
+    private readonly storage: StorageService,
   ) {}
 
   async list(siteId: string, query: ListKnowledgeQueryDto) {
     const page = query.page ?? 1;
     const pageSize = query.pageSize ?? 20;
+    const requestedStatus =
+      query.status === KnowledgeStatus.ACTIVE
+        ? { in: [...ACTIVE_STATUSES] }
+        : query.status === KnowledgeStatus.NON_ACTIVE
+          ? { in: [...NON_ACTIVE_STATUSES] }
+          : undefined;
     const where = {
       siteId,
-      status: query.status || undefined,
+      status: requestedStatus,
+      audience: query.audience || undefined,
       categoryId: query.categoryId || undefined,
       ...(query.search
         ? { OR: [{ title: { contains: query.search } }, { content: { contains: query.search } }] }
@@ -47,10 +70,16 @@ export class KnowledgeService {
       }),
       this.prisma.knowledgeDocument.count({ where }),
     ]);
-    return { items, total, page, pageSize };
+    return { items: items.map((item) => this.serializeDocument(item)), total, page, pageSize };
   }
 
   async getOrThrow(id: string) {
+    const doc = await this.prisma.knowledgeDocument.findUnique({ where: { id }, include: { category: true, chunks: true } });
+    if (!doc) throw new NotFoundApiException(ErrorCode.NOT_FOUND, "Artikel knowledge tidak ditemukan.");
+    return this.serializeDocument(doc);
+  }
+
+  async getRawOrThrow(id: string) {
     const doc = await this.prisma.knowledgeDocument.findUnique({ where: { id }, include: { category: true, chunks: true } });
     if (!doc) throw new NotFoundApiException(ErrorCode.NOT_FOUND, "Artikel knowledge tidak ditemukan.");
     return doc;
@@ -70,11 +99,11 @@ export class KnowledgeService {
         summary: dto.summary,
         categoryId: dto.categoryId,
         audience: dto.audience ?? "PUBLIC",
-        tags: dto.tags ?? [],
-        status: KnowledgeStatus.DRAFT,
+        effectiveDate: dto.effectiveDate ? new Date(dto.effectiveDate) : undefined,
+        expiredDate: dto.expiredDate ? new Date(dto.expiredDate) : undefined,
+        status: KnowledgeStatus.NON_ACTIVE,
         version: 1,
         createdById: userId,
-        checksum: checksumText(dto.content),
       },
     });
 
@@ -85,14 +114,11 @@ export class KnowledgeService {
       resourceType: "knowledge_document",
       resourceId: doc.id,
     });
-    return doc;
+    return this.serializeDocument(doc);
   }
 
   async update(id: string, dto: UpdateKnowledgeDocumentDto, userId: string) {
-    const before = await this.getOrThrow(id);
-    if (![KnowledgeStatus.DRAFT, KnowledgeStatus.REJECTED, KnowledgeStatus.IN_REVIEW].includes(before.status as never)) {
-      throw new ForbiddenApiException("Artikel yang sudah dipublikasikan harus diarsipkan lalu dibuat versi baru.");
-    }
+    const before = await this.getRawOrThrow(id);
 
     const contentChanged = dto.content !== undefined && dto.content !== before.content;
     const updated = await this.prisma.knowledgeDocument.update({
@@ -105,22 +131,12 @@ export class KnowledgeService {
         audience: dto.audience,
         effectiveDate: dto.effectiveDate ? new Date(dto.effectiveDate) : undefined,
         expiredDate: dto.expiredDate ? new Date(dto.expiredDate) : undefined,
-        checksum: dto.content ? checksumText(dto.content) : undefined,
         version: contentChanged ? { increment: 1 } : undefined,
       },
     });
 
-    if (contentChanged) {
-      await this.prisma.knowledgeDocumentVersion.create({
-        data: {
-          documentId: id,
-          version: before.version,
-          title: before.title,
-          content: before.content,
-          status: before.status,
-          changedById: userId,
-        },
-      });
+    if (contentChanged && normalizeKnowledgeStatus(before.status) === KnowledgeStatus.ACTIVE) {
+      await this.reprocess(id);
     }
 
     await this.auditLog.record({
@@ -130,61 +146,82 @@ export class KnowledgeService {
       resourceType: "knowledge_document",
       resourceId: id,
       beforeData: { title: before.title, status: before.status },
-      afterData: { title: updated.title, status: updated.status },
+      afterData: { title: updated.title, status: normalizeKnowledgeStatus(updated.status) },
     });
-    return updated;
+    return this.serializeDocument(updated);
+  }
+
+  async remove(id: string, userId: string) {
+    const doc = await this.getRawOrThrow(id);
+
+    await this.prisma.knowledgeDocument.delete({ where: { id } });
+    await this.auditLog.record({
+      actorType: "USER",
+      actorId: userId,
+      action: "knowledge.deleted",
+      resourceType: "knowledge_document",
+      resourceId: id,
+      beforeData: { title: doc.title, status: doc.status, sourceFile: doc.sourceFile },
+    });
+
+    if (doc.sourceFile) {
+      try {
+        await this.storage.remove(doc.sourceFile);
+      } catch (error) {
+        this.logger.warn(`Failed to remove knowledge source file ${doc.sourceFile}: ${(error as Error).message}`);
+      }
+    }
+
+    return { id };
   }
 
   async submitReview(id: string, userId: string) {
-    return this.transition(id, userId, [KnowledgeStatus.DRAFT, KnowledgeStatus.REJECTED], KnowledgeStatus.IN_REVIEW, "knowledge.submitted_for_review");
+    return this.activate(id, userId);
   }
 
   async approve(id: string, userId: string) {
-    const doc = await this.transition(id, userId, [KnowledgeStatus.IN_REVIEW], KnowledgeStatus.APPROVED, "knowledge.approved");
-    await this.prisma.knowledgeDocument.update({ where: { id }, data: { reviewedById: userId, approvedById: userId } });
-    return doc;
+    return this.activate(id, userId);
   }
 
   async reject(id: string, userId: string) {
-    return this.transition(id, userId, [KnowledgeStatus.IN_REVIEW], KnowledgeStatus.REJECTED, "knowledge.rejected");
+    return this.deactivate(id, userId);
   }
 
   async publish(id: string, userId: string) {
-    const doc = await this.getOrThrow(id);
-    if (doc.status !== KnowledgeStatus.APPROVED) {
-      throw new ApiException(
-        ErrorCode.CONFLICT,
-        "Artikel harus berstatus APPROVED sebelum dipublikasikan.",
-        HttpStatus.CONFLICT,
-      );
-    }
+    return this.activate(id, userId);
+  }
+
+  async activate(id: string, userId: string) {
+    const doc = await this.getRawOrThrow(id);
     await this.reprocess(id); // ensure the RAG index reflects the exact published content
 
     const updated = await this.prisma.knowledgeDocument.update({
       where: { id },
       data: {
-        status: KnowledgeStatus.PUBLISHED,
-        publishedAt: new Date(),
+        status: KnowledgeStatus.ACTIVE,
         effectiveDate: doc.effectiveDate ?? new Date(),
       },
     });
-    await this.auditLog.record({ actorType: "USER", actorId: userId, action: "knowledge.published", resourceType: "knowledge_document", resourceId: id });
-    return updated;
+    await this.auditLog.record({ actorType: "USER", actorId: userId, action: "knowledge.activated", resourceType: "knowledge_document", resourceId: id });
+    return this.serializeDocument(updated);
   }
 
   async archive(id: string, userId: string) {
-    return this.transition(
-      id,
-      userId,
-      [KnowledgeStatus.PUBLISHED, KnowledgeStatus.APPROVED, KnowledgeStatus.DRAFT, KnowledgeStatus.EXPIRED],
-      KnowledgeStatus.ARCHIVED,
-      "knowledge.archived",
-    );
+    return this.deactivate(id, userId);
+  }
+
+  async deactivate(id: string, userId: string) {
+    const updated = await this.prisma.knowledgeDocument.update({
+      where: { id },
+      data: { status: KnowledgeStatus.NON_ACTIVE },
+    });
+    await this.auditLog.record({ actorType: "USER", actorId: userId, action: "knowledge.deactivated", resourceType: "knowledge_document", resourceId: id });
+    return this.serializeDocument(updated);
   }
 
   async reprocess(id: string) {
-    const doc = await this.getOrThrow(id);
-    const { provider, config } = await this.aiProviderFactory.getProviderForSite(doc.siteId);
+    const doc = await this.getRawOrThrow(id);
+    const { provider } = await this.aiProviderFactory.getProviderForSite(doc.siteId);
     const chunks = chunkText(doc.content);
 
     await this.prisma.knowledgeChunk.deleteMany({ where: { documentId: id } });
@@ -203,7 +240,7 @@ export class KnowledgeService {
           content: chunk.content,
           tokenCount: chunk.tokenCount,
           embedding: embedding.length > 0 ? embedding : undefined,
-          embeddingModel: config.embeddingModel,
+          embeddingModel: AI_MODELS.embedding,
           embeddingDimension: embedding.length || undefined,
           checksum: chunk.checksum,
         },
@@ -212,21 +249,11 @@ export class KnowledgeService {
     return { chunkCount: chunks.length };
   }
 
-  private async transition(id: string, userId: string, allowedFrom: string[], to: string, action: string) {
-    const doc = await this.getOrThrow(id);
-    if (!allowedFrom.includes(doc.status)) {
-      throw new ApiException(
-        ErrorCode.CONFLICT,
-        `Tidak dapat mengubah status dari ${doc.status} ke ${to}.`,
-        HttpStatus.CONFLICT,
-      );
-    }
-    const updated = await this.prisma.knowledgeDocument.update({ where: { id }, data: { status: to } });
-    await this.auditLog.record({ actorType: "USER", actorId: userId, action, resourceType: "knowledge_document", resourceId: id });
-    return updated;
-  }
-
   async listCategories(organizationId: string) {
     return this.prisma.knowledgeCategory.findMany({ where: { organizationId } });
+  }
+
+  private serializeDocument<T extends { status: string }>(doc: T) {
+    return { ...doc, status: normalizeKnowledgeStatus(doc.status) };
   }
 }

@@ -11,6 +11,8 @@ import { AuditLogService } from "../common/audit/audit-log.service";
 import { SecurityEventService } from "../common/security/security-event.service";
 import { ApiException, UnauthorizedApiException } from "../common/errors/api.exception";
 import { loadUserAuthContext } from "./auth-context.util";
+import type { UpdateAccountSettingsDto } from "./dto/auth.dto";
+import { normalizeUserAccountSettings, upsertUserAccountSettings } from "./account-settings.util";
 
 const MAX_FAILED_ATTEMPTS = 5;
 const LOCKOUT_MINUTES = 15;
@@ -187,6 +189,36 @@ export class AuthService {
     const context = await loadUserAuthContext(this.prisma, userId);
     if (!context) throw new UnauthorizedApiException();
     return context;
+  }
+
+  async getAccountSettings(userId: string) {
+    const context = await loadUserAuthContext(this.prisma, userId);
+    if (!context) throw new UnauthorizedApiException();
+    return context.accountSettings;
+  }
+
+  async updateAccountSettings(userId: string, dto: UpdateAccountSettingsDto) {
+    const context = await loadUserAuthContext(this.prisma, userId);
+    if (!context) throw new UnauthorizedApiException();
+
+    const settings = normalizeUserAccountSettings({
+      ...context.accountSettings,
+      ...dto,
+    });
+
+    await upsertUserAccountSettings(this.prisma, userId, settings);
+    await this.auditLog.record({
+      organizationId: context.organizationId,
+      actorType: "USER",
+      actorId: userId,
+      action: "auth.account_settings.updated",
+      resourceType: "user",
+      resourceId: userId,
+      beforeData: context.accountSettings,
+      afterData: settings,
+    });
+
+    return settings;
   }
 
   private async issueTokens(userId: string, meta: RequestMeta, tokenFamily?: string): Promise<AuthTokens> {

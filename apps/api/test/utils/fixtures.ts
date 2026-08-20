@@ -1,6 +1,6 @@
 import { hash } from "@node-rs/argon2";
 import { PrismaClient } from "@solidchat/database";
-import { Permission } from "@solidchat/shared";
+import { Permission, SystemRole } from "@solidchat/shared";
 
 export interface TestFixtures {
   organizationId: string;
@@ -53,7 +53,7 @@ export async function seedMinimalFixtures(prisma: PrismaClient, suffix: string):
   }
 
   const adminRole = await prisma.role.create({
-    data: { organizationId: organization.id, slug: `e2e-admin-${suffix}`, name: "E2E Admin", isSystem: false },
+    data: { organizationId: organization.id, slug: SystemRole.SUPER_ADMIN, name: "E2E Super Admin", isSystem: false },
   });
   const permissionRows = await prisma.permission.findMany({ where: { slug: { in: allPermissions } } });
   await prisma.rolePermission.createMany({

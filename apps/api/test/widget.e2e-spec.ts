@@ -144,4 +144,57 @@ describe("Widget (e2e)", () => {
     const contents = (res.body.data.messages as Array<{ content: string }>).map((m) => m.content);
     expect(contents).not.toContain("internal-only note");
   });
+
+  it("reuses the latest resumable conversation when a new visitor submits the same email", async () => {
+    const sessionA = await request(server).post("/api/v1/widget/session").send({
+      siteId: fixtures.siteKey,
+      visitorId: "visitor_resume_owner",
+      pageUrl: "https://e2e-test.local/help",
+    });
+    const tokenA = sessionA.body.data.visitorToken as string;
+    const convARes = await request(server).post("/api/v1/widget/conversations").set("Authorization", `Bearer ${tokenA}`).send({});
+    const conversationAId = convARes.body.data.id as string;
+
+    const firstLead = await request(server)
+      .post(`/api/v1/widget/conversations/${conversationAId}/lead`)
+      .set("Authorization", `Bearer ${tokenA}`)
+      .send({ name: "Budi", email: "budi@example.com", phone: "08123456789", consentGiven: true });
+    expect(firstLead.status).toBe(201);
+    expect(firstLead.body.data.conversationId).toBe(conversationAId);
+
+    const adminUser = await prisma.user.findUniqueOrThrow({ where: { email: fixtures.adminEmail } });
+    await prisma.conversation.update({
+      where: { id: conversationAId },
+      data: { status: "RESOLVED", assignedAgentId: adminUser.id, resolvedAt: new Date() },
+    });
+
+    const sessionB = await request(server).post("/api/v1/widget/session").send({
+      siteId: fixtures.siteKey,
+      visitorId: "visitor_resume_new",
+      pageUrl: "https://e2e-test.local/help",
+    });
+    const tokenB = sessionB.body.data.visitorToken as string;
+    const convBRes = await request(server).post("/api/v1/widget/conversations").set("Authorization", `Bearer ${tokenB}`).send({});
+    const conversationBId = convBRes.body.data.id as string;
+
+    const secondLead = await request(server)
+      .post(`/api/v1/widget/conversations/${conversationBId}/lead`)
+      .set("Authorization", `Bearer ${tokenB}`)
+      .send({ name: "Budi Update", email: "budi@example.com", phone: "08123456789", consentGiven: true });
+    expect(secondLead.status).toBe(201);
+    expect(secondLead.body.data.conversationId).toBe(conversationAId);
+    expect(secondLead.body.data.resumedConversation).toBe(true);
+
+    const reusedConversation = await prisma.conversation.findUnique({ where: { id: conversationAId } });
+    const placeholderConversation = await prisma.conversation.findUnique({ where: { id: conversationBId } });
+    expect(reusedConversation?.visitorId).toBe(sessionB.body.data.visitorDbId);
+    expect(reusedConversation?.status).toBe("QUEUED");
+    expect(reusedConversation?.assignedAgentId).toBeNull();
+    expect(placeholderConversation).toBeNull();
+
+    const resumedConversationRes = await request(server)
+      .get(`/api/v1/widget/conversations/${conversationAId}`)
+      .set("Authorization", `Bearer ${tokenB}`);
+    expect(resumedConversationRes.status).toBe(200);
+  });
 });

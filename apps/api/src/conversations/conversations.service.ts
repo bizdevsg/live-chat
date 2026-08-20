@@ -36,6 +36,63 @@ export class ConversationsService {
     private readonly notifications: NotificationsService,
   ) {}
 
+  private shouldReleaseAgent(conversation: { assignedAgentId: string | null; status: string; handlerType: string }) {
+    return (
+      !!conversation.assignedAgentId &&
+      conversation.status === ConversationStatus.AGENT_ACTIVE &&
+      conversation.handlerType === HandlerType.HUMAN
+    );
+  }
+
+  private assertAgentCanReply(conversation: { assignedAgentId: string | null; status: string; handlerType: string }, agentId?: string | null) {
+    if (
+      !agentId ||
+      conversation.assignedAgentId !== agentId ||
+      conversation.handlerType !== HandlerType.HUMAN ||
+      conversation.status === ConversationStatus.RESOLVED ||
+      conversation.status === ConversationStatus.CLOSED
+    ) {
+      throw new ForbiddenApiException("Ambil chat ini dulu sebelum membalas.");
+    }
+  }
+
+  private async enrichSenderNames<T extends { senderType: string; senderId: string | null }>(
+    messages: T[],
+  ): Promise<Array<T & { senderName: string | null }>> {
+    const agentIds = Array.from(
+      new Set(messages.filter((message) => message.senderType === SenderType.AGENT && message.senderId).map((message) => message.senderId!)),
+    );
+
+    if (agentIds.length === 0) {
+      return messages.map((message) => ({ ...message, senderName: null }));
+    }
+
+    const users = await this.prisma.user.findMany({
+      where: { id: { in: agentIds } },
+      select: { id: true, name: true },
+    });
+    const namesById = new Map(users.map((user) => [user.id, user.name]));
+
+    return messages.map((message) => ({
+      ...message,
+      senderName: message.senderType === SenderType.AGENT && message.senderId ? namesById.get(message.senderId) ?? null : null,
+    }));
+  }
+
+  private async enrichSenderName<T extends { senderType: string; senderId: string | null }>(message: T) {
+    const [enriched] = await this.enrichSenderNames([message]);
+    if (!enriched) return { ...message, senderName: null };
+    return enriched;
+  }
+
+  private incrementAgentLoad(userId: string) {
+    return this.prisma.agentProfile.upsert({
+      where: { userId },
+      update: { activeChatCount: { increment: 1 } },
+      create: { userId, activeChatCount: 1 },
+    });
+  }
+
   async getOrCreateVisitor(siteId: string, visitorKey: string, meta: { ipHash?: string; userAgent?: string }) {
     // Note: Prisma's upsert() on MySQL is NOT atomic — it's a client-side SELECT-then-
     // INSERT/UPDATE, so it races exactly like a manual findUnique+create under real concurrent
@@ -83,12 +140,14 @@ export class ConversationsService {
       language?: string;
     };
   }) {
+    const routedTeam = await this.resolveRoutingTeam(params.siteId, null);
     const conversation = await this.prisma.conversation.create({
       data: {
         organizationId: params.organizationId,
         siteId: params.siteId,
         visitorId: params.visitorId,
         customerId: params.customerId,
+        assignedTeamId: routedTeam?.id,
         status: ConversationStatus.AI_ACTIVE,
         handlerType: HandlerType.AI,
         language: params.context?.language ?? "id",
@@ -120,11 +179,12 @@ export class ConversationsService {
   }
 
   async getHistory(conversationId: string, limit = 30) {
-    return this.prisma.message.findMany({
+    const messages = await this.prisma.message.findMany({
       where: { conversationId, deletedAt: null },
       orderBy: { createdAt: "desc" },
       take: limit,
-    }).then((rows) => rows.reverse());
+    });
+    return this.enrichSenderNames(messages.reverse());
   }
 
   async postMessage(input: PostMessageInput) {
@@ -132,7 +192,13 @@ export class ConversationsService {
       const existing = await this.prisma.message.findUnique({
         where: { conversationId_clientMessageId: { conversationId: input.conversationId, clientMessageId: input.clientMessageId } },
       });
-      if (existing) return { message: existing, sensitiveDataDetected: false, promptInjectionDetected: false }; // idempotent retry
+      if (existing) return { message: await this.enrichSenderName(existing), sensitiveDataDetected: false, promptInjectionDetected: false }; // idempotent retry
+    }
+
+    let conversation: Awaited<ReturnType<ConversationsService["getConversationOrThrow"]>> | undefined;
+    if (input.senderType === SenderType.AGENT) {
+      conversation = await this.getConversationOrThrow(input.conversationId);
+      this.assertAgentCanReply(conversation, input.senderId);
     }
 
     const isCustomerFacingSender = input.senderType === SenderType.VISITOR || input.senderType === SenderType.CUSTOMER;
@@ -144,7 +210,7 @@ export class ConversationsService {
       scan = scanContent(content);
       if (scan.containsSensitiveData) {
         content = scan.maskedContent;
-        const conversation = await this.getConversationOrThrow(input.conversationId);
+        conversation ??= await this.getConversationOrThrow(input.conversationId);
         await this.securityEvents.record({
           organizationId: conversation.organizationId,
           type: "SENSITIVE_DATA_DETECTED",
@@ -184,12 +250,12 @@ export class ConversationsService {
         const winner = await this.prisma.message.findUnique({
           where: { conversationId_clientMessageId: { conversationId: input.conversationId, clientMessageId: input.clientMessageId } },
         });
-        if (winner) return { message: winner, sensitiveDataDetected: false, promptInjectionDetected: false };
+        if (winner) return { message: await this.enrichSenderName(winner), sensitiveDataDetected: false, promptInjectionDetected: false };
       }
       throw error;
     }
 
-    const conversation = await this.prisma.conversation.update({
+    conversation = await this.prisma.conversation.update({
       where: { id: input.conversationId },
       data: { lastMessageAt: new Date() },
     });
@@ -201,8 +267,41 @@ export class ConversationsService {
       await this.prisma.conversation.update({ where: { id: input.conversationId }, data: { firstResponseAt: message.createdAt } });
     }
 
-    this.broadcastMessage(input.conversationId, message);
-    return { message, sensitiveDataDetected: scan?.containsSensitiveData ?? false, promptInjectionDetected: scan?.promptInjectionDetected ?? false };
+    const enrichedMessage = await this.enrichSenderName(message);
+    this.broadcastMessage(input.conversationId, enrichedMessage);
+    if (isCustomerFacingSender) {
+      if (conversation.assignedAgentId) {
+        this.realtime.toAgent(conversation.assignedAgentId, "conversation:updated", { conversationId: input.conversationId });
+        this.notifications.notifyAgent(
+          conversation.assignedAgentId,
+          "NEW_CUSTOMER_MESSAGE",
+          "Pesan customer baru",
+          "Ada pesan baru dari visitor pada conversation yang sedang ditangani.",
+          { conversationId: input.conversationId, siteId: conversation.siteId },
+        );
+      } else {
+        this.realtime.toSite(conversation.siteId, "queue:updated", { conversationId: input.conversationId, siteId: conversation.siteId });
+        if (conversation.assignedTeamId) {
+          this.realtime.toTeam(conversation.assignedTeamId, "queue:updated", { conversationId: input.conversationId, siteId: conversation.siteId });
+          this.notifications.notifyTeam(
+            conversation.assignedTeamId,
+            "NEW_CUSTOMER_MESSAGE",
+            "Pesan customer baru",
+            "Ada pesan baru dari visitor pada inbox tim Anda.",
+            { conversationId: input.conversationId, siteId: conversation.siteId },
+          );
+        } else {
+          this.notifications.notifyOrganization(
+            conversation.organizationId,
+            "NEW_CUSTOMER_MESSAGE",
+            "Pesan customer baru",
+            "Ada pesan baru dari visitor pada inbox.",
+            { conversationId: input.conversationId, siteId: conversation.siteId },
+          );
+        }
+      }
+    }
+    return { message: enrichedMessage, sensitiveDataDetected: scan?.containsSensitiveData ?? false, promptInjectionDetected: scan?.promptInjectionDetected ?? false };
   }
 
   /** Internal notes and AI suggestions must never reach the visitor-facing widget socket namespace (§14). */
@@ -235,8 +334,9 @@ export class ConversationsService {
 
     await this.logEvent(conversationId, "handoff.requested", "SYSTEM", null, { reason, teamId: targetTeam?.id });
     await this.tryAutoAssign(updated.id);
+    const latestConversation = await this.getConversationOrThrow(conversationId);
 
-    if (targetTeam) {
+    if (targetTeam && !latestConversation.assignedAgentId && latestConversation.handlerType === HandlerType.NONE) {
       this.realtime.toTeam(targetTeam.id, "queue:updated", { conversationId, siteId: conversation.siteId });
       this.notifications.notifyTeam(
         targetTeam.id,
@@ -295,8 +395,18 @@ export class ConversationsService {
 
   async assignToAgent(conversationId: string, agentId: string, strategy = "MANUAL") {
     const conversation = await this.getConversationOrThrow(conversationId);
+    if (
+      conversation.assignedAgentId === agentId &&
+      conversation.handlerType === HandlerType.HUMAN &&
+      conversation.status === ConversationStatus.AGENT_ACTIVE
+    ) {
+      return conversation;
+    }
 
     await this.prisma.$transaction([
+      ...(conversation.assignedAgentId && conversation.assignedAgentId !== agentId
+        ? [this.prisma.agentProfile.update({ where: { userId: conversation.assignedAgentId }, data: { activeChatCount: { decrement: 1 } } })]
+        : []),
       this.prisma.conversation.update({
         where: { id: conversationId },
         data: {
@@ -312,7 +422,7 @@ export class ConversationsService {
       this.prisma.conversationParticipant.create({
         data: { conversationId, participantType: "AGENT", userId: agentId },
       }),
-      this.prisma.agentProfile.update({ where: { userId: agentId }, data: { activeChatCount: { increment: 1 } } }),
+      this.incrementAgentLoad(agentId),
     ]);
 
     await this.logEvent(conversationId, "conversation.assigned", "SYSTEM", agentId, { agentId, strategy });
@@ -350,17 +460,29 @@ export class ConversationsService {
     const conversation = await this.getConversationOrThrow(conversationId);
     await this.prisma.conversation.update({
       where: { id: conversationId },
-      data: { handlerType: HandlerType.AI, status: ConversationStatus.AI_ACTIVE },
+      data: { assignedAgentId: null, handlerType: HandlerType.AI, status: ConversationStatus.AI_ACTIVE },
     });
-    await this.prisma.agentProfile.update({ where: { userId: agentId }, data: { activeChatCount: { decrement: 1 } } }).catch(() => undefined);
+    if (this.shouldReleaseAgent(conversation)) {
+      await this.prisma.agentProfile
+        .update({ where: { userId: conversation.assignedAgentId ?? agentId }, data: { activeChatCount: { decrement: 1 } } })
+        .catch(() => undefined);
+    }
     await this.logEvent(conversationId, "conversation.returned_to_ai", "USER", agentId, {});
-    this.realtime.toConversation(conversationId, "conversation:updated", { conversationId, handlerType: HandlerType.AI });
+    this.realtime.toConversation(conversationId, "conversation:updated", {
+      conversationId,
+      assignedAgentId: null,
+      handlerType: HandlerType.AI,
+      status: ConversationStatus.AI_ACTIVE,
+    });
+    if (conversation.assignedTeamId) {
+      this.realtime.toTeam(conversation.assignedTeamId, "queue:updated", { conversationId, siteId: conversation.siteId });
+    }
     return conversation;
   }
 
   async transfer(conversationId: string, actorId: string, target: { toAgentId?: string; toTeamId?: string }) {
     const conversation = await this.getConversationOrThrow(conversationId);
-    if (conversation.assignedAgentId) {
+    if (conversation.assignedAgentId && !target.toAgentId && this.shouldReleaseAgent(conversation)) {
       await this.prisma.agentProfile.update({ where: { userId: conversation.assignedAgentId }, data: { activeChatCount: { decrement: 1 } } }).catch(() => undefined);
     }
 
@@ -381,36 +503,56 @@ export class ConversationsService {
 
   async resolve(conversationId: string, actorId: string) {
     const conversation = await this.getConversationOrThrow(conversationId);
-    if (conversation.assignedAgentId) {
-      await this.prisma.agentProfile.update({ where: { userId: conversation.assignedAgentId }, data: { activeChatCount: { decrement: 1 } } }).catch(() => undefined);
+    if (this.shouldReleaseAgent(conversation)) {
+      const assignedAgentId = conversation.assignedAgentId!;
+      await this.prisma.agentProfile.update({ where: { userId: assignedAgentId }, data: { activeChatCount: { decrement: 1 } } }).catch(() => undefined);
     }
     const updated = await this.prisma.conversation.update({
       where: { id: conversationId },
       data: { status: ConversationStatus.RESOLVED, resolvedAt: new Date() },
     });
     await this.logEvent(conversationId, "conversation.resolved", "USER", actorId, {});
+    this.realtime.toConversation(conversationId, "conversation:updated", { conversationId, status: ConversationStatus.RESOLVED });
     return updated;
   }
 
   async reopen(conversationId: string, actorId: string) {
+    const conversation = await this.getConversationOrThrow(conversationId);
+    if (conversation.status === ConversationStatus.CLOSED) {
+      throw new ApiException(ErrorCode.VALIDATION_ERROR, "Chat yang sudah di-close tidak bisa di-reopen.", HttpStatus.BAD_REQUEST);
+    }
+    const nextStatus = conversation.assignedAgentId
+      ? ConversationStatus.AGENT_ACTIVE
+      : conversation.assignedTeamId
+        ? ConversationStatus.QUEUED
+        : ConversationStatus.AI_ACTIVE;
+    const nextHandlerType = conversation.assignedAgentId ? HandlerType.HUMAN : conversation.assignedTeamId ? HandlerType.NONE : HandlerType.AI;
     const updated = await this.prisma.conversation.update({
       where: { id: conversationId },
-      data: { status: ConversationStatus.AGENT_ACTIVE, resolvedAt: null, closedAt: null },
+      data: { status: nextStatus, handlerType: nextHandlerType, resolvedAt: null, closedAt: null },
     });
+    if (conversation.assignedAgentId) {
+      await this.incrementAgentLoad(conversation.assignedAgentId).catch(() => undefined);
+    } else if (conversation.assignedTeamId) {
+      await this.tryAutoAssign(conversationId);
+      this.realtime.toTeam(conversation.assignedTeamId, "queue:updated", { conversationId, siteId: conversation.siteId });
+    }
     await this.logEvent(conversationId, "conversation.reopened", "USER", actorId, {});
     return updated;
   }
 
   async close(conversationId: string, actorType: "VISITOR" | "SYSTEM" | "USER" = "VISITOR", actorId?: string) {
     const conversation = await this.getConversationOrThrow(conversationId);
-    if (conversation.assignedAgentId) {
-      await this.prisma.agentProfile.update({ where: { userId: conversation.assignedAgentId }, data: { activeChatCount: { decrement: 1 } } }).catch(() => undefined);
+    if (this.shouldReleaseAgent(conversation)) {
+      const assignedAgentId = conversation.assignedAgentId!;
+      await this.prisma.agentProfile.update({ where: { userId: assignedAgentId }, data: { activeChatCount: { decrement: 1 } } }).catch(() => undefined);
     }
     const updated = await this.prisma.conversation.update({
       where: { id: conversationId },
       data: { status: ConversationStatus.CLOSED, closedAt: new Date() },
     });
     await this.logEvent(conversationId, "conversation.closed", actorType, actorId ?? null, {});
+    this.realtime.toConversation(conversationId, "conversation:updated", { conversationId, status: ConversationStatus.CLOSED });
     return updated;
   }
 

@@ -52,6 +52,8 @@ export const SenderType = {
 export type SenderType = (typeof SenderType)[keyof typeof SenderType];
 
 export const KnowledgeStatus = {
+  ACTIVE: "ACTIVE",
+  NON_ACTIVE: "NON_ACTIVE",
   DRAFT: "DRAFT",
   IN_REVIEW: "IN_REVIEW",
   APPROVED: "APPROVED",

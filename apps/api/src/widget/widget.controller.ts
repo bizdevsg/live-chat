@@ -72,7 +72,7 @@ export class WidgetController {
     });
     // AI turn processing runs after the message is persisted+broadcast (§16); errors here must
     // never break the visitor-facing send acknowledgement.
-    this.aiOrchestrator.processVisitorTurn(id).catch(() => undefined);
+    this.aiOrchestrator.scheduleVisitorTurn(id).catch(() => undefined);
     return { success: true, data: result.message };
   }
 
@@ -107,7 +107,7 @@ export class WidgetController {
   async submitLead(@Param("id") id: string, @Body() dto: CreateLeadDto, @Req() req: VisitorRequest) {
     await this.widgetService.assertOwnership(id, req.visitor.visitorId);
     const data = await this.leadsService.createFromWidget(req.visitor.siteId, id, dto);
-    return { success: true, data: { id: data.id, syncStatus: data.syncStatus } };
+    return { success: true, data: { id: data.id, syncStatus: data.syncStatus, conversationId: data.conversationId, resumedConversation: data.resumedConversation } };
   }
 
   @UseGuards(VisitorAuthGuard)

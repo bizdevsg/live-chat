@@ -1,4 +1,5 @@
-import { IsEmail, IsOptional, IsString, Matches, MinLength } from "class-validator";
+import { IsBoolean, IsEmail, IsIn, IsOptional, IsString, Matches, MinLength } from "class-validator";
+import { NEW_MESSAGES_SOUND_IDS, ON_CONVERSATION_SOUND_IDS } from "../account-settings.constants";
 
 export class LoginDto {
   @IsEmail()
@@ -32,4 +33,24 @@ export class ResetPasswordDto {
   @Matches(/[A-Z]/, { message: "Password harus mengandung huruf besar." })
   @Matches(/[0-9]/, { message: "Password harus mengandung angka." })
   newPassword!: string;
+}
+
+export class UpdateAccountSettingsDto {
+  @IsOptional()
+  @IsBoolean()
+  playOnConversationSound?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  playNewMessagesSound?: boolean;
+
+  @IsOptional()
+  @IsString()
+  @IsIn([...ON_CONVERSATION_SOUND_IDS])
+  onConversationSound?: string;
+
+  @IsOptional()
+  @IsString()
+  @IsIn([...NEW_MESSAGES_SOUND_IDS])
+  newMessagesSound?: string;
 }

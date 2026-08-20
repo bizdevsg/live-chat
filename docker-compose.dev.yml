@@ -1,0 +1,197 @@
+name: solidchat-ai-dev
+
+networks:
+  solidchat-internal:
+    driver: bridge
+
+volumes:
+  mysql-data:
+  redis-data:
+  minio-data:
+  root-node_modules:
+  api-node_modules:
+  dashboard-node_modules:
+  widget-node_modules:
+  widget-loader-node_modules:
+  worker-node_modules:
+  ai-core-node_modules:
+  database-node_modules:
+  eslint-config-node_modules:
+  integrations-node_modules:
+  shared-node_modules:
+  typescript-config-node_modules:
+
+x-node-dev-base: &node-dev-base
+  build:
+    context: .
+    dockerfile: Dockerfile.dev
+  working_dir: /repo
+  restart: unless-stopped
+  env_file: [.env]
+  environment:
+    CHOKIDAR_USEPOLLING: "true"
+    WATCHPACK_POLLING: "true"
+    FORCE_COLOR: "1"
+  volumes:
+    - ./apps:/repo/apps
+    - ./packages:/repo/packages
+    - ./package.json:/repo/package.json:ro
+    - ./pnpm-lock.yaml:/repo/pnpm-lock.yaml:ro
+    - ./pnpm-workspace.yaml:/repo/pnpm-workspace.yaml:ro
+    - ./turbo.json:/repo/turbo.json:ro
+    - root-node_modules:/repo/node_modules
+    - api-node_modules:/repo/apps/api/node_modules
+    - dashboard-node_modules:/repo/apps/dashboard/node_modules
+    - widget-node_modules:/repo/apps/widget/node_modules
+    - widget-loader-node_modules:/repo/apps/widget-loader/node_modules
+    - worker-node_modules:/repo/apps/worker/node_modules
+    - ai-core-node_modules:/repo/packages/ai-core/node_modules
+    - database-node_modules:/repo/packages/database/node_modules
+    - eslint-config-node_modules:/repo/packages/eslint-config/node_modules
+    - integrations-node_modules:/repo/packages/integrations/node_modules
+    - shared-node_modules:/repo/packages/shared/node_modules
+    - typescript-config-node_modules:/repo/packages/typescript-config/node_modules
+  networks: [solidchat-internal]
+
+services:
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-solidchat}
+      MYSQL_USER: ${MYSQL_USER:-solidchat}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?MYSQL_PASSWORD is required}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD is required}
+    volumes:
+      - mysql-data:/var/lib/mysql
+    networks: [solidchat-internal]
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    ports:
+      - "3307:3306"
+
+  redis:
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    volumes:
+      - redis-data:/data
+    networks: [solidchat-internal]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  minio:
+    image: minio/minio:RELEASE.2024-10-13T13-34-11Z
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-solidchat}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD is required}
+    volumes:
+      - minio-data:/data
+    networks: [solidchat-internal]
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  phpmyadmin:
+    image: phpmyadmin:latest
+    restart: unless-stopped
+    environment:
+      PMA_HOST: mysql
+    depends_on:
+      mysql: { condition: service_healthy }
+    networks: [solidchat-internal]
+    ports:
+      - "8081:80"
+
+  api:
+    <<: *node-dev-base
+    command: sh -c "pnpm --filter @solidchat/database generate && pnpm --filter @solidchat/api dev"
+    environment:
+      DATABASE_URL: mysql://${MYSQL_USER:-solidchat}:${MYSQL_PASSWORD}@mysql:3306/${MYSQL_DATABASE:-solidchat}
+      REDIS_HOST: redis
+      S3_ENDPOINT: http://minio:9000
+      CHOKIDAR_USEPOLLING: "true"
+      WATCHPACK_POLLING: "true"
+      FORCE_COLOR: "1"
+    depends_on:
+      mysql: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      minio: { condition: service_healthy }
+    ports:
+      - "${API_PORT:-4000}:4000"
+
+  worker:
+    <<: *node-dev-base
+    command: sh -c "pnpm --filter @solidchat/database generate && pnpm --filter @solidchat/worker dev"
+    environment:
+      DATABASE_URL: mysql://${MYSQL_USER:-solidchat}:${MYSQL_PASSWORD}@mysql:3306/${MYSQL_DATABASE:-solidchat}
+      REDIS_HOST: redis
+      CHOKIDAR_USEPOLLING: "true"
+      WATCHPACK_POLLING: "true"
+      FORCE_COLOR: "1"
+    depends_on:
+      mysql: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      api: { condition: service_started }
+
+  dashboard:
+    <<: *node-dev-base
+    command: sh -c "pnpm --filter @solidchat/dashboard dev:docker"
+    environment:
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:4000}
+      NEXT_PUBLIC_WIDGET_URL: ${NEXT_PUBLIC_WIDGET_URL:-http://localhost:3001}
+      CHOKIDAR_USEPOLLING: "true"
+      WATCHPACK_POLLING: "true"
+      FORCE_COLOR: "1"
+    depends_on:
+      api: { condition: service_started }
+    ports:
+      - "${DASHBOARD_PORT:-5176}:3000"
+
+  widget:
+    <<: *node-dev-base
+    command: sh -c "pnpm --filter @solidchat/widget dev:docker"
+    environment:
+      VITE_API_URL: ${VITE_API_URL:-http://localhost:4000}
+      WIDGET_URL: ${WIDGET_URL:-http://localhost:3001}
+      API_URL: ${API_URL:-http://localhost:4000}
+      CHOKIDAR_USEPOLLING: "true"
+      WATCHPACK_POLLING: "true"
+      FORCE_COLOR: "1"
+    depends_on:
+      api: { condition: service_started }
+    ports:
+      - "${WIDGET_PORT:-3001}:3001"
+
+  widget-loader:
+    <<: *node-dev-base
+    command: sh -c "mkdir -p /repo/apps/widget-loader/dist && pnpm --filter @solidchat/widget-loader dev"
+    environment:
+      WIDGET_URL: ${WIDGET_URL:-http://localhost:3001}
+      API_URL: ${API_URL:-http://localhost:4000}
+      CHOKIDAR_USEPOLLING: "true"
+      WATCHPACK_POLLING: "true"
+      FORCE_COLOR: "1"
+
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    volumes:
+      - ./infrastructure/nginx/solidchat.dev.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./apps/widget-loader/dist:/usr/share/nginx/widget-loader:ro
+    depends_on: [api, dashboard, widget, widget-loader]
+    networks: [solidchat-internal]
+    ports:
+      - "80:80"

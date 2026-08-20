@@ -17,6 +17,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import { ConversationsService } from "../conversations/conversations.service";
 import { TicketsService } from "../tickets/tickets.service";
 import { RealtimeEmitterService } from "./realtime-emitter.service";
+import { AgentService } from "../agent/agent.service";
 
 interface DashboardSocket extends Socket {
   data: { user: JwtAccessPayload };
@@ -39,6 +40,7 @@ export class DashboardGateway implements OnGatewayInit, OnGatewayConnection {
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
     private readonly prisma: PrismaService,
+    private readonly agentService: AgentService,
     private readonly conversations: ConversationsService,
     private readonly tickets: TicketsService,
     private readonly realtime: RealtimeEmitterService,
@@ -81,6 +83,11 @@ export class DashboardGateway implements OnGatewayInit, OnGatewayConnection {
     return match ? decodeURIComponent(match.slice(name.length + 1)) : undefined;
   }
 
+  private async getAgentDisplayName(userId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { name: true } });
+    return user?.name ?? "Agent";
+  }
+
   private reject(client: Socket, message: string) {
     client.emit("error", { code: "UNAUTHORIZED", message });
     client.disconnect(true);
@@ -88,8 +95,9 @@ export class DashboardGateway implements OnGatewayInit, OnGatewayConnection {
 
   @SubscribeMessage("conversation:join")
   async onConversationJoin(@ConnectedSocket() client: DashboardSocket, @MessageBody() body: { conversationId: string }) {
-    const conversation = await this.prisma.conversation.findUnique({ where: { id: body.conversationId } });
-    if (!conversation || conversation.organizationId !== client.data.user.organizationId) {
+    try {
+      await this.agentService.assertConversationAccess(client.data.user, body.conversationId);
+    } catch {
       client.emit("error", { code: "FORBIDDEN", message: "Tidak dapat membuka conversation ini." });
       return;
     }
@@ -111,16 +119,19 @@ export class DashboardGateway implements OnGatewayInit, OnGatewayConnection {
 
   @SubscribeMessage("conversation:accept")
   async onAccept(@ConnectedSocket() client: DashboardSocket, @MessageBody() body: { conversationId: string }) {
+    await this.agentService.assertConversationAccess(client.data.user, body.conversationId);
     await this.conversations.accept(body.conversationId, client.data.user.sub);
   }
 
   @SubscribeMessage("conversation:takeover")
   async onTakeover(@ConnectedSocket() client: DashboardSocket, @MessageBody() body: { conversationId: string }) {
+    await this.agentService.assertConversationAccess(client.data.user, body.conversationId);
     await this.conversations.takeover(body.conversationId, client.data.user.sub);
   }
 
   @SubscribeMessage("conversation:return_to_ai")
   async onReturnToAi(@ConnectedSocket() client: DashboardSocket, @MessageBody() body: { conversationId: string }) {
+    await this.agentService.assertConversationAccess(client.data.user, body.conversationId);
     await this.conversations.returnToAi(body.conversationId, client.data.user.sub);
   }
 
@@ -129,11 +140,13 @@ export class DashboardGateway implements OnGatewayInit, OnGatewayConnection {
     @ConnectedSocket() client: DashboardSocket,
     @MessageBody() body: { conversationId: string; toAgentId?: string; toTeamId?: string },
   ) {
+    await this.agentService.assertConversationAccess(client.data.user, body.conversationId);
     await this.conversations.transfer(body.conversationId, client.data.user.sub, { toAgentId: body.toAgentId, toTeamId: body.toTeamId });
   }
 
   @SubscribeMessage("conversation:resolve")
   async onResolve(@ConnectedSocket() client: DashboardSocket, @MessageBody() body: { conversationId: string }) {
+    await this.agentService.assertConversationAccess(client.data.user, body.conversationId);
     await this.conversations.resolve(body.conversationId, client.data.user.sub);
   }
 
@@ -142,6 +155,7 @@ export class DashboardGateway implements OnGatewayInit, OnGatewayConnection {
     @ConnectedSocket() client: DashboardSocket,
     @MessageBody() body: { conversationId: string; content: string; clientMessageId?: string; isInternal?: boolean },
   ) {
+    await this.agentService.assertConversationAccess(client.data.user, body.conversationId);
     await this.conversations.postMessage({
       conversationId: body.conversationId,
       senderType: SenderType.AGENT,
@@ -155,17 +169,39 @@ export class DashboardGateway implements OnGatewayInit, OnGatewayConnection {
 
   @SubscribeMessage("message:read")
   async onMessageRead(@ConnectedSocket() client: DashboardSocket, @MessageBody() body: { messageId: string }) {
-    await this.conversations.markRead(body.messageId, "AGENT", client.data.user.sub);
+    const message = await this.prisma.message.findUnique({ where: { id: body.messageId }, select: { conversationId: true } });
+    if (message) {
+      await this.agentService.assertConversationAccess(client.data.user, message.conversationId);
+      await this.conversations.markRead(body.messageId, "AGENT", client.data.user.sub);
+      this.realtime.toConversation(message.conversationId, "message:updated", {
+        conversationId: message.conversationId,
+        messageId: body.messageId,
+        readBy: "AGENT",
+        readerId: client.data.user.sub,
+      });
+      return;
+    }
   }
 
   @SubscribeMessage("typing:start")
-  onTypingStart(@MessageBody() body: { conversationId: string }) {
-    this.realtime.toConversation(body.conversationId, "typing:updated", { from: "AGENT", typing: true });
+  async onTypingStart(@ConnectedSocket() client: DashboardSocket, @MessageBody() body: { conversationId: string }) {
+    await this.agentService.assertConversationAccess(client.data.user, body.conversationId);
+    this.realtime.toConversation(body.conversationId, "typing:updated", {
+      from: "AGENT",
+      typing: true,
+      senderId: client.data.user.sub,
+      senderName: await this.getAgentDisplayName(client.data.user.sub),
+    });
   }
 
   @SubscribeMessage("typing:stop")
-  onTypingStop(@MessageBody() body: { conversationId: string }) {
-    this.realtime.toConversation(body.conversationId, "typing:updated", { from: "AGENT", typing: false });
+  async onTypingStop(@ConnectedSocket() client: DashboardSocket, @MessageBody() body: { conversationId: string }) {
+    await this.agentService.assertConversationAccess(client.data.user, body.conversationId);
+    this.realtime.toConversation(body.conversationId, "typing:updated", {
+      from: "AGENT",
+      typing: false,
+      senderId: client.data.user.sub,
+    });
   }
 
   @SubscribeMessage("ticket:create")
@@ -173,6 +209,7 @@ export class DashboardGateway implements OnGatewayInit, OnGatewayConnection {
     @ConnectedSocket() client: DashboardSocket,
     @MessageBody() body: { conversationId: string; subject: string; description: string; category: string },
   ) {
+    await this.agentService.assertConversationAccess(client.data.user, body.conversationId);
     const site = await this.prisma.site.findFirstOrThrow({ where: { organizationId: client.data.user.organizationId } });
     await this.tickets.create(
       client.data.user.organizationId,

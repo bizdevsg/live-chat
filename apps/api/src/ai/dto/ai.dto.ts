@@ -1,51 +1,17 @@
-import { IsBoolean, IsIn, IsInt, IsNumber, IsOptional, IsString, Max, Min } from "class-validator";
+import { IsBoolean, IsOptional, IsString } from "class-validator";
 
 export class UpdateAiConfigurationDto {
   @IsOptional()
-  @IsIn(["mock", "openai"])
-  provider?: string;
+  @IsString()
+  aiName?: string;
 
   @IsOptional()
   @IsString()
-  classifierModel?: string;
+  greeting?: string;
 
   @IsOptional()
   @IsString()
-  answerModel?: string;
-
-  @IsOptional()
-  @IsString()
-  summaryModel?: string;
-
-  @IsOptional()
-  @IsString()
-  suggestedReplyModel?: string;
-
-  @IsOptional()
-  @IsString()
-  embeddingModel?: string;
-
-  @IsOptional()
-  @IsNumber()
-  @Min(0)
-  @Max(1)
-  confidenceThreshold?: number;
-
-  @IsOptional()
-  @IsInt()
-  @Min(50)
-  maxTokens?: number;
-
-  @IsOptional()
-  @IsInt()
-  @Min(1000)
-  timeoutMs?: number;
-
-  @IsOptional()
-  @IsInt()
-  @Min(0)
-  @Max(5)
-  maxRetries?: number;
+  systemPrompt?: string;
 
   @IsOptional()
   @IsBoolean()

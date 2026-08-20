@@ -1,12 +1,13 @@
 import { Injectable, HttpStatus } from "@nestjs/common";
 import { InjectQueue } from "@nestjs/bullmq";
 import type { Queue } from "bullmq";
-import { QUEUE_NAMES, ErrorCode, type CrmSyncJobData } from "@solidchat/shared";
+import { ConversationStatus, ErrorCode, HandlerType, QUEUE_NAMES, type CrmSyncJobData } from "@solidchat/shared";
 import { PrismaService } from "../prisma/prisma.service";
 import { AuditLogService } from "../common/audit/audit-log.service";
 import { CrmProviderFactory } from "./crm-provider.factory";
 import { ApiException, NotFoundApiException } from "../common/errors/api.exception";
 import type { CreateLeadDto } from "./dto/lead.dto";
+import { NotificationsService } from "../notifications/notifications.service";
 
 @Injectable()
 export class LeadsService {
@@ -14,34 +15,200 @@ export class LeadsService {
     private readonly prisma: PrismaService,
     private readonly auditLog: AuditLogService,
     private readonly crmProviderFactory: CrmProviderFactory,
+    private readonly notifications: NotificationsService,
     @InjectQueue(QUEUE_NAMES.CRM_SYNC) private readonly crmSyncQueue: Queue<CrmSyncJobData>,
   ) {}
 
+  private normalizeLeadInput(dto: CreateLeadDto): CreateLeadDto {
+    const normalizePhone = (value: string) => value.trim().replace(/[^\d+]/g, "");
+
+    return {
+      ...dto,
+      name: dto.name.trim(),
+      email: dto.email.trim().toLowerCase(),
+      phone: normalizePhone(dto.phone),
+      city: dto.city?.trim() || undefined,
+      purpose: dto.purpose?.trim() || undefined,
+      productInterest: dto.productInterest?.trim() || undefined,
+    };
+  }
+
+  private getResumeState(conversation: { assignedTeamId: string | null }) {
+    if (conversation.assignedTeamId) {
+      return { status: ConversationStatus.QUEUED, handlerType: HandlerType.NONE };
+    }
+    return { status: ConversationStatus.AI_ACTIVE, handlerType: HandlerType.AI };
+  }
+
   async createFromWidget(siteId: string, conversationId: string | undefined, dto: CreateLeadDto) {
-    if (!dto.consentGiven) {
+    const normalized = this.normalizeLeadInput(dto);
+
+    if (!normalized.consentGiven) {
       throw new ApiException(ErrorCode.VALIDATION_ERROR, "Persetujuan privacy policy diperlukan sebelum data dikirim.", HttpStatus.BAD_REQUEST);
     }
     const site = await this.prisma.site.findUniqueOrThrow({ where: { id: siteId } });
+    const conversation = conversationId
+      ? await this.prisma.conversation.findUnique({
+          where: { id: conversationId },
+          select: {
+            id: true,
+            organizationId: true,
+            siteId: true,
+            visitorId: true,
+            assignedAgentId: true,
+            assignedTeamId: true,
+            customerId: true,
+            status: true,
+            handlerType: true,
+            firstMessageAt: true,
+          },
+        })
+      : null;
 
-    const lead = await this.prisma.lead.create({
-      data: {
-        organizationId: site.organizationId,
-        siteId,
-        conversationId,
-        name: dto.name,
-        email: dto.email,
-        phone: dto.phone,
-        city: dto.city,
-        purpose: dto.purpose,
-        productInterest: dto.productInterest,
-        consentGiven: dto.consentGiven,
-        source: "WIDGET",
-        syncStatus: "PENDING",
-      },
+    const result = await this.prisma.$transaction(async (tx) => {
+      const existingCustomer =
+        conversation?.customerId
+          ? await tx.customer.findUnique({ where: { id: conversation.customerId } })
+          : await tx.customer.findFirst({
+              where: {
+                siteId,
+                OR: [{ email: normalized.email }, { phone: normalized.phone }],
+              },
+              orderBy: { updatedAt: "desc" },
+            });
+
+      const customer = existingCustomer
+        ? await tx.customer.update({
+            where: { id: existingCustomer.id },
+            data: {
+              name: normalized.name,
+              email: normalized.email,
+              phone: normalized.phone,
+            },
+          })
+        : await tx.customer.create({
+            data: {
+              siteId,
+              name: normalized.name,
+              email: normalized.email,
+              phone: normalized.phone,
+            },
+          });
+
+      const resumableConversation = await tx.conversation.findFirst({
+        where: {
+          siteId,
+          id: conversation?.id ? { not: conversation.id } : undefined,
+          status: { notIn: [ConversationStatus.CLOSED, ConversationStatus.SPAM, ConversationStatus.BLOCKED] },
+          OR: [
+            { customerId: customer.id },
+            { customer: { email: normalized.email } },
+            { leads: { some: { email: normalized.email } } },
+          ],
+        },
+        orderBy: [{ lastMessageAt: "desc" }, { createdAt: "desc" }],
+        select: {
+          id: true,
+          assignedAgentId: true,
+          assignedTeamId: true,
+          status: true,
+        },
+      });
+
+      let targetConversationId = conversation?.id;
+
+      if (resumableConversation && conversation?.visitorId) {
+        targetConversationId = resumableConversation.id;
+        const resumeState =
+          resumableConversation.status === ConversationStatus.RESOLVED
+            ? this.getResumeState(resumableConversation)
+            : null;
+
+        await tx.conversation.update({
+          where: { id: resumableConversation.id },
+          data: {
+            visitorId: conversation.visitorId,
+            customerId: customer.id,
+            ...(resumeState
+              ? {
+                  assignedAgentId: null,
+                  status: resumeState.status,
+                  handlerType: resumeState.handlerType,
+                  assignedAt: null,
+                  resolvedAt: null,
+                  closedAt: null,
+                }
+              : {}),
+          },
+        });
+
+        if (!conversation.firstMessageAt) {
+          await tx.conversation.delete({ where: { id: conversation.id } });
+        }
+      } else if (conversation && conversation.customerId !== customer.id) {
+        await tx.conversation.update({
+          where: { id: conversation.id },
+          data: { customerId: customer.id },
+        });
+      }
+
+      const createdLead = await tx.lead.create({
+        data: {
+          organizationId: site.organizationId,
+          siteId,
+          conversationId: targetConversationId,
+          customerId: customer.id,
+          name: normalized.name,
+          email: normalized.email,
+          phone: normalized.phone,
+          city: normalized.city,
+          purpose: normalized.purpose,
+          productInterest: normalized.productInterest,
+          consentGiven: normalized.consentGiven,
+          source: "WIDGET",
+          syncStatus: "PENDING",
+        },
+      });
+
+      await tx.leadEvent.create({ data: { leadId: createdLead.id, type: "lead.created" } });
+      return { lead: createdLead, conversationId: targetConversationId, resumedConversation: targetConversationId !== conversation?.id };
     });
-    await this.prisma.leadEvent.create({ data: { leadId: lead.id, type: "lead.created" } });
+
+    const { lead, conversationId: finalConversationId, resumedConversation } = result;
     await this.crmSyncQueue.add("sync", { leadId: lead.id }, { attempts: 5, backoff: { type: "exponential", delay: 5000 } });
-    return lead;
+    if (finalConversationId) {
+      const notificationConversation =
+        conversation?.id === finalConversationId
+          ? conversation
+          : await this.prisma.conversation.findUnique({
+              where: { id: finalConversationId },
+              select: { id: true, organizationId: true, siteId: true, assignedTeamId: true, assignedAgentId: true, handlerType: true, status: true },
+            });
+
+      const isStillNewInboxConversation =
+        !!notificationConversation &&
+        !notificationConversation.assignedAgentId &&
+        (notificationConversation.handlerType === HandlerType.NONE || notificationConversation.handlerType === HandlerType.AI);
+
+      if (notificationConversation?.assignedTeamId && isStillNewInboxConversation) {
+        this.notifications.notifyTeam(
+          notificationConversation.assignedTeamId,
+          "NEW_INBOX_CONVERSATION",
+          "Conversation baru masuk",
+          "Visitor sudah mengisi data diri dan siap ditangani.",
+          { conversationId: notificationConversation.id, siteId: notificationConversation.siteId },
+        );
+      } else if (notificationConversation && isStillNewInboxConversation) {
+        this.notifications.notifyOrganization(
+          notificationConversation.organizationId,
+          "NEW_INBOX_CONVERSATION",
+          "Conversation baru masuk",
+          "Visitor sudah mengisi data diri dan siap ditangani.",
+          { conversationId: notificationConversation.id, siteId: notificationConversation.siteId },
+        );
+      }
+    }
+    return { ...lead, conversationId: finalConversationId, resumedConversation };
   }
 
   async list(organizationId: string, siteId?: string) {

@@ -5,14 +5,12 @@ export class CreateLeadDto {
   @MaxLength(120)
   name!: string;
 
-  @IsOptional()
   @IsEmail()
-  email?: string;
+  email!: string;
 
-  @IsOptional()
   @IsString()
   @MaxLength(30)
-  phone?: string;
+  phone!: string;
 
   @IsOptional()
   @IsString()
