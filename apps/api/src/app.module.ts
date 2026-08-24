@@ -27,6 +27,7 @@ import { TicketsModule } from "./tickets/tickets.module";
 import { LeadsModule } from "./leads/leads.module";
 import { AnalyticsModule } from "./analytics/analytics.module";
 import { HealthModule } from "./health/health.module";
+import { MarketDataModule } from "./market-data/market-data.module";
 
 @Module({
   imports: [
@@ -56,6 +57,7 @@ import { HealthModule } from "./health/health.module";
     AdminModule,
     KnowledgeModule,
     AiModule,
+    MarketDataModule,
     TicketsModule,
     LeadsModule,
     AnalyticsModule,

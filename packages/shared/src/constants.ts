@@ -1,18 +1,14 @@
 /**
- * Fixed OpenAI model/runtime settings. These used to be per-organization columns on
- * ai_configurations (classifierModel, answerModel, summaryModel, suggestedReplyModel,
- * embeddingModel, confidenceThreshold, maxTokens, timeoutMs, maxRetries) — in practice every
- * site used the same values, so that was configuration surface with no real use. Simplified
- * to one hardcoded source of truth; change these constants (and redeploy) if the models ever
- * need to differ.
+ * Shared OpenAI runtime settings. The chat model is configured per AI configuration; the
+ * embedding model and request limits remain application-level settings.
  */
 export const AI_MODELS = {
-  classifier: "gpt-4o-mini",
-  answer: "gpt-4o-mini",
-  summary: "gpt-4o-mini",
-  suggestedReply: "gpt-4o-mini",
   embedding: "text-embedding-3-small",
 } as const;
+
+/** Chat models an administrator can select for a site's AI configuration. */
+export const AI_CHAT_MODELS = ["gpt-4o-mini", "gpt-4o", "gpt-4.1-mini", "gpt-4.1"] as const;
+export type AiChatModel = (typeof AI_CHAT_MODELS)[number];
 
 /** AI confidence threshold below which a conversation is handed off to a human agent. */
 export const DEFAULT_CONFIDENCE_THRESHOLD = 0.65;

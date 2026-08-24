@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { io, type Socket } from "socket.io-client";
 import { api, API_URL } from "../lib/api";
 import { widgetStorage } from "../lib/storage";
+import type { SitePresenceStatus } from "./use-widget-session";
 
 export interface WidgetMessage {
   id: string;
@@ -19,10 +20,11 @@ interface ConversationState {
   handlerType: string;
 }
 
-export function useConversation(visitorToken: string | null, siteId: string | null) {
+export function useConversation(visitorToken: string | null, siteId: string | null, initialPresence?: SitePresenceStatus) {
   const [conversation, setConversation] = useState<ConversationState | null>(null);
   const [messages, setMessages] = useState<WidgetMessage[]>([]);
   const [connected, setConnected] = useState(false);
+  const [presenceStatus, setPresenceStatus] = useState<SitePresenceStatus | undefined>(initialPresence);
   const [agentTyping, setAgentTyping] = useState(false);
   const [agentTypingName, setAgentTypingName] = useState<string | null>(null);
   const [aiTyping, setAiTyping] = useState(false);
@@ -83,9 +85,18 @@ export function useConversation(visitorToken: string | null, siteId: string | nu
         }
         if (payload.from === "AI") setAiTyping(payload.typing);
       });
+      // Pushed whenever an agent flips online/busy/offline — lets the widget switch between
+      // live chat and the offline Ticket Form without the visitor needing to reload.
+      socket.on("site:presence", (payload: { status: SitePresenceStatus }) => {
+        setPresenceStatus(payload.status);
+      });
     },
     [disconnectSocket, visitorToken],
   );
+
+  useEffect(() => {
+    setPresenceStatus(initialPresence);
+  }, [initialPresence]);
 
   const loadConversation = useCallback(
     async (conversationId: string) => {
@@ -215,6 +226,7 @@ export function useConversation(visitorToken: string | null, siteId: string | nu
     conversation,
     messages,
     connected,
+    presenceStatus,
     agentTyping,
     agentTypingName,
     aiTyping,

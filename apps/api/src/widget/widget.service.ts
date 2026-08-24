@@ -7,6 +7,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import { ConversationsService } from "../conversations/conversations.service";
 import { VisitorTokenService } from "./visitor-token.service";
 import { SecurityEventService } from "../common/security/security-event.service";
+import { PresenceService } from "../common/presence/presence.service";
 import { ApiException, ForbiddenApiException, NotFoundApiException, UnauthorizedApiException } from "../common/errors/api.exception";
 import type { CreateWidgetSessionDto } from "./dto/widget.dto";
 
@@ -22,6 +23,7 @@ export class WidgetService {
     private readonly conversations: ConversationsService,
     private readonly visitorTokens: VisitorTokenService,
     private readonly securityEvents: SecurityEventService,
+    private readonly presence: PresenceService,
     private readonly config: ConfigService,
   ) {}
 
@@ -30,6 +32,7 @@ export class WidgetService {
     if (!site || !site.isActive) {
       throw new NotFoundApiException(ErrorCode.SITE_NOT_FOUND, "Website tidak ditemukan atau tidak aktif.");
     }
+    const presenceStatus = await this.presence.computeOrgPresence(site.organizationId);
     return {
       siteId: site.siteKey,
       name: site.name,
@@ -39,6 +42,7 @@ export class WidgetService {
       greeting: site.greeting,
       offlineMessage: site.offlineMessage,
       language: site.language,
+      presenceStatus,
       settings: site.settings
         ? {
             widgetEnabled: site.settings.widgetEnabled,

@@ -47,6 +47,9 @@ export interface SuggestedReplyInput {
   history: ChatTurn[];
   language: string;
   evidence: KnowledgeEvidence[];
+  aiName: string;
+  organizationName: string;
+  systemPrompt?: string | null;
   agentDraft?: string;
 }
 

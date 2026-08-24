@@ -1,6 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import { hash } from "@node-rs/argon2";
-
+b;
 const prisma = new PrismaClient();
 
 const PERMISSIONS: { slug: string; category: string; description: string }[] = [
@@ -339,14 +339,13 @@ async function main() {
     create: { teamId: generalTeam.id, userId: agent.id },
   });
 
-  // Model names, confidence threshold, and retry/timeout/token limits are fixed app
-  // constants now (see AI_MODELS etc. in packages/shared) — this row only needs to exist
-  // and be active; provider is always "openai" in practice (AiProviderFactory forces it).
+  // New configurations start on the economical default; administrators can change it later.
   await prisma.aiConfiguration.create({
     data: {
       organizationId: organization.id,
       siteId: site.id,
       provider: "openai",
+      model: "gpt-4o-mini",
       isActive: true,
     },
   });

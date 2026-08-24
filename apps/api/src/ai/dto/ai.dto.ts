@@ -1,4 +1,5 @@
-import { IsBoolean, IsOptional, IsString } from "class-validator";
+import { AI_CHAT_MODELS } from "@solidchat/shared";
+import { IsBoolean, IsIn, IsOptional, IsString } from "class-validator";
 
 export class UpdateAiConfigurationDto {
   @IsOptional()
@@ -12,6 +13,10 @@ export class UpdateAiConfigurationDto {
   @IsOptional()
   @IsString()
   systemPrompt?: string;
+
+  @IsOptional()
+  @IsIn(AI_CHAT_MODELS)
+  model?: (typeof AI_CHAT_MODELS)[number];
 
   @IsOptional()
   @IsBoolean()

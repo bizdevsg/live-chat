@@ -1,4 +1,4 @@
-import { Injectable, HttpStatus } from "@nestjs/common";
+import { BadRequestException, Injectable, HttpStatus, NotFoundException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { JwtService } from "@nestjs/jwt";
 import { hash, verify } from "@node-rs/argon2";
@@ -10,8 +10,13 @@ import { PrismaService } from "../prisma/prisma.service";
 import { AuditLogService } from "../common/audit/audit-log.service";
 import { SecurityEventService } from "../common/security/security-event.service";
 import { ApiException, UnauthorizedApiException } from "../common/errors/api.exception";
+import { StorageService } from "../storage/storage.service";
 import { loadUserAuthContext } from "./auth-context.util";
-import type { UpdateAccountSettingsDto } from "./dto/auth.dto";
+import type { UpdateAccountSettingsDto, UploadNotificationSoundDto } from "./dto/auth.dto";
+import {
+  CUSTOM_NEW_MESSAGES_SOUND_ID,
+  CUSTOM_ON_CONVERSATION_SOUND_ID,
+} from "./account-settings.constants";
 import { normalizeUserAccountSettings, upsertUserAccountSettings } from "./account-settings.util";
 
 const MAX_FAILED_ATTEMPTS = 5;
@@ -36,6 +41,7 @@ export class AuthService {
     private readonly config: ConfigService,
     private readonly auditLog: AuditLogService,
     private readonly securityEvents: SecurityEventService,
+    private readonly storage: StorageService,
   ) {}
 
   async login(email: string, password: string, meta: RequestMeta): Promise<AuthTokens> {
@@ -219,6 +225,87 @@ export class AuthService {
     });
 
     return settings;
+  }
+
+  async uploadNotificationSound(userId: string, dto: UploadNotificationSoundDto, file: Express.Multer.File) {
+    const context = await loadUserAuthContext(this.prisma, userId);
+    if (!context) throw new UnauthorizedApiException();
+    if (!file) throw new BadRequestException("File audio tidak ditemukan pada request.");
+
+    const nextSettings = normalizeUserAccountSettings({
+      ...context.accountSettings,
+      ...(dto.category === "onConversation"
+        ? {
+            onConversationSound: CUSTOM_ON_CONVERSATION_SOUND_ID,
+            customOnConversationSound: {
+              id: CUSTOM_ON_CONVERSATION_SOUND_ID,
+              name: file.originalname,
+              storageKey: this.storage.buildStorageKey(`notification-sounds/${context.organizationId}/${userId}/${dto.category}`, file.originalname),
+            },
+          }
+        : {
+            newMessagesSound: CUSTOM_NEW_MESSAGES_SOUND_ID,
+            customNewMessagesSound: {
+              id: CUSTOM_NEW_MESSAGES_SOUND_ID,
+              name: file.originalname,
+              storageKey: this.storage.buildStorageKey(`notification-sounds/${context.organizationId}/${userId}/${dto.category}`, file.originalname),
+            },
+          }),
+    });
+
+    const previousStorageKey =
+      dto.category === "onConversation"
+        ? context.accountSettings.customOnConversationSound?.storageKey
+        : context.accountSettings.customNewMessagesSound?.storageKey;
+    const nextStorageKey =
+      dto.category === "onConversation"
+        ? nextSettings.customOnConversationSound?.storageKey
+        : nextSettings.customNewMessagesSound?.storageKey;
+    if (!nextStorageKey) {
+      throw new BadRequestException("Gagal menyiapkan file audio kustom.");
+    }
+
+    await this.storage.upload(nextStorageKey, file.buffer, file.mimetype);
+    try {
+      await upsertUserAccountSettings(this.prisma, userId, nextSettings);
+    } catch (error) {
+      if (nextStorageKey !== previousStorageKey) {
+        await this.storage.remove(nextStorageKey).catch(() => undefined);
+      }
+      throw error;
+    }
+
+    if (previousStorageKey && previousStorageKey !== nextStorageKey) {
+      await this.storage.remove(previousStorageKey).catch(() => undefined);
+    }
+
+    await this.auditLog.record({
+      organizationId: context.organizationId,
+      actorType: "USER",
+      actorId: userId,
+      action: "auth.account_settings.notification_sound_uploaded",
+      resourceType: "user",
+      resourceId: userId,
+      beforeData: context.accountSettings,
+      afterData: nextSettings,
+    });
+
+    return nextSettings;
+  }
+
+  async getNotificationSoundDownloadUrl(userId: string, category: UploadNotificationSoundDto["category"]) {
+    const context = await loadUserAuthContext(this.prisma, userId);
+    if (!context) throw new UnauthorizedApiException();
+
+    const storageKey =
+      category === "onConversation"
+        ? context.accountSettings.customOnConversationSound?.storageKey
+        : context.accountSettings.customNewMessagesSound?.storageKey;
+    if (!storageKey) {
+      throw new NotFoundException("Audio notifikasi kustom belum tersedia.");
+    }
+
+    return this.storage.getSignedDownloadUrl(storageKey);
   }
 
   private async issueTokens(userId: string, meta: RequestMeta, tokenFamily?: string): Promise<AuthTokens> {

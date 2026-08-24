@@ -145,6 +145,10 @@ model UserAccountSettings {
   playNewMessagesSound    Boolean  @default(true) @map("play_new_messages_sound")
   onConversationSound     String   @default("ding-sound-effect") @map("on_conversation_sound")
   newMessagesSound        String   @default("funny-laugh") @map("new_messages_sound")
+  customOnConversationSoundName       String? @map("custom_on_conversation_sound_name")
+  customOnConversationSoundStorageKey String? @map("custom_on_conversation_sound_storage_key")
+  customNewMessagesSoundName          String? @map("custom_new_messages_sound_name")
+  customNewMessagesSoundStorageKey    String? @map("custom_new_messages_sound_storage_key")
   updatedAt               DateTime @updatedAt @map("updated_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -810,6 +814,7 @@ model AiConfiguration {
   organizationId String   @map("organization_id")
   siteId         String?  @map("site_id")
   provider       String   @default("openai")
+  model          String   @default("gpt-4o-mini")
   isActive       Boolean  @default(true) @map("is_active")
   updatedAt      DateTime @updatedAt @map("updated_at")
 

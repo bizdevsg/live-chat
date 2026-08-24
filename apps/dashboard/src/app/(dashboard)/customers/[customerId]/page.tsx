@@ -6,6 +6,7 @@ import { apiClient } from "@/lib/api-client";
 import { Topbar } from "@/components/layout/topbar";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { DashboardPage, DashboardPageHeader, DashboardPageMetrics } from "@/components/layout/dashboard-page";
 
 interface CustomerDetail {
   id: string;
@@ -24,12 +25,27 @@ export default function CustomerDetailPage() {
 
   if (!query.data) return <div className="flex-1 p-6 text-sm text-zinc-500">Memuat…</div>;
   const customer = query.data;
+  const lastConversation = customer.conversations[0];
 
   return (
     <>
       <Topbar title={customer.name} />
-      <main className="scrollbar-thin flex-1 overflow-y-auto p-6">
-        <Card className="mb-4">
+      <DashboardPage>
+        <div className="space-y-6">
+        <DashboardPageHeader
+          title={customer.name}
+          description="Profil customer kini menempatkan identitas, percakapan, dan ticket support dalam layout yang lebih cepat dibaca oleh agent maupun admin."
+        />
+        <DashboardPageMetrics
+          items={[
+            { label: "Email", value: customer.email ?? "-", detail: "Alamat email utama customer." },
+            { label: "Telepon", value: customer.phone ?? "-", detail: "Nomor kontak utama customer." },
+            { label: "Conversation", value: String(customer.conversations.length), detail: lastConversation ? `Terakhir ${new Date(lastConversation.createdAt).toLocaleDateString("id-ID")}` : "Belum ada percakapan." },
+            { label: "Ticket", value: String(customer.tickets.length), detail: `${customer.tags.length} tag terpasang pada profil.` },
+          ]}
+        />
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+        <Card className="mb-0">
           <CardHeader>
             <CardTitle>Profil</CardTitle>
           </CardHeader>
@@ -48,7 +64,8 @@ export default function CustomerDetailPage() {
           </div>
         </Card>
 
-        <Card className="mb-4">
+        <div className="space-y-6">
+        <Card className="mb-0">
           <CardHeader>
             <CardTitle>Riwayat Conversation</CardTitle>
           </CardHeader>
@@ -77,7 +94,10 @@ export default function CustomerDetailPage() {
             {customer.tickets.length === 0 && <p className="text-zinc-600">Belum ada ticket.</p>}
           </ul>
         </Card>
-      </main>
+        </div>
+        </div>
+        </div>
+      </DashboardPage>
     </>
   );
 }

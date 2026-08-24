@@ -1,5 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { AI_MODELS, DEFAULT_CONFIDENCE_THRESHOLD, HandlerType, HandoffReason, MessageType, SenderType, type ChatTurn } from "@solidchat/shared";
+import { extractCustomerServiceQuery } from "@solidchat/ai-core";
+import { DEFAULT_CONFIDENCE_THRESHOLD, HandlerType, HandoffReason, MessageType, SenderType, type ChatTurn } from "@solidchat/shared";
 import { PrismaService } from "../prisma/prisma.service";
 import { ConversationsService } from "../conversations/conversations.service";
 import { RetrievalService } from "../knowledge/retrieval.service";
@@ -7,6 +8,7 @@ import { AiProviderFactory } from "./ai-provider.factory";
 import { HandoffEvaluatorService } from "./handoff-evaluator.service";
 import { SecurityEventService } from "../common/security/security-event.service";
 import { RealtimeEmitterService } from "../realtime/realtime-emitter.service";
+import { MarketDataService } from "../market-data/market-data.service";
 
 @Injectable()
 export class AiOrchestratorService {
@@ -22,6 +24,7 @@ export class AiOrchestratorService {
     private readonly handoffEvaluator: HandoffEvaluatorService,
     private readonly securityEvents: SecurityEventService,
     private readonly realtime: RealtimeEmitterService,
+    private readonly marketData: MarketDataService,
   ) {}
 
   /** Runs the full §16 pipeline for the visitor's latest message. Called right after ConversationsService.postMessage. */
@@ -112,7 +115,7 @@ export class AiOrchestratorService {
         history,
         language: conversation.language,
       });
-      await this.recordAiRun(conversationId, "CLASSIFY", provider.name, AI_MODELS.classifier, {
+      await this.recordAiRun(conversationId, "CLASSIFY", provider.name, config.model, {
         latencyMs: Date.now() - classifyStart,
         confidence: classification.confidence,
         intent: classification.intent,
@@ -137,7 +140,12 @@ export class AiOrchestratorService {
         return;
       }
 
-      const evidence = await this.retrieval.retrieveForCustomer(conversation.siteId, lastVisitorMessage.content);
+      const retrievalQuery = extractCustomerServiceQuery(lastVisitorMessage.content, classification.intent);
+      const [marketEvidence, knowledgeEvidence] = await Promise.all([
+        Promise.resolve(this.marketData.getRealtimePriceEvidence(lastVisitorMessage.content)),
+        this.retrieval.retrieveForCustomer(conversation.siteId, retrievalQuery),
+      ]);
+      const evidence = [...marketEvidence, ...knowledgeEvidence];
       const answerPrompt = await this.prisma.aiPrompt.findFirst({
         where: {
           aiConfigurationId: config.id,
@@ -158,7 +166,7 @@ export class AiOrchestratorService {
         organizationName: "PT Solid Gold Berjangka",
         systemPrompt: answerPrompt?.content ?? null,
       });
-      const aiRun = await this.recordAiRun(conversationId, "ANSWER", provider.name, AI_MODELS.answer, {
+      const aiRun = await this.recordAiRun(conversationId, "ANSWER", provider.name, config.model, {
         latencyMs: Date.now() - answerStart,
         confidence: answer.confidence,
         intent: answer.intent,
@@ -232,10 +240,10 @@ export class AiOrchestratorService {
       createdAt: m.createdAt.toISOString(),
     }));
 
-    const { provider } = await this.aiProviderFactory.getProviderForSite(conversation.siteId);
+    const { provider, config } = await this.aiProviderFactory.getProviderForSite(conversation.siteId);
     const start = Date.now();
     const summary = await provider.summarizeConversation({ history, language: conversation.language });
-    await this.recordAiRun(conversationId, "SUMMARY", provider.name, AI_MODELS.summary, { latencyMs: Date.now() - start });
+    await this.recordAiRun(conversationId, "SUMMARY", provider.name, config.model, { latencyMs: Date.now() - start });
 
     return this.prisma.conversationSummary.create({
       data: {
@@ -250,7 +258,7 @@ export class AiOrchestratorService {
     });
   }
 
-  async generateSuggestedReplyForAgent(conversationId: string, agentId: string) {
+  async generateSuggestedReplyForAgent(conversationId: string) {
     const conversation = await this.prisma.conversation.findUnique({ where: { id: conversationId } });
     if (!conversation) return null;
 
@@ -262,26 +270,28 @@ export class AiOrchestratorService {
     }));
     const lastVisitorMessage = [...messages].reverse().find((m) => m.senderType === SenderType.VISITOR || m.senderType === SenderType.CUSTOMER);
 
-    const evidence = lastVisitorMessage ? await this.retrieval.retrieveForAgent(conversation.siteId, lastVisitorMessage.content) : [];
-    const { provider } = await this.aiProviderFactory.getProviderForSite(conversation.siteId);
+    const { provider, config } = await this.aiProviderFactory.getProviderForSite(conversation.siteId);
+    const [evidence, answerPrompt, site] = await Promise.all([
+      lastVisitorMessage ? this.retrieval.retrieveForAgent(conversation.siteId, lastVisitorMessage.content) : Promise.resolve([]),
+      this.prisma.aiPrompt.findFirst({
+        where: { aiConfigurationId: config.id, purpose: "ANSWER", isActive: true },
+        orderBy: { version: "desc" },
+      }),
+      this.prisma.site.findUnique({ where: { id: conversation.siteId }, select: { aiName: true } }),
+    ]);
 
     const start = Date.now();
-    const result = await provider.generateSuggestedReply({ history, language: conversation.language, evidence });
-    const aiRun = await this.recordAiRun(conversationId, "SUGGESTED_REPLY", provider.name, AI_MODELS.suggestedReply, {
+    const result = await provider.generateSuggestedReply({
+      history,
+      language: conversation.language,
+      evidence,
+      aiName: site?.aiName ?? "Asisten Virtual",
+      organizationName: "PT Solid Gold Berjangka",
+      systemPrompt: answerPrompt?.content ?? null,
+    });
+    const aiRun = await this.recordAiRun(conversationId, "SUGGESTED_REPLY", provider.name, config.model, {
       latencyMs: Date.now() - start,
       confidence: result.confidence,
-    });
-
-    // Visible to agents only — the guard in ConversationsService.postMessage keeps AI_SUGGESTION off the widget socket.
-    await this.conversations.postMessage({
-      conversationId,
-      senderType: SenderType.AI,
-      senderId: agentId,
-      content: result.reply,
-      messageType: MessageType.AI_SUGGESTION,
-      isInternal: true,
-      aiRunId: aiRun.id,
-      metadata: { sources: result.sources, confidence: result.confidence },
     });
 
     return { aiRunId: aiRun.id, reply: result.reply, sources: result.sources, confidence: result.confidence };

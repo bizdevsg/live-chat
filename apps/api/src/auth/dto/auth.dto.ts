@@ -1,5 +1,10 @@
 import { IsBoolean, IsEmail, IsIn, IsOptional, IsString, Matches, MinLength } from "class-validator";
-import { NEW_MESSAGES_SOUND_IDS, ON_CONVERSATION_SOUND_IDS } from "../account-settings.constants";
+import {
+  CUSTOM_NEW_MESSAGES_SOUND_ID,
+  CUSTOM_ON_CONVERSATION_SOUND_ID,
+  NEW_MESSAGES_SOUND_IDS,
+  ON_CONVERSATION_SOUND_IDS,
+} from "../account-settings.constants";
 
 export class LoginDto {
   @IsEmail()
@@ -46,11 +51,17 @@ export class UpdateAccountSettingsDto {
 
   @IsOptional()
   @IsString()
-  @IsIn([...ON_CONVERSATION_SOUND_IDS])
+  @IsIn([...ON_CONVERSATION_SOUND_IDS, CUSTOM_ON_CONVERSATION_SOUND_ID])
   onConversationSound?: string;
 
   @IsOptional()
   @IsString()
-  @IsIn([...NEW_MESSAGES_SOUND_IDS])
+  @IsIn([...NEW_MESSAGES_SOUND_IDS, CUSTOM_NEW_MESSAGES_SOUND_ID])
   newMessagesSound?: string;
+}
+
+export class UploadNotificationSoundDto {
+  @IsString()
+  @IsIn(["onConversation", "newMessages"])
+  category!: "onConversation" | "newMessages";
 }

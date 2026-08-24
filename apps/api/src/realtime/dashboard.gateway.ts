@@ -111,10 +111,7 @@ export class DashboardGateway implements OnGatewayInit, OnGatewayConnection {
 
   @SubscribeMessage("agent:status")
   async onAgentStatus(@ConnectedSocket() client: DashboardSocket, @MessageBody() body: { availability: "ONLINE" | "BUSY" | "OFFLINE" }) {
-    const userId = client.data.user.sub;
-    await this.prisma.agentProfile.update({ where: { userId }, data: { availability: body.availability, lastStatusChangeAt: new Date() } });
-    await this.prisma.agentStatusHistory.create({ data: { userId, status: body.availability } });
-    this.realtime.toOrganizationDashboard(client.data.user.organizationId, "agent:status", { userId, availability: body.availability });
+    await this.agentService.setStatus(client.data.user.sub, client.data.user.organizationId, body.availability);
   }
 
   @SubscribeMessage("conversation:accept")

@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { ConversationStatus, Permission, type JwtAccessPayload } from "@solidchat/shared";
 import { PrismaService } from "../prisma/prisma.service";
 import { RealtimeEmitterService } from "../realtime/realtime-emitter.service";
+import { PresenceService } from "../common/presence/presence.service";
 import { ForbiddenApiException, NotFoundApiException } from "../common/errors/api.exception";
 import { ErrorCode } from "@solidchat/shared";
 
@@ -10,6 +11,7 @@ export class AgentService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly realtime: RealtimeEmitterService,
+    private readonly presence: PresenceService,
   ) {}
 
   private conversationListInclude(userId: string) {
@@ -98,6 +100,14 @@ export class AgentService {
     });
     await this.prisma.agentStatusHistory.create({ data: { userId, status: availability } });
     this.realtime.toOrganizationDashboard(organizationId, "agent:status", { userId, availability });
+    // Live chat is org-wide: any agent flipping status can change whether the widget offers
+    // live chat or falls back to the offline Ticket Form, so recompute and push it now.
+    await this.presence.broadcastPresence(organizationId);
+  }
+
+  async getStatus(userId: string) {
+    const profile = await this.prisma.agentProfile.findUnique({ where: { userId }, select: { availability: true } });
+    return { availability: profile?.availability ?? "OFFLINE" };
   }
 
   async getConversationDetail(user: JwtAccessPayload, conversationId: string) {

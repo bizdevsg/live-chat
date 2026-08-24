@@ -1,5 +1,5 @@
 import { Type } from "class-transformer";
-import { IsIn, IsInt, IsObject, IsOptional, IsString, Max, MaxLength, Min, ValidateNested } from "class-validator";
+import { IsEmail, IsIn, IsInt, IsObject, IsOptional, IsString, Max, MaxLength, Min, MinLength, ValidateNested } from "class-validator";
 import { MessageType } from "@solidchat/shared";
 
 class UtmDto {
@@ -82,4 +82,31 @@ export class UpdateContextDto {
   @IsOptional() @IsString() pageType?: string;
   @IsOptional() @IsString() campaign?: string;
   @IsOptional() @IsString() product?: string;
+}
+
+/** Submitted from the widget's Ticket Form fallback, shown instead of the pre-chat form while the org is OFFLINE. */
+export class CreateWidgetTicketDto {
+  @IsString()
+  @MaxLength(120)
+  name!: string;
+
+  @IsEmail()
+  email!: string;
+
+  @IsString()
+  @MaxLength(30)
+  phone!: string;
+
+  @IsString()
+  @MaxLength(200)
+  subject!: string;
+
+  @IsString()
+  @MinLength(5)
+  description!: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(60)
+  category?: string;
 }

@@ -5,9 +5,24 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient, ApiError } from "@/lib/api-client";
 import { useToast } from "@/components/ui/toast";
 import { Topbar } from "@/components/layout/topbar";
-import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DashboardPage, DashboardPageHeader, DashboardPageMetrics, DashboardTablePanel } from "@/components/layout/dashboard-page";
+
+type WidgetSettingsForm = {
+  widgetEnabled: boolean;
+  aiEnabled: boolean;
+  humanChatEnabled: boolean;
+  showAgentButton: boolean;
+  allowAttachments: boolean;
+  ratingFormEnabled: boolean;
+};
+
+type WidgetSettingsResponse = WidgetSettingsForm & {
+  id: string;
+  siteId: string;
+  updatedAt: string;
+};
 
 interface Site {
   id: string;
@@ -17,14 +32,18 @@ interface Site {
   greeting: string;
   widgetColor: string;
   domains: Array<{ id: string; domain: string }>;
-  settings: {
-    widgetEnabled: boolean;
-    aiEnabled: boolean;
-    humanChatEnabled: boolean;
-    showAgentButton: boolean;
-    allowAttachments: boolean;
-    ratingFormEnabled: boolean;
-  } | null;
+  settings: WidgetSettingsResponse | null;
+}
+
+function toWidgetSettingsForm(settings: WidgetSettingsResponse): WidgetSettingsForm {
+  return {
+    widgetEnabled: settings.widgetEnabled,
+    aiEnabled: settings.aiEnabled,
+    humanChatEnabled: settings.humanChatEnabled,
+    showAgentButton: settings.showAgentButton,
+    allowAttachments: settings.allowAttachments,
+    ratingFormEnabled: settings.ratingFormEnabled,
+  };
 }
 
 const WIDGET_ORIGIN = process.env.NEXT_PUBLIC_WIDGET_URL ?? "http://localhost:3001";
@@ -35,10 +54,10 @@ export default function WidgetSettingsPage() {
   const sitesQuery = useQuery({ queryKey: ["sites"], queryFn: () => apiClient.get<Site[]>("/api/v1/admin/sites") });
   const site = sitesQuery.data?.[0];
   const [newDomain, setNewDomain] = useState("");
-  const [settings, setSettings] = useState<Site["settings"] | null>(null);
+  const [settings, setSettings] = useState<WidgetSettingsForm | null>(null);
 
   useEffect(() => {
-    if (site?.settings) setSettings(site.settings);
+    if (site?.settings) setSettings(toWidgetSettingsForm(site.settings));
   }, [site]);
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ["sites"] });
@@ -73,22 +92,33 @@ export default function WidgetSettingsPage() {
   return (
     <>
       <Topbar title="Widget Settings" />
-      <main className="scrollbar-thin flex-1 overflow-y-auto p-6 space-y-4">
-        <Card>
-          <CardHeader>
-            <CardTitle>Script Pemasangan</CardTitle>
-          </CardHeader>
+      <DashboardPage>
+        <div className="space-y-6">
+          <DashboardPageHeader
+            title="Widget settings"
+            description="Area widget kini dibagi menjadi tiga surface utama: pemasangan script, domain governance, dan perilaku experience di sisi user."
+          />
+          <DashboardPageMetrics
+            items={[
+              { label: "Site", value: site.name, detail: `Konfigurasi aktif untuk ${site.siteKey}.` },
+              { label: "Domain", value: String(site.domains.length), detail: "Jumlah domain yang diizinkan memuat widget." },
+              { label: "Widget", value: settings.widgetEnabled ? "Aktif" : "Off", detail: "Status master untuk tampilan widget." },
+              { label: "Attachment", value: settings.allowAttachments ? "On" : "Off", detail: "Izin upload file dari percakapan pelanggan." },
+            ]}
+          />
+          <div className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+          <DashboardTablePanel title="Script pemasangan" detail="Gunakan snippet ini untuk menyematkan widget ke website tujuan.">
+          <div className="px-5 py-5 md:px-6 md:py-6">
           <p className="mb-2 text-xs text-zinc-500">Tempelkan snippet ini sebelum tag &lt;/body&gt; di website Solid Gold.</p>
-          <pre className="scrollbar-thin overflow-x-auto rounded-lg bg-ink-900 p-3 text-xs text-emerald-400">{embedScript}</pre>
-        </Card>
+          <pre className="scrollbar-thin overflow-x-auto rounded-2xl border border-ink-600 bg-ink-900 p-4 text-xs text-emerald-400">{embedScript}</pre>
+          </div>
+        </DashboardTablePanel>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Domain yang Diizinkan</CardTitle>
-          </CardHeader>
+        <DashboardTablePanel title="Domain governance" detail="Kelola origin yang berhak memuat widget agar distribusi tetap aman dan terkontrol.">
+          <div className="px-5 py-5 md:px-6 md:py-6">
           <ul className="mb-3 space-y-1">
             {site.domains.map((d) => (
-              <li key={d.id} className="flex items-center justify-between rounded-lg bg-ink-900 px-3 py-2 text-sm text-zinc-300">
+              <li key={d.id} className="flex items-center justify-between rounded-2xl border border-ink-600 bg-ink-900/70 px-3 py-3 text-sm text-zinc-300">
                 {d.domain}
                 <button className="text-xs text-red-400 hover:underline" onClick={() => removeDomain.mutate(d.id)}>
                   Hapus
@@ -98,16 +128,16 @@ export default function WidgetSettingsPage() {
           </ul>
           <div className="flex gap-2">
             <Input placeholder="sg-berjangka.com" value={newDomain} onChange={(e) => setNewDomain(e.target.value)} />
-            <Button variant="secondary" onClick={() => addDomain.mutate()} disabled={!newDomain}>
-              Tambah
-            </Button>
+              <Button variant="secondary" onClick={() => addDomain.mutate()} disabled={!newDomain}>
+                Tambah
+              </Button>
+            </div>
           </div>
-        </Card>
+        </DashboardTablePanel>
+          </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Perilaku Widget</CardTitle>
-          </CardHeader>
+        <DashboardTablePanel title="Perilaku widget" detail="Atur bagaimana widget AI dan human handoff berperilaku di sisi pengunjung website.">
+          <div className="px-5 py-5 md:px-6 md:py-6">
           <div className="space-y-2">
             {(
               [
@@ -119,7 +149,7 @@ export default function WidgetSettingsPage() {
                 ["ratingFormEnabled", "Tampilkan form rating"],
               ] as const
             ).map(([key, label]) => (
-              <label key={key} className="flex items-center gap-2 text-sm text-zinc-300">
+              <label key={key} className="flex items-center gap-3 rounded-2xl border border-ink-600 bg-ink-800/70 px-4 py-3 text-sm text-zinc-300">
                 <input
                   type="checkbox"
                   checked={settings[key]}
@@ -135,8 +165,10 @@ export default function WidgetSettingsPage() {
               Simpan
             </Button>
           </div>
-        </Card>
-      </main>
+          </div>
+        </DashboardTablePanel>
+        </div>
+      </DashboardPage>
     </>
   );
 }

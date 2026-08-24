@@ -1,9 +1,12 @@
 import { Prisma } from "@solidchat/database";
 import { PrismaService } from "../prisma/prisma.service";
 import {
+  CUSTOM_NEW_MESSAGES_SOUND_ID,
+  CUSTOM_ON_CONVERSATION_SOUND_ID,
   DEFAULT_USER_ACCOUNT_SETTINGS,
   NEW_MESSAGES_SOUND_IDS,
   ON_CONVERSATION_SOUND_IDS,
+  type CustomNotificationSound,
   type NewMessagesSoundId,
   type OnConversationSoundId,
   type UserAccountSettings,
@@ -14,6 +17,10 @@ interface UserAccountSettingsRow {
   playNewMessagesSound: boolean | number;
   onConversationSound: string;
   newMessagesSound: string;
+  customOnConversationSoundName: string | null;
+  customOnConversationSoundStorageKey: string | null;
+  customNewMessagesSoundName: string | null;
+  customNewMessagesSoundStorageKey: string | null;
 }
 
 interface UserAccountSettingsInput {
@@ -21,6 +28,8 @@ interface UserAccountSettingsInput {
   playNewMessagesSound?: boolean | null;
   onConversationSound?: string | null;
   newMessagesSound?: string | null;
+  customOnConversationSound?: CustomNotificationSound | null;
+  customNewMessagesSound?: CustomNotificationSound | null;
 }
 
 function isMissingAccountSettingsTableError(error: unknown) {
@@ -36,24 +45,43 @@ function normalizeBoolean(value: boolean | number | null | undefined) {
   return value === true || value === 1;
 }
 
-function normalizeOnConversationSound(value: string | null | undefined): OnConversationSoundId {
+function normalizeCustomSound(value: CustomNotificationSound | null | undefined): CustomNotificationSound | null {
+  if (!value?.name || !value.storageKey) return null;
+  return { id: value.id, name: value.name, storageKey: value.storageKey };
+}
+
+function normalizeOnConversationSound(
+  value: string | null | undefined,
+  customOnConversationSound: CustomNotificationSound | null | undefined,
+): OnConversationSoundId | typeof CUSTOM_ON_CONVERSATION_SOUND_ID {
   return ON_CONVERSATION_SOUND_IDS.includes(value as OnConversationSoundId)
     ? (value as OnConversationSoundId)
+    : value === CUSTOM_ON_CONVERSATION_SOUND_ID && customOnConversationSound
+      ? CUSTOM_ON_CONVERSATION_SOUND_ID
     : DEFAULT_USER_ACCOUNT_SETTINGS.onConversationSound;
 }
 
-function normalizeNewMessagesSound(value: string | null | undefined): NewMessagesSoundId {
+function normalizeNewMessagesSound(
+  value: string | null | undefined,
+  customNewMessagesSound: CustomNotificationSound | null | undefined,
+): NewMessagesSoundId | typeof CUSTOM_NEW_MESSAGES_SOUND_ID {
   return NEW_MESSAGES_SOUND_IDS.includes(value as NewMessagesSoundId)
     ? (value as NewMessagesSoundId)
+    : value === CUSTOM_NEW_MESSAGES_SOUND_ID && customNewMessagesSound
+      ? CUSTOM_NEW_MESSAGES_SOUND_ID
     : DEFAULT_USER_ACCOUNT_SETTINGS.newMessagesSound;
 }
 
 export function normalizeUserAccountSettings(input: UserAccountSettingsInput | null | undefined): UserAccountSettings {
+  const customOnConversationSound = normalizeCustomSound(input?.customOnConversationSound);
+  const customNewMessagesSound = normalizeCustomSound(input?.customNewMessagesSound);
   return {
     playOnConversationSound: input?.playOnConversationSound ?? DEFAULT_USER_ACCOUNT_SETTINGS.playOnConversationSound,
     playNewMessagesSound: input?.playNewMessagesSound ?? DEFAULT_USER_ACCOUNT_SETTINGS.playNewMessagesSound,
-    onConversationSound: normalizeOnConversationSound(input?.onConversationSound),
-    newMessagesSound: normalizeNewMessagesSound(input?.newMessagesSound),
+    onConversationSound: normalizeOnConversationSound(input?.onConversationSound, customOnConversationSound),
+    newMessagesSound: normalizeNewMessagesSound(input?.newMessagesSound, customNewMessagesSound),
+    customOnConversationSound,
+    customNewMessagesSound,
   };
 }
 
@@ -65,7 +93,11 @@ export async function loadUserAccountSettings(prisma: PrismaService, userId: str
         play_on_conversation_sound AS playOnConversationSound,
         play_new_messages_sound AS playNewMessagesSound,
         on_conversation_sound AS onConversationSound,
-        new_messages_sound AS newMessagesSound
+        new_messages_sound AS newMessagesSound,
+        custom_on_conversation_sound_name AS customOnConversationSoundName,
+        custom_on_conversation_sound_storage_key AS customOnConversationSoundStorageKey,
+        custom_new_messages_sound_name AS customNewMessagesSoundName,
+        custom_new_messages_sound_storage_key AS customNewMessagesSoundStorageKey
       FROM user_account_settings
       WHERE user_id = ${userId}
       LIMIT 1
@@ -83,6 +115,22 @@ export async function loadUserAccountSettings(prisma: PrismaService, userId: str
     playNewMessagesSound: normalizeBoolean(row.playNewMessagesSound),
     onConversationSound: row.onConversationSound,
     newMessagesSound: row.newMessagesSound,
+    customOnConversationSound:
+      row.customOnConversationSoundName && row.customOnConversationSoundStorageKey
+        ? {
+            id: CUSTOM_ON_CONVERSATION_SOUND_ID,
+            name: row.customOnConversationSoundName,
+            storageKey: row.customOnConversationSoundStorageKey,
+          }
+        : null,
+    customNewMessagesSound:
+      row.customNewMessagesSoundName && row.customNewMessagesSoundStorageKey
+        ? {
+            id: CUSTOM_NEW_MESSAGES_SOUND_ID,
+            name: row.customNewMessagesSoundName,
+            storageKey: row.customNewMessagesSoundStorageKey,
+          }
+        : null,
   });
 }
 
@@ -94,6 +142,10 @@ export async function upsertUserAccountSettings(prisma: PrismaService, userId: s
       play_new_messages_sound,
       on_conversation_sound,
       new_messages_sound,
+      custom_on_conversation_sound_name,
+      custom_on_conversation_sound_storage_key,
+      custom_new_messages_sound_name,
+      custom_new_messages_sound_storage_key,
       updated_at
     )
     VALUES (
@@ -102,6 +154,10 @@ export async function upsertUserAccountSettings(prisma: PrismaService, userId: s
       ${settings.playNewMessagesSound},
       ${settings.onConversationSound},
       ${settings.newMessagesSound},
+      ${settings.customOnConversationSound?.name ?? null},
+      ${settings.customOnConversationSound?.storageKey ?? null},
+      ${settings.customNewMessagesSound?.name ?? null},
+      ${settings.customNewMessagesSound?.storageKey ?? null},
       CURRENT_TIMESTAMP(3)
     )
     ON DUPLICATE KEY UPDATE
@@ -109,6 +165,10 @@ export async function upsertUserAccountSettings(prisma: PrismaService, userId: s
       play_new_messages_sound = VALUES(play_new_messages_sound),
       on_conversation_sound = VALUES(on_conversation_sound),
       new_messages_sound = VALUES(new_messages_sound),
+      custom_on_conversation_sound_name = VALUES(custom_on_conversation_sound_name),
+      custom_on_conversation_sound_storage_key = VALUES(custom_on_conversation_sound_storage_key),
+      custom_new_messages_sound_name = VALUES(custom_new_messages_sound_name),
+      custom_new_messages_sound_storage_key = VALUES(custom_new_messages_sound_storage_key),
       updated_at = CURRENT_TIMESTAMP(3)
   `);
 }

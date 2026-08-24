@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Put, Query, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Post, Put, Query, UseGuards } from "@nestjs/common";
 import { ApiTags } from "@nestjs/swagger";
 import { Permission, type JwtAccessPayload } from "@solidchat/shared";
 import { PermissionsGuard } from "../common/guards/permissions.guard";
@@ -29,6 +29,19 @@ export class RulesController {
     return { success: true, data: await this.prisma.routingRule.findMany({ where: { siteId: site.id }, orderBy: { priority: "desc" } }) };
   }
 
+  @Get("routing-teams")
+  @RequirePermissions(Permission.ROUTING_MANAGE)
+  async listRoutingTeams(@CurrentUser() user: JwtAccessPayload) {
+    return {
+      success: true,
+      data: await this.prisma.team.findMany({
+        where: { organizationId: user.organizationId, isActive: true },
+        select: { id: true, name: true },
+        orderBy: { name: "asc" },
+      }),
+    };
+  }
+
   @Post("routing-rules")
   @RequirePermissions(Permission.ROUTING_MANAGE)
   async createRouting(@Body() dto: CreateRoutingRuleDto, @CurrentUser() user: JwtAccessPayload, @Query("siteId") siteId?: string) {
@@ -54,6 +67,14 @@ export class RulesController {
     const rule = await this.prisma.routingRule.update({ where: { id }, data: dto as object });
     await this.auditLog.record({ actorType: "USER", actorId: user.sub, action: "routing_rule.updated", resourceType: "routing_rule", resourceId: id });
     return { success: true, data: rule };
+  }
+
+  @Delete("routing-rules/:id")
+  @RequirePermissions(Permission.ROUTING_MANAGE)
+  async deleteRouting(@Param("id") id: string, @CurrentUser() user: JwtAccessPayload) {
+    await this.prisma.routingRule.delete({ where: { id } });
+    await this.auditLog.record({ actorType: "USER", actorId: user.sub, action: "routing_rule.deleted", resourceType: "routing_rule", resourceId: id });
+    return { success: true, data: null };
   }
 
   @Get("handoff-rules")
@@ -82,6 +103,14 @@ export class RulesController {
     return { success: true, data: rule };
   }
 
+  @Delete("handoff-rules/:id")
+  @RequirePermissions(Permission.ROUTING_MANAGE)
+  async deleteHandoff(@Param("id") id: string, @CurrentUser() user: JwtAccessPayload) {
+    await this.prisma.handoffRule.delete({ where: { id } });
+    await this.auditLog.record({ actorType: "USER", actorId: user.sub, action: "handoff_rule.deleted", resourceType: "handoff_rule", resourceId: id });
+    return { success: true, data: null };
+  }
+
   @Get("templates")
   @RequirePermissions(Permission.TEMPLATE_MANAGE)
   async listTemplates(@CurrentUser() user: JwtAccessPayload) {
@@ -102,5 +131,12 @@ export class RulesController {
   async updateTemplate(@Param("id") id: string, @Body() dto: UpdateTemplateDto) {
     const template = await this.prisma.responseTemplate.update({ where: { id }, data: dto });
     return { success: true, data: template };
+  }
+
+  @Delete("templates/:id")
+  @RequirePermissions(Permission.TEMPLATE_MANAGE)
+  async deleteTemplate(@Param("id") id: string) {
+    await this.prisma.responseTemplate.delete({ where: { id } });
+    return { success: true, data: null };
   }
 }

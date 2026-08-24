@@ -284,12 +284,20 @@ export default function ConversationDetailPage() {
   const resolve = useActionMutation(`/api/v1/agent/conversations/${conversationId}/resolve`);
   const reopen = useActionMutation(`/api/v1/agent/conversations/${conversationId}/reopen`);
   const transfer = useActionMutation(`/api/v1/agent/conversations/${conversationId}/transfer`);
-  const suggestedReply = useActionMutation(`/api/v1/agent/conversations/${conversationId}/suggested-reply`);
+  const suggestedReply = useMutation({
+    mutationFn: () => apiClient.post<{ reply: string }>(`/api/v1/agent/conversations/${conversationId}/suggested-reply`),
+    onSuccess: ({ reply }) => {
+      setDraft(reply);
+      toast.push("Suggested reply sudah dimasukkan ke kolom balasan.", "success");
+    },
+    onError: (err) => toast.push(err instanceof ApiError ? err.message : "Gagal membuat suggested reply.", "error"),
+  });
   const refreshSummary = useActionMutation(`/api/v1/agent/conversations/${conversationId}/summary`);
   const createTicket = useMutation({
     mutationFn: (body: { subject: string; description: string; category: string }) =>
       apiClient.post("/api/v1/tickets", { ...body, conversationId }),
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tickets"] });
       toast.push("Ticket berhasil dibuat.", "success");
       setTicketOpen(false);
     },
@@ -405,8 +413,8 @@ export default function ConversationDetailPage() {
         <div className="border-t border-ink-600 p-4">
           {!canReply && <div className="mb-3 rounded-xl border border-amber-700/40 bg-amber-900/20 px-3 py-2 text-xs text-amber-200">{replyHint}</div>}
           <div className="mb-2 flex gap-2">
-            <Button size="sm" variant="ghost" onClick={() => suggestedReply.mutate(undefined)} disabled={suggestedReply.isPending}>
-              Suggested Reply
+            <Button size="sm" variant="ghost" onClick={() => suggestedReply.mutate()} disabled={!canReply || suggestedReply.isPending}>
+              {suggestedReply.isPending ? "Menyusun..." : "Suggested Reply"}
             </Button>
           </div>
           <div className="flex gap-2">

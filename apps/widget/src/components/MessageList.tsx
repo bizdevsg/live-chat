@@ -106,7 +106,7 @@ export function MessageList({
   }, [messages.length, agentTyping, agentTypingName, aiTyping, agentConnecting]);
 
   return (
-    <div className="scrollbar-thin flex-1 space-y-3 overflow-y-auto bg-ink px-4 py-4">
+    <div className="scrollbar-thin min-h-0 flex-1 space-y-3 overflow-y-auto bg-ink px-4 py-4">
       {messages.map((m) => (
         <Bubble key={m.id} message={m} config={config} />
       ))}

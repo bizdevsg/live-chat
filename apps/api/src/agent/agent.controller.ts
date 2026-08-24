@@ -106,7 +106,7 @@ export class AgentController {
   @Post("conversations/:id/suggested-reply")
   async suggestedReply(@Param("id") id: string, @CurrentUser() user: JwtAccessPayload) {
     await this.agentService.assertConversationAccess(user, id);
-    const data = await this.aiOrchestrator.generateSuggestedReplyForAgent(id, user.sub);
+    const data = await this.aiOrchestrator.generateSuggestedReplyForAgent(id);
     return { success: true, data };
   }
 
@@ -114,6 +114,12 @@ export class AgentController {
   async summary(@Param("id") id: string, @CurrentUser() user: JwtAccessPayload) {
     await this.agentService.assertConversationAccess(user, id);
     const data = await this.aiOrchestrator.summarize(id, "MANUAL");
+    return { success: true, data };
+  }
+
+  @Get("status")
+  async getStatus(@CurrentUser() user: JwtAccessPayload) {
+    const data = await this.agentService.getStatus(user.sub);
     return { success: true, data };
   }
 

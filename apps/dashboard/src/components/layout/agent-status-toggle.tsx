@@ -1,18 +1,32 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { apiClient } from "@/lib/api-client";
 import { getDashboardSocket } from "@/lib/socket";
 import { Select } from "@/components/ui/input";
 
+type Availability = "ONLINE" | "BUSY" | "OFFLINE";
+
 export function AgentStatusToggle() {
-  const [availability, setAvailability] = useState("ONLINE");
+  const statusQuery = useQuery({
+    queryKey: ["agent", "status"],
+    queryFn: () => apiClient.get<{ availability: Availability }>("/api/v1/agent/status"),
+    staleTime: Infinity,
+  });
+  const [availability, setAvailability] = useState<Availability>("OFFLINE");
+
+  useEffect(() => {
+    if (statusQuery.data) setAvailability(statusQuery.data.availability);
+  }, [statusQuery.data]);
 
   return (
     <Select
       value={availability}
       onChange={(e) => {
-        setAvailability(e.target.value);
-        getDashboardSocket().emit("agent:status", { availability: e.target.value });
+        const next = e.target.value as Availability;
+        setAvailability(next);
+        getDashboardSocket().emit("agent:status", { availability: next });
       }}
       className="!h-8 w-32 !py-1 text-xs"
     >

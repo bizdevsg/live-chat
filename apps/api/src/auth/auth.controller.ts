@@ -1,15 +1,27 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Post, Put, Req, Res } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Get, HttpCode, HttpStatus, Param, Post, Put, Req, Res, UploadedFile, UseInterceptors } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
+import { FileInterceptor } from "@nestjs/platform-express";
 import type { Request, Response } from "express";
 import { ApiTags } from "@nestjs/swagger";
 import { AuthService } from "./auth.service";
-import { ForgotPasswordDto, LoginDto, RefreshDto, ResetPasswordDto, UpdateAccountSettingsDto } from "./dto/auth.dto";
+import { ForgotPasswordDto, LoginDto, RefreshDto, ResetPasswordDto, UpdateAccountSettingsDto, UploadNotificationSoundDto } from "./dto/auth.dto";
 import { Public } from "../common/decorators/public.decorator";
 import { CurrentUser } from "../common/decorators/current-user.decorator";
 import type { JwtAccessPayload } from "@solidchat/shared";
 
 const REFRESH_COOKIE = "refresh_token";
 const ACCESS_COOKIE = "access_token";
+const MAX_NOTIFICATION_SOUND_BYTES = 5 * 1024 * 1024;
+const ALLOWED_NOTIFICATION_SOUND_MIME_TYPES = new Set([
+  "audio/mpeg",
+  "audio/mp3",
+  "audio/wav",
+  "audio/x-wav",
+  "audio/ogg",
+  "audio/mp4",
+  "audio/x-m4a",
+  "audio/aac",
+]);
 
 @ApiTags("auth")
 @Controller("api/v1/auth")
@@ -90,6 +102,33 @@ export class AuthController {
   @Put("account-settings")
   async updateAccountSettings(@CurrentUser() user: JwtAccessPayload, @Body() dto: UpdateAccountSettingsDto) {
     return { success: true, data: await this.authService.updateAccountSettings(user.sub, dto) };
+  }
+
+  @Post("account-settings/notification-sounds")
+  @UseInterceptors(FileInterceptor("file", { limits: { fileSize: MAX_NOTIFICATION_SOUND_BYTES } }))
+  async uploadNotificationSound(
+    @CurrentUser() user: JwtAccessPayload,
+    @Body() dto: UploadNotificationSoundDto,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    if (!file) throw new BadRequestException("File audio tidak ditemukan pada request.");
+    if (!ALLOWED_NOTIFICATION_SOUND_MIME_TYPES.has(file.mimetype)) {
+      throw new BadRequestException("Format audio tidak didukung. Gunakan MP3, WAV, OGG, M4A, atau AAC.");
+    }
+    return { success: true, data: await this.authService.uploadNotificationSound(user.sub, dto, file) };
+  }
+
+  @Get("account-settings/notification-sounds/:category")
+  async notificationSound(
+    @CurrentUser() user: JwtAccessPayload,
+    @Param("category") category: UploadNotificationSoundDto["category"],
+    @Res() res: Response,
+  ) {
+    if (category !== "onConversation" && category !== "newMessages") {
+      throw new BadRequestException("Kategori notifikasi tidak dikenal.");
+    }
+    const downloadUrl = await this.authService.getNotificationSoundDownloadUrl(user.sub, category);
+    return res.redirect(downloadUrl);
   }
 
   private setCookies(res: Response, accessToken: string, refreshToken: string) {

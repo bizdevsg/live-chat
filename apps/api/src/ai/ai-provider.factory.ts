@@ -1,16 +1,14 @@
 import { Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { OpenAiProvider } from "@solidchat/ai-core";
-import { AI_MAX_RETRIES, AI_MODELS, AI_TIMEOUT_MS } from "@solidchat/shared";
+import { AI_MAX_RETRIES, AI_MODELS, AI_TIMEOUT_MS, type AiChatModel } from "@solidchat/shared";
 import type { AiProvider } from "@solidchat/shared";
 import { PrismaService } from "../prisma/prisma.service";
 import type { AiConfiguration } from "@solidchat/database";
 
 /**
- * Resolves the active AiConfiguration for a site (falling back to the org-level config,
- * then a safe default) and builds the AI provider. Model names, confidence threshold, and
- * retry/timeout settings are fixed constants (see @solidchat/shared) — only `aiName`,
- * `greeting`, `systemPrompt`, and `isActive` are still per-site/DB-driven.
+ * Resolves the active AiConfiguration for a site (falling back to the org-level config)
+ * and builds an OpenAI provider with the configuration's selected chat model.
  *
  * Always builds a real OpenAiProvider — there is no mock/dummy fallback. Previously, a missing
  * or misread OPENAI_API_KEY silently degraded every conversation to a canned mock template with
@@ -49,7 +47,7 @@ export class AiProviderFactory {
     });
   }
 
-  buildProvider(): AiProvider {
+  buildProvider(model: AiChatModel): AiProvider {
     const apiKey = this.config.get<string>("OPENAI_API_KEY");
     if (!apiKey) {
       // Should not happen in practice — env.validation.ts requires OPENAI_API_KEY at startup —
@@ -58,10 +56,10 @@ export class AiProviderFactory {
     }
     return new OpenAiProvider({
       apiKey,
-      classifierModel: AI_MODELS.classifier,
-      answerModel: AI_MODELS.answer,
-      summaryModel: AI_MODELS.summary,
-      suggestedReplyModel: AI_MODELS.suggestedReply,
+      classifierModel: model,
+      answerModel: model,
+      summaryModel: model,
+      suggestedReplyModel: model,
       embeddingModel: AI_MODELS.embedding,
       timeoutMs: AI_TIMEOUT_MS,
       maxRetries: AI_MAX_RETRIES,
@@ -70,6 +68,6 @@ export class AiProviderFactory {
 
   async getProviderForSite(siteId: string): Promise<{ provider: AiProvider; config: AiConfiguration }> {
     const config = await this.getConfigForSite(siteId);
-    return { provider: this.buildProvider(), config };
+    return { provider: this.buildProvider(config.model as AiChatModel), config };
   }
 }

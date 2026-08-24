@@ -8,15 +8,18 @@ import { WidgetService } from "./widget.service";
 import { ConversationsService } from "../conversations/conversations.service";
 import { AiOrchestratorService } from "../ai/ai-orchestrator.service";
 import { LeadsService } from "../leads/leads.service";
+import { TicketsService } from "../tickets/tickets.service";
 import { VisitorAuthGuard, type VisitorRequest } from "./guards/visitor-auth.guard";
 import {
   CreateWidgetSessionDto,
+  CreateWidgetTicketDto,
   IdentifyDto,
   RequestAgentDto,
   SendWidgetMessageDto,
   WidgetFeedbackDto,
 } from "./dto/widget.dto";
 import { CreateLeadDto } from "../leads/dto/lead.dto";
+import { WidgetRateLimitService } from "./widget-rate-limit.service";
 
 @ApiTags("widget")
 @Public()
@@ -27,6 +30,8 @@ export class WidgetController {
     private readonly conversations: ConversationsService,
     private readonly aiOrchestrator: AiOrchestratorService,
     private readonly leadsService: LeadsService,
+    private readonly ticketsService: TicketsService,
+    private readonly widgetRateLimit: WidgetRateLimitService,
   ) {}
 
   @Get("config/:siteId")
@@ -46,6 +51,11 @@ export class WidgetController {
   @UseGuards(VisitorAuthGuard)
   @Post("conversations")
   async createConversation(@Req() req: VisitorRequest, @Body() dto: Partial<CreateWidgetSessionDto>) {
+    await this.widgetRateLimit.consume("conversation", req.visitor.siteId, req.visitor.visitorId, {
+      limit: 6,
+      windowMs: 60 * 60_000,
+      message: "Terlalu banyak percakapan baru. Coba lagi nanti.",
+    });
     const conversation = await this.widgetService.ensureConversation(req.visitor.siteId, req.visitor.visitorId, dto as CreateWidgetSessionDto);
     return { success: true, data: conversation };
   }
@@ -62,6 +72,11 @@ export class WidgetController {
   @Post("conversations/:id/messages")
   @Throttle({ default: { limit: 30, ttl: 60_000 } })
   async sendMessage(@Param("id") id: string, @Body() dto: SendWidgetMessageDto, @Req() req: VisitorRequest) {
+    await this.widgetRateLimit.consume("message", req.visitor.siteId, req.visitor.visitorId, {
+      limit: 12,
+      windowMs: 60_000,
+      message: "Terlalu banyak pesan. Tunggu sebentar sebelum mengirim lagi.",
+    });
     await this.widgetService.assertOwnership(id, req.visitor.visitorId);
     const result = await this.conversations.postMessage({
       conversationId: id,
@@ -79,6 +94,11 @@ export class WidgetController {
   @UseGuards(VisitorAuthGuard)
   @Post("conversations/:id/request-agent")
   async requestAgent(@Param("id") id: string, @Body() dto: RequestAgentDto, @Req() req: VisitorRequest) {
+    await this.widgetRateLimit.consume("request-agent", req.visitor.siteId, req.visitor.visitorId, {
+      limit: 3,
+      windowMs: 5 * 60_000,
+      message: "Permintaan agent terlalu sering. Coba lagi beberapa menit lagi.",
+    });
     await this.widgetService.assertOwnership(id, req.visitor.visitorId);
     const reason = (dto.reason as HandoffReason) || HandoffReason.CUSTOMER_REQUESTED_HUMAN;
     const data = await this.conversations.requestAgent(id, reason);
@@ -97,6 +117,11 @@ export class WidgetController {
   @UseGuards(VisitorAuthGuard)
   @Post("conversations/:id/feedback")
   async feedback(@Param("id") id: string, @Body() dto: WidgetFeedbackDto, @Req() req: VisitorRequest) {
+    await this.widgetRateLimit.consume("feedback", req.visitor.siteId, req.visitor.visitorId, {
+      limit: 2,
+      windowMs: 24 * 60 * 60_000,
+      message: "Feedback sudah dikirim. Terima kasih.",
+    });
     await this.widgetService.assertOwnership(id, req.visitor.visitorId);
     await this.conversations.submitFeedback(id, dto.score, dto.comment);
     return { success: true, data: null };
@@ -105,9 +130,34 @@ export class WidgetController {
   @UseGuards(VisitorAuthGuard)
   @Post("conversations/:id/lead")
   async submitLead(@Param("id") id: string, @Body() dto: CreateLeadDto, @Req() req: VisitorRequest) {
+    await this.widgetRateLimit.consume("lead", req.visitor.siteId, req.visitor.visitorId, {
+      limit: 3,
+      windowMs: 10 * 60_000,
+      message: "Data sudah terlalu sering dikirim. Coba lagi beberapa menit lagi.",
+    });
     await this.widgetService.assertOwnership(id, req.visitor.visitorId);
     const data = await this.leadsService.createFromWidget(req.visitor.siteId, id, dto);
     return { success: true, data: { id: data.id, syncStatus: data.syncStatus, conversationId: data.conversationId, resumedConversation: data.resumedConversation } };
+  }
+
+  @UseGuards(VisitorAuthGuard)
+  @Post("conversations/:id/ticket")
+  @Throttle({ default: { limit: 3, ttl: 60 * 60_000 } })
+  async submitTicket(@Param("id") id: string, @Body() dto: CreateWidgetTicketDto, @Req() req: VisitorRequest) {
+    await this.widgetRateLimit.consume("ticket", req.visitor.siteId, req.visitor.visitorId, {
+      limit: 3,
+      windowMs: 60 * 60_000,
+      message: "Maksimal tiga ticket dalam satu jam. Coba lagi nanti.",
+    });
+    const conversation = await this.widgetService.assertOwnership(id, req.visitor.visitorId);
+    const ticket = await this.ticketsService.createFromWidget(
+      conversation.organizationId,
+      conversation.siteId,
+      conversation.id,
+      { name: dto.name, email: dto.email, phone: dto.phone },
+      { subject: dto.subject, description: dto.description, category: dto.category },
+    );
+    return { success: true, data: { id: ticket.id, ticketNumber: ticket.ticketNumber } };
   }
 
   @UseGuards(VisitorAuthGuard)

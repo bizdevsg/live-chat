@@ -1,16 +1,21 @@
 "use client";
 
 import {
+  CUSTOM_NEW_MESSAGES_SOUND_ID,
+  CUSTOM_ON_CONVERSATION_SOUND_ID,
   DEFAULT_USER_ACCOUNT_SETTINGS,
   NOTIFICATION_SOUND_OPTIONS,
+  type NotificationSoundOption,
   type NotificationSoundCategory,
   type UserAccountSettings,
 } from "@/lib/account-settings";
+import { API_URL } from "@/lib/api-client";
 
 const audioCache = new Map<string, HTMLAudioElement>();
 let notificationAudioPrepared = false;
 let notificationAudioUnlocked = false;
 let pendingPlayback: { category: NotificationSoundCategory; soundId: string } | null = null;
+let latestNotificationSettings: UserAccountSettings | null = null;
 
 function getOrCreateCachedAudio(src: string) {
   let audio = audioCache.get(src);
@@ -23,8 +28,19 @@ function getOrCreateCachedAudio(src: string) {
   return audio;
 }
 
-function resolveSoundOption(category: NotificationSoundCategory, soundId: string) {
-  const options = NOTIFICATION_SOUND_OPTIONS[category];
+function buildCustomNotificationSoundOption(category: NotificationSoundCategory, settings: UserAccountSettings | null | undefined): NotificationSoundOption | null {
+  const customSound = category === "onConversation" ? settings?.customOnConversationSound : settings?.customNewMessagesSound;
+  if (!customSound) return null;
+
+  return {
+    id: category === "onConversation" ? CUSTOM_ON_CONVERSATION_SOUND_ID : CUSTOM_NEW_MESSAGES_SOUND_ID,
+    label: `Custom - ${customSound.name}`,
+    src: `${API_URL}/api/v1/auth/account-settings/notification-sounds/${category}?v=${encodeURIComponent(customSound.storageKey)}`,
+  };
+}
+
+function resolveSoundOption(category: NotificationSoundCategory, soundId: string, settings?: UserAccountSettings | null) {
+  const options = getNotificationSoundOptions(category, settings);
   const matchedOption = options.find((option) => option.id === soundId);
   if (matchedOption) return matchedOption;
 
@@ -36,19 +52,26 @@ function resolveSoundOption(category: NotificationSoundCategory, soundId: string
   return fallbackOption;
 }
 
-export function getNotificationSoundOptions(category: NotificationSoundCategory) {
-  return NOTIFICATION_SOUND_OPTIONS[category];
+export function getNotificationSoundOptions(category: NotificationSoundCategory, settings?: UserAccountSettings | null) {
+  const customOption = buildCustomNotificationSoundOption(category, settings);
+  return customOption ? [...NOTIFICATION_SOUND_OPTIONS[category], customOption] : NOTIFICATION_SOUND_OPTIONS[category];
 }
 
-export function prepareNotificationSounds() {
-  if (typeof window === "undefined" || notificationAudioPrepared) return () => undefined;
-  notificationAudioPrepared = true;
+export function prepareNotificationSounds(settings?: UserAccountSettings | null) {
+  if (typeof window === "undefined") return () => undefined;
+  latestNotificationSettings = settings ?? DEFAULT_USER_ACCOUNT_SETTINGS;
 
-  const allOptions = [...NOTIFICATION_SOUND_OPTIONS.onConversation, ...NOTIFICATION_SOUND_OPTIONS.newMessages];
+  const allOptions = [
+    ...getNotificationSoundOptions("onConversation", settings),
+    ...getNotificationSoundOptions("newMessages", settings),
+  ];
 
   for (const option of allOptions) {
     getOrCreateCachedAudio(option.src);
   }
+
+  if (notificationAudioPrepared) return () => undefined;
+  notificationAudioPrepared = true;
 
   const unlockAudio = () => {
     if (notificationAudioUnlocked) return;
@@ -68,7 +91,7 @@ export function prepareNotificationSounds() {
         if (pendingPlayback) {
           const queuedPlayback = pendingPlayback;
           pendingPlayback = null;
-          playNotificationSound(queuedPlayback.category, queuedPlayback.soundId);
+          playNotificationSound(queuedPlayback.category, queuedPlayback.soundId, latestNotificationSettings);
         }
       })
       .catch(() => {
@@ -84,7 +107,7 @@ export function prepareNotificationSounds() {
     if (!pendingPlayback) return;
     const queuedPlayback = pendingPlayback;
     pendingPlayback = null;
-    playNotificationSound(queuedPlayback.category, queuedPlayback.soundId);
+    playNotificationSound(queuedPlayback.category, queuedPlayback.soundId, latestNotificationSettings);
   };
 
   const handleInteraction = () => {
@@ -111,10 +134,10 @@ export function prepareNotificationSounds() {
   };
 }
 
-export function playNotificationSound(category: NotificationSoundCategory, soundId: string) {
+export function playNotificationSound(category: NotificationSoundCategory, soundId: string, settings?: UserAccountSettings | null) {
   if (typeof window === "undefined") return;
 
-  const option = resolveSoundOption(category, soundId);
+  const option = resolveSoundOption(category, soundId, settings);
   getOrCreateCachedAudio(option.src);
 
   const audio = new Audio(option.src);
@@ -139,10 +162,10 @@ export function playNotificationSoundForType(type: string | undefined, settings:
 
   if (category === "onConversation") {
     if (!resolvedSettings.playOnConversationSound) return;
-    playNotificationSound(category, resolvedSettings.onConversationSound);
+    playNotificationSound(category, resolvedSettings.onConversationSound, resolvedSettings);
     return;
   }
 
   if (!resolvedSettings.playNewMessagesSound) return;
-  playNotificationSound(category, resolvedSettings.newMessagesSound);
+  playNotificationSound(category, resolvedSettings.newMessagesSound, resolvedSettings);
 }

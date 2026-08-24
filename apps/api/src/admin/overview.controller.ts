@@ -1,16 +1,21 @@
-import { Controller, Get, Query, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Post, Put, Query, UseGuards } from "@nestjs/common";
 import { ApiTags } from "@nestjs/swagger";
 import { ConversationStatus, Permission, type JwtAccessPayload } from "@solidchat/shared";
 import { PermissionsGuard } from "../common/guards/permissions.guard";
 import { RequirePermissions } from "../common/decorators/permissions.decorator";
 import { CurrentUser } from "../common/decorators/current-user.decorator";
 import { PrismaService } from "../prisma/prisma.service";
+import { AuditLogService } from "../common/audit/audit-log.service";
+import { CreateIntegrationDto, UpdateIntegrationDto } from "./dto/admin.dto";
 
 @ApiTags("admin-overview")
 @UseGuards(PermissionsGuard)
 @Controller("api/v1/admin")
 export class OverviewController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auditLog: AuditLogService,
+  ) {}
 
   @Get("overview")
   @RequirePermissions(Permission.ANALYTICS_VIEW)
@@ -88,6 +93,50 @@ export class OverviewController {
       include: { logs: { orderBy: { createdAt: "desc" }, take: 5 } },
     });
     return { success: true, data };
+  }
+
+  @Post("integrations")
+  @RequirePermissions(Permission.INTEGRATION_MANAGE)
+  async createIntegration(@CurrentUser() user: JwtAccessPayload, @Body() dto: CreateIntegrationDto) {
+    const data = await this.prisma.integration.create({
+      data: {
+        organizationId: user.organizationId,
+        type: dto.type,
+        provider: dto.provider,
+        name: dto.name,
+        config: (dto.config ?? {}) as object,
+        isActive: dto.isActive ?? true,
+      },
+      include: { logs: { orderBy: { createdAt: "desc" }, take: 5 } },
+    });
+    await this.auditLog.record({ organizationId: user.organizationId, actorType: "USER", actorId: user.sub, action: "integration.created", resourceType: "integration", resourceId: data.id });
+    return { success: true, data };
+  }
+
+  @Put("integrations/:id")
+  @RequirePermissions(Permission.INTEGRATION_MANAGE)
+  async updateIntegration(@Param("id") id: string, @CurrentUser() user: JwtAccessPayload, @Body() dto: UpdateIntegrationDto) {
+    const data = await this.prisma.integration.update({
+      where: { id },
+      data: {
+        type: dto.type,
+        provider: dto.provider,
+        name: dto.name,
+        config: dto.config as object | undefined,
+        isActive: dto.isActive,
+      },
+      include: { logs: { orderBy: { createdAt: "desc" }, take: 5 } },
+    });
+    await this.auditLog.record({ organizationId: user.organizationId, actorType: "USER", actorId: user.sub, action: "integration.updated", resourceType: "integration", resourceId: id });
+    return { success: true, data };
+  }
+
+  @Delete("integrations/:id")
+  @RequirePermissions(Permission.INTEGRATION_MANAGE)
+  async deleteIntegration(@Param("id") id: string, @CurrentUser() user: JwtAccessPayload) {
+    await this.prisma.integration.delete({ where: { id } });
+    await this.auditLog.record({ organizationId: user.organizationId, actorType: "USER", actorId: user.sub, action: "integration.deleted", resourceType: "integration", resourceId: id });
+    return { success: true, data: null };
   }
 
   @Get("security-events")

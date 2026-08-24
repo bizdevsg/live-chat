@@ -7,11 +7,13 @@ import { VisitorAuthGuard } from "./guards/visitor-auth.guard";
 import { ConversationsModule } from "../conversations/conversations.module";
 import { AiModule } from "../ai/ai.module";
 import { LeadsModule } from "../leads/leads.module";
+import { TicketsModule } from "../tickets/tickets.module";
+import { WidgetRateLimitService } from "./widget-rate-limit.service";
 
 @Module({
-  imports: [JwtModule.register({}), ConversationsModule, AiModule, LeadsModule],
+  imports: [JwtModule.register({}), ConversationsModule, AiModule, LeadsModule, TicketsModule],
   controllers: [WidgetController],
-  providers: [WidgetService, VisitorTokenService, VisitorAuthGuard],
+  providers: [WidgetService, WidgetRateLimitService, VisitorTokenService, VisitorAuthGuard],
   exports: [WidgetService, VisitorTokenService],
 })
 export class WidgetModule {}

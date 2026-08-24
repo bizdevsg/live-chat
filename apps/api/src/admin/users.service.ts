@@ -70,6 +70,31 @@ export class UsersService {
     await this.auditLog.record({ actorType: "USER", actorId, action: "user.sessions_revoked", resourceType: "user", resourceId: id });
   }
 
+  async remove(id: string, organizationId: string, actorId: string) {
+    if (id === actorId) {
+      throw new ApiException(ErrorCode.VALIDATION_ERROR, "Anda tidak dapat menghapus akun Anda sendiri.", HttpStatus.BAD_REQUEST);
+    }
+
+    const target = await this.prisma.user.findFirst({ where: { id, organizationId } });
+    if (!target) throw new NotFoundApiException(ErrorCode.NOT_FOUND, "User tidak ditemukan.");
+
+    await this.prisma.$transaction([
+      this.prisma.user.updateMany({ where: { supervisorId: id }, data: { supervisorId: null } }),
+      this.prisma.invitation.deleteMany({ where: { invitedById: id } }),
+      this.prisma.user.delete({ where: { id } }),
+    ]);
+
+    await this.auditLog.record({
+      organizationId,
+      actorType: "USER",
+      actorId,
+      action: "user.deleted",
+      resourceType: "user",
+      resourceId: id,
+      beforeData: { email: target.email, name: target.name },
+    });
+  }
+
   async invite(organizationId: string, dto: InviteUserDto, invitedById: string) {
     const existing = await this.prisma.user.findFirst({ where: { organizationId, email: dto.email } });
     if (existing) throw new ApiException(ErrorCode.CONFLICT, "User dengan email ini sudah ada.", HttpStatus.CONFLICT);

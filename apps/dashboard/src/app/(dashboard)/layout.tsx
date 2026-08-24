@@ -28,7 +28,7 @@ export default function DashboardGroupLayout({ children }: { children: ReactNode
     if (isError) router.replace("/login");
   }, [isError, router]);
 
-  useEffect(() => prepareNotificationSounds(), []);
+  useEffect(() => prepareNotificationSounds(accountSettings), [accountSettings]);
 
   useEffect(() => {
     if (status !== "authenticated") {
@@ -120,9 +120,9 @@ export default function DashboardGroupLayout({ children }: { children: ReactNode
   if (status !== "authenticated") return null;
 
   return (
-    <div className="flex h-screen bg-ink-900">
+    <div className="flex h-screen min-w-0 overflow-hidden bg-[radial-gradient(circle_at_78%_0%,rgba(212,175,55,0.07),transparent_30rem),#101114]">
       <Sidebar />
-      <div className="flex flex-1 flex-col overflow-hidden">{children}</div>
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">{children}</div>
     </div>
   );
 }

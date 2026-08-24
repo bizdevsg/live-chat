@@ -1,11 +1,24 @@
 import { useEffect, useRef, useState } from "react";
 import { MessageSquarePlus, MoreHorizontal, PowerOff, X } from "lucide-react";
 import { sendToParent } from "../lib/postmessage";
-import type { SiteConfig } from "../hooks/use-widget-session";
+import type { SiteConfig, SitePresenceStatus } from "../hooks/use-widget-session";
+
+const PRESENCE_LABEL: Record<SitePresenceStatus, string> = {
+  ONLINE: "Online",
+  BUSY: "Sedang sibuk",
+  OFFLINE: "Offline",
+};
+
+const PRESENCE_DOT: Record<SitePresenceStatus, string> = {
+  ONLINE: "bg-emerald-400",
+  BUSY: "bg-amber-400",
+  OFFLINE: "bg-zinc-500",
+};
 
 export function Header({
   config,
   connected,
+  presenceStatus,
   canStartNew,
   canEndConversation,
   onStartNewConversation,
@@ -13,6 +26,7 @@ export function Header({
 }: {
   config: SiteConfig;
   connected: boolean;
+  presenceStatus?: SitePresenceStatus;
   canStartNew: boolean;
   canEndConversation: boolean;
   onStartNewConversation: () => void;
@@ -22,6 +36,8 @@ export function Header({
   const [confirmEnd, setConfirmEnd] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const headerName = config.name === "Solid Gold — Website Utama" ? "Customer Service SGB" : config.name;
+  const statusLabel = !connected ? "Menyambungkan..." : presenceStatus ? PRESENCE_LABEL[presenceStatus] : "Online";
+  const statusDot = !connected ? "bg-zinc-500" : presenceStatus ? PRESENCE_DOT[presenceStatus] : "bg-emerald-400";
 
   useEffect(() => {
     if (!menuOpen) {
@@ -47,8 +63,8 @@ export function Header({
         <div>
           <div className="text-sm font-semibold">{headerName}</div>
           <div className="flex items-center gap-1 text-[11px] text-zinc-400">
-            <span className={`h-1.5 w-1.5 rounded-full ${connected ? "bg-emerald-400" : "bg-zinc-500"}`} />
-            {connected ? "Online" : "Menyambungkan..."}
+            <span className={`h-1.5 w-1.5 rounded-full ${statusDot}`} />
+            {statusLabel}
           </div>
         </div>
       </div>

@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { api } from "../lib/api";
 import { widgetStorage } from "../lib/storage";
 
+export type SitePresenceStatus = "ONLINE" | "BUSY" | "OFFLINE";
+
 export interface SiteConfig {
   siteId: string;
   name: string;
@@ -10,6 +12,7 @@ export interface SiteConfig {
   widgetColor: string;
   offlineMessage: string;
   language: string;
+  presenceStatus: SitePresenceStatus;
   settings: {
     widgetEnabled: boolean;
     aiEnabled: boolean;

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Put, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Post, Put, UseGuards } from "@nestjs/common";
 import { ApiTags } from "@nestjs/swagger";
 import { Permission, type JwtAccessPayload } from "@solidchat/shared";
 import { PermissionsGuard } from "../common/guards/permissions.guard";
@@ -42,6 +42,12 @@ export class UsersController {
   @Post(":id/revoke-sessions")
   async revoke(@Param("id") id: string, @CurrentUser() user: JwtAccessPayload) {
     await this.usersService.revokeSessions(id, user.sub);
+    return { success: true, data: null };
+  }
+
+  @Delete(":id")
+  async remove(@Param("id") id: string, @CurrentUser() user: JwtAccessPayload) {
+    await this.usersService.remove(id, user.organizationId, user.sub);
     return { success: true, data: null };
   }
 }

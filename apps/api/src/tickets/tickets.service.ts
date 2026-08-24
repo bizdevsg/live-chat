@@ -3,6 +3,7 @@ import { TicketStatus } from "@solidchat/shared";
 import { PrismaService } from "../prisma/prisma.service";
 import { AuditLogService } from "../common/audit/audit-log.service";
 import { RealtimeEmitterService } from "../realtime/realtime-emitter.service";
+import { NotificationsService } from "../notifications/notifications.service";
 import { NotFoundApiException } from "../common/errors/api.exception";
 import { ErrorCode } from "@solidchat/shared";
 import type { CreateTicketDto, UpdateTicketDto } from "./dto/ticket.dto";
@@ -20,6 +21,7 @@ export class TicketsService {
     private readonly prisma: PrismaService,
     private readonly auditLog: AuditLogService,
     private readonly realtime: RealtimeEmitterService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   async list(organizationId: string, filters: { status?: string; siteId?: string; page?: number; pageSize?: number }) {
@@ -34,7 +36,23 @@ export class TicketsService {
   }
 
   async getOrThrow(id: string) {
-    const ticket = await this.prisma.ticket.findUnique({ where: { id }, include: { comments: true, events: true } });
+    const ticket = await this.prisma.ticket.findUnique({
+      where: { id },
+      include: {
+        comments: true,
+        events: true,
+        customer: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            phone: true,
+            accountStatus: true,
+            tags: { select: { tag: { select: { id: true, name: true } } } },
+          },
+        },
+      },
+    });
     if (!ticket) throw new NotFoundApiException(ErrorCode.NOT_FOUND, "Ticket tidak ditemukan.");
     return ticket;
   }
@@ -65,6 +83,70 @@ export class TicketsService {
     await this.prisma.ticketEvent.create({ data: { ticketId: ticket.id, type: "ticket.created", actorId: createdById } });
     await this.auditLog.record({ organizationId, actorType: "USER", actorId: createdById, action: "ticket.created", resourceType: "ticket", resourceId: ticket.id });
     if (dto.conversationId) this.realtime.toConversation(dto.conversationId, "ticket:created", { ticketId: ticket.id, ticketNumber });
+    return ticket;
+  }
+
+  /** Public entry point used by the widget's offline Ticket Form — no authenticated staff actor involved. */
+  async createFromWidget(
+    organizationId: string,
+    siteId: string,
+    conversationId: string | undefined,
+    contact: { name: string; email: string; phone: string },
+    fields: { subject: string; description: string; category?: string },
+  ) {
+    const normalizedEmail = contact.email.trim().toLowerCase();
+    const normalizedPhone = contact.phone.trim().replace(/[^\d+]/g, "");
+
+    const customer = await this.prisma.$transaction(async (tx) => {
+      const existing = await tx.customer.findFirst({
+        where: { siteId, OR: [{ email: normalizedEmail }, { phone: normalizedPhone }] },
+        orderBy: { updatedAt: "desc" },
+      });
+      return existing
+        ? tx.customer.update({ where: { id: existing.id }, data: { name: contact.name.trim(), email: normalizedEmail, phone: normalizedPhone } })
+        : tx.customer.create({ data: { siteId, name: contact.name.trim(), email: normalizedEmail, phone: normalizedPhone } });
+    });
+
+    if (conversationId) {
+      await this.prisma.conversation.update({ where: { id: conversationId }, data: { customerId: customer.id } }).catch(() => undefined);
+    }
+
+    let ticketNumber = generateTicketNumber();
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const exists = await this.prisma.ticket.findUnique({ where: { ticketNumber } });
+      if (!exists) break;
+      ticketNumber = generateTicketNumber();
+    }
+
+    const ticket = await this.prisma.ticket.create({
+      data: {
+        ticketNumber,
+        organizationId,
+        siteId,
+        customerId: customer.id,
+        conversationId,
+        category: fields.category?.trim() || "GENERAL",
+        subject: fields.subject,
+        description: fields.description,
+        priority: "NORMAL",
+      },
+    });
+    await this.prisma.ticketEvent.create({ data: { ticketId: ticket.id, type: "ticket.created", payload: { source: "WIDGET_OFFLINE" } } });
+    await this.auditLog.record({
+      organizationId,
+      actorType: "SYSTEM",
+      action: "ticket.created",
+      resourceType: "ticket",
+      resourceId: ticket.id,
+      afterData: { source: "WIDGET_OFFLINE", ticketNumber },
+    });
+    this.notifications.notifyOrganization(
+      organizationId,
+      "NEW_TICKET",
+      "Tiket baru dari widget",
+      `${contact.name.trim()} mengirim tiket saat tim sedang offline: ${fields.subject}`,
+      { ticketId: ticket.id, ticketNumber, siteId },
+    );
     return ticket;
   }
 

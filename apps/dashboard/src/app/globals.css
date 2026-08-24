@@ -72,3 +72,17 @@ body {
 .scrollbar-thin::-webkit-scrollbar-thumb {
   @apply bg-ink-600 rounded-full;
 }
+
+@layer components {
+  main table thead {
+    @apply bg-ink-700/45;
+  }
+
+  main table tbody tr {
+    @apply transition-colors;
+  }
+
+  main table tbody tr:hover {
+    @apply bg-ink-700/35;
+  }
+}

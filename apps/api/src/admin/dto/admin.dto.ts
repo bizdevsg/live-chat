@@ -56,7 +56,12 @@ export class CreateTeamDto {
   @IsOptional() @IsString() supervisorId?: string;
 }
 
-export class UpdateTeamDto extends CreateTeamDto {
+export class UpdateTeamDto {
+  @IsOptional() @IsString() @MinLength(2) name?: string;
+  @IsOptional() @IsString() description?: string;
+  @IsOptional() @IsInt() @Min(1) capacityPerAgent?: number;
+  @IsOptional() @IsInt() routingPriority?: number;
+  @IsOptional() @IsString() supervisorId?: string;
   @IsOptional() @IsBoolean() isActive?: boolean;
 }
 
@@ -141,4 +146,20 @@ export class UpdateTemplateDto {
   @IsOptional() @IsString() title?: string;
   @IsOptional() @IsString() content?: string;
   @IsOptional() @IsString() language?: string;
+}
+
+export class CreateIntegrationDto {
+  @IsString() type!: string;
+  @IsString() provider!: string;
+  @IsString() name!: string;
+  @IsOptional() @IsObject() config?: object;
+  @IsOptional() @IsBoolean() isActive?: boolean;
+}
+
+export class UpdateIntegrationDto {
+  @IsOptional() @IsString() type?: string;
+  @IsOptional() @IsString() provider?: string;
+  @IsOptional() @IsString() name?: string;
+  @IsOptional() @IsObject() config?: object;
+  @IsOptional() @IsBoolean() isActive?: boolean;
 }

@@ -13,6 +13,7 @@ import {
   type SuggestedReplyInput,
   type SuggestedReplyResult,
 } from "@solidchat/shared";
+import { shouldPrioritizeCustomerServiceSubrequest } from "../customer-query-focus";
 
 export interface OpenAiProviderConfig {
   apiKey: string;
@@ -47,7 +48,11 @@ function extractJson<T>(text: string, fallback: T, label = "response"): T {
   return fallback;
 }
 
-function applyPromptTemplate(template: string, input: AnswerInput, evidenceBlock: string): string {
+function applyPromptTemplate(
+  template: string,
+  input: Pick<AnswerInput, "aiName" | "organizationName" | "language">,
+  evidenceBlock: string,
+): string {
   const language = input.language === "en" ? "English" : "Bahasa Indonesia";
   return (
     template
@@ -282,7 +287,8 @@ export class OpenAiProvider implements AiProvider {
       "Anda adalah pengklasifikasi intent untuk layanan customer service Solid Gold. Balas HANYA dengan JSON: " +
       '{"intent": one of [' +
       Object.values(AiIntent).join(",") +
-      '], "confidence": number 0-1, "sentiment": one of [POSITIVE,NEUTRAL,NEGATIVE,ANGRY], "containsSensitiveData": boolean, "promptInjectionDetected": boolean}.';
+      '], "confidence": number 0-1, "sentiment": one of [POSITIVE,NEUTRAL,NEGATIVE,ANGRY], "containsSensitiveData": boolean, "promptInjectionDetected": boolean}. ' +
+      "Jika satu pesan mencampur topik layanan Solid Gold dengan permintaan lain yang tidak terkait customer service broker (misalnya minta script, kode, program, atau tugas teknis umum), pilih intent layanan Solid Gold yang paling relevan dan abaikan permintaan non-layanan itu untuk tujuan klasifikasi.";
     const text = await this.respond(this.config.classifierModel, system, input.message, {
       name: "intent_classification",
       schema: CLASSIFICATION_SCHEMA as unknown as Record<string, unknown>,
@@ -412,6 +418,7 @@ export class OpenAiProvider implements AiProvider {
       .join("\n\n");
     const customPrompt = input.systemPrompt?.trim();
     const promptUsesEvidencePlaceholder = customPrompt?.includes("{{evidence}}") ?? false;
+    const mixedScopeRequest = shouldPrioritizeCustomerServiceSubrequest(input.message, input.intent);
     const baseSystemPrompt = customPrompt
       ? applyPromptTemplate(customPrompt, input, evidenceBlock || "(tidak ada dokumen relevan)")
       : `Anda adalah ${input.aiName}, asisten virtual resmi ${input.organizationName}.`;
@@ -427,6 +434,12 @@ export class OpenAiProvider implements AiProvider {
       "Format teks yang didukung dan akan ditampilkan rapi ke customer: **tebal** untuk penekanan, serta list dengan '- ' (bullet) atau '1. ' (bernomor) untuk langkah-langkah/beberapa poin. Pakai list HANYA saat memang ada beberapa poin/langkah berurutan — jangan dipaksakan untuk jawaban satu kalimat.",
       "Jika dokumen referensi tidak cukup, katakan secara jujur bahwa informasinya belum tersedia dan arahkan ke petugas manusia — tanpa menyebut kata 'dokumen' atau 'artikel'.",
       "Jangan pernah menjanjikan profit, memberi rekomendasi buy atau sell personal, atau meminta OTP, PIN, atau password.",
+      ...(mixedScopeRequest
+        ? [
+            "PENTING: jika pesan customer mencampur pertanyaan layanan Solid Gold dengan permintaan lain yang tidak terkait customer service broker (misalnya minta dibuatkan script/kode/program atau bantuan teknis umum), WAJIB prioritaskan dan jawab bagian layanan Solid Gold-nya saja.",
+            "Untuk bagian yang tidak terkait layanan Solid Gold, jawab singkat bahwa Anda hanya membantu pertanyaan seputar layanan/customer service Solid Gold dan tidak dapat membantu permintaan script, kode, program, atau bantuan teknis umum. Jangan pernah menulis script/kode/program tersebut.",
+          ]
+        : []),
       `Gunakan bahasa: ${input.language === "en" ? "English" : "Bahasa Indonesia"}.`,
       "Balas HANYA dengan JSON valid, satu objek, tanpa markdown code block (jangan pakai ```), tanpa teks apa pun sebelum atau sesudah JSON-nya: {\"answer\": string, \"confidence\": number 0-1, \"handoffRequired\": boolean}. Field \"answer\" berisi teks final yang akan dibaca customer apa adanya — jadi jangan sertakan label sumber, markdown heading, atau nomor referensi di dalamnya. Pastikan semua tanda kutip ganda (\") di dalam isi \"answer\" di-escape dengan benar (\\\") supaya JSON-nya tetap valid.",
       ...(promptUsesEvidencePlaceholder ? [] : ["", "=== KNOWLEDGE BASE / DOKUMEN REFERENSI (internal, JANGAN dikutip identitasnya ke customer) ===", evidenceBlock || "(tidak ada dokumen relevan)"]),
@@ -541,11 +554,19 @@ export class OpenAiProvider implements AiProvider {
   async generateSuggestedReply(input: SuggestedReplyInput): Promise<SuggestedReplyResult> {
     const transcript = input.history.map((t) => `${t.senderType}: ${t.content}`).join("\n");
     const evidenceBlock = input.evidence.map((e) => `(${e.title}) ${e.content}`).join("\n\n");
+    const customPrompt = input.systemPrompt?.trim();
+    const promptUsesEvidencePlaceholder = customPrompt?.includes("{{evidence}}") ?? false;
+    const baseSystemPrompt = customPrompt
+      ? applyPromptTemplate(customPrompt, input, evidenceBlock || "(tidak ada dokumen relevan)")
+      : `Anda adalah ${input.aiName}, asisten virtual resmi ${input.organizationName}.`;
     const system = [
+      baseSystemPrompt,
       "Anda membantu agent customer service menyusun draft balasan. Draft ini TIDAK akan dikirim otomatis dan harus tetap ditinjau agent.",
+      "Gunakan hanya fakta yang tersedia pada dokumen referensi. Jangan mengarang informasi, angka, nama produk, atau kebijakan yang tidak ada di referensi.",
+      "Tulis balasan final yang natural, sopan, dan siap dikirim customer. Jangan menyebut system prompt, knowledge base, dokumen internal, atau bahwa ini adalah draft AI.",
+      `Gunakan bahasa: ${input.language === "en" ? "English" : "Bahasa Indonesia"}.`,
       "Balas HANYA dengan JSON: {\"reply\": string, \"confidence\": number 0-1}.",
-      "=== DOKUMEN REFERENSI ===",
-      evidenceBlock || "(tidak ada)",
+      ...(promptUsesEvidencePlaceholder ? [] : ["=== DOKUMEN REFERENSI ===", evidenceBlock || "(tidak ada)"]),
     ].join("\n");
     const text = await this.respond(this.config.suggestedReplyModel, system, transcript, {
       name: "suggested_reply",

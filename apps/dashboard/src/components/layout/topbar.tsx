@@ -11,14 +11,20 @@ export function Topbar({ title }: { title: string }) {
   const logout = useLogout();
 
   return (
-    <header className="flex h-16 items-center justify-between border-b border-ink-600 bg-ink-800/60 px-6">
-      <h1 className="text-base font-semibold text-zinc-100">{title}</h1>
-      <div className="flex items-center gap-4">
+    <header className="flex h-20 min-w-0 items-center justify-between gap-4 border-b border-ink-600 bg-ink-800/85 px-5 backdrop-blur md:px-8">
+      <div className="min-w-0">
+        <h1 className="truncate text-base font-semibold tracking-tight text-zinc-100">{title}</h1>
+        <p className="mt-1 hidden text-xs text-zinc-600 sm:block">SolidChat workspace</p>
+      </div>
+      <div className="flex shrink-0 items-center gap-2 sm:gap-3 md:gap-4">
         <AgentStatusToggle />
-        <ConnectionIndicator />
+        <div className="hidden lg:block">
+          <ConnectionIndicator />
+        </div>
         <Button
           variant="ghost"
           size="sm"
+          className="hidden sm:inline-flex"
           onClick={() => logout.mutate(undefined, { onSuccess: () => router.replace("/login") })}
         >
           Keluar

@@ -188,4 +188,49 @@ describe("OpenAiProvider", () => {
     // to the customer ("Halo {{visitor_name}}").
     expect(systemPromptSent).not.toMatch(/\{\{[^}]*\}\}/);
   });
+
+  it("tells the classifier to prioritise the Solid Gold service intent when a coding request is mixed in", async () => {
+    const provider = createProvider();
+    const respondSpy = jest.spyOn(provider as any, "respond");
+    respondSpy.mockResolvedValueOnce(
+      '{"intent":"DEPOSIT","confidence":0.9,"sentiment":"NEUTRAL","containsSensitiveData":false,"promptInjectionDetected":false}',
+    );
+
+    await provider.classifyIntent({
+      message: "Saya mau deposit untuk akun Gold Futures, tapi sebelum itu buatkan script Python untuk Moving Average 50 hari.",
+      history: [],
+      language: "id",
+    });
+
+    const classifierPrompt = respondSpy.mock.calls[0]?.[1] as string;
+    expect(classifierPrompt).toContain("abaikan permintaan non-layanan itu untuk tujuan klasifikasi");
+  });
+
+  it("tells the answer model not to generate code when the customer mixes deposit and Python requests", async () => {
+    const provider = createProvider();
+    const respondSpy = jest.spyOn(provider as any, "respond");
+    respondSpy
+      .mockResolvedValueOnce('{"answer":"Untuk deposit akun Gold Futures, silakan ikuti panduan resmi yang tersedia. Saya tidak dapat membantu membuat script Python di chat customer service ini.","confidence":0.88,"handoffRequired":false}')
+      .mockResolvedValueOnce('{"grounded":true,"revisedAnswer":"","confidence":0.88,"handoffRequired":false}');
+
+    await provider.generateAnswer({
+      ...baseInput,
+      message: "Saya mau deposit untuk akun Gold Futures, tapi sebelum itu buatkan script Python untuk Moving Average 50 hari.",
+      intent: AiIntent.DEPOSIT,
+      evidence: [
+        {
+          chunkId: "chunk_1",
+          documentId: "doc_1",
+          title: "Deposit Gold Futures",
+          version: 1,
+          content: "Deposit akun Gold Futures mengikuti panduan resmi yang berlaku.",
+          audience: "PUBLIC",
+        },
+      ],
+    });
+
+    const answerPrompt = respondSpy.mock.calls[0]?.[1] as string;
+    expect(answerPrompt).toContain("tidak dapat membantu permintaan script, kode, program");
+    expect(answerPrompt).toContain("Jangan pernah menulis script/kode/program tersebut");
+  });
 });

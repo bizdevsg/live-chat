@@ -3,9 +3,15 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
+import { useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { apiClient } from "@/lib/api-client";
 import { useAuthStore } from "@/lib/auth-store";
 import { isSuperAdminRole } from "@/lib/is-super-admin";
+import { Permission } from "@/lib/permissions";
+import type { ConversationSummary } from "@/lib/types";
 import { NAV_SECTIONS, type NavIcon } from "./nav-items";
+import { getDashboardSocket } from "@/lib/socket";
 import { cn } from "@/components/ui/cn";
 
 function SidebarIcon({ icon, active }: { icon: NavIcon; active: boolean }) {
@@ -155,11 +161,80 @@ function SidebarIcon({ icon, active }: { icon: NavIcon; active: boolean }) {
   );
 }
 
+function formatSidebarBadge(count: number) {
+  return count > 99 ? "99+" : String(count);
+}
+
+function isOngoingConversation(status: string) {
+  return !["RESOLVED", "CLOSED", "SPAM", "BLOCKED"].includes(status);
+}
+
 export function Sidebar() {
   const pathname = usePathname();
+  const queryClient = useQueryClient();
   const hasPermission = useAuthStore((s) => s.hasPermission);
   const user = useAuthStore((s) => s.user);
   const isSuperadmin = isSuperAdminRole(user?.roles);
+  const canHandleInbox = hasPermission(Permission.CONVERSATION_HANDLE);
+  const canManageTickets = hasPermission(Permission.TICKET_MANAGE);
+
+  const inboxBadgeQuery = useQuery({
+    queryKey: ["agent", "queue"],
+    queryFn: () => apiClient.get<ConversationSummary[]>("/api/v1/agent/queue"),
+    enabled: canHandleInbox,
+    refetchInterval: 15000,
+  });
+
+  const ongoingInboxQuery = useQuery({
+    queryKey: ["agent", "conversations", "mine"],
+    queryFn: () => apiClient.get<ConversationSummary[]>("/api/v1/agent/conversations"),
+    enabled: canHandleInbox,
+    refetchInterval: 15000,
+  });
+
+  const ticketsBadgeQuery = useQuery({
+    queryKey: ["tickets", "sidebar", "badge"],
+    queryFn: async () => {
+      const [open, inProgress] = await Promise.all([
+        apiClient.get<{ total: number }>("/api/v1/tickets?status=OPEN"),
+        apiClient.get<{ total: number }>("/api/v1/tickets?status=IN_PROGRESS"),
+      ]);
+      return open.total + inProgress.total;
+    },
+    enabled: canManageTickets,
+    refetchInterval: 15000,
+  });
+
+  useEffect(() => {
+    const socket = getDashboardSocket();
+    const invalidateInbox = () => {
+      queryClient.invalidateQueries({ queryKey: ["agent", "queue"] });
+      queryClient.invalidateQueries({ queryKey: ["agent", "conversations", "mine"] });
+    };
+    const invalidateTickets = () => queryClient.invalidateQueries({ queryKey: ["tickets"] });
+
+    socket.on("queue:updated", invalidateInbox);
+    socket.on("conversation:updated", invalidateInbox);
+    socket.on("conversation:assigned", invalidateInbox);
+    socket.on("notification:new", invalidateInbox);
+    socket.on("notification:new", invalidateTickets);
+
+    return () => {
+      socket.off("queue:updated", invalidateInbox);
+      socket.off("conversation:updated", invalidateInbox);
+      socket.off("conversation:assigned", invalidateInbox);
+      socket.off("notification:new", invalidateInbox);
+      socket.off("notification:new", invalidateTickets);
+    };
+  }, [queryClient]);
+
+  const inboxBadgeCount =
+    (inboxBadgeQuery.data?.length ?? 0) + (ongoingInboxQuery.data?.filter((conversation) => isOngoingConversation(conversation.status)).length ?? 0);
+
+  const badgeByHref: Partial<Record<string, number>> = {
+    "/inbox": inboxBadgeCount,
+    "/tickets": ticketsBadgeQuery.data ?? 0,
+  };
 
   const sections = NAV_SECTIONS.filter((section) => section.id !== "system" || isSuperadmin)
     .map((section) => ({
@@ -198,7 +273,17 @@ export function Sidebar() {
                     )}
                   >
                     <SidebarIcon icon={item.icon} active={active} />
-                    <span className="truncate">{item.label}</span>
+                    <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                    {(badgeByHref[item.href] ?? 0) > 0 && (
+                      <span
+                        className={cn(
+                          "inline-flex min-w-6 shrink-0 items-center justify-center rounded-full px-2 py-0.5 text-[11px] font-semibold leading-none",
+                          active ? "bg-gold-500 text-ink-900" : "bg-rose-500 text-white",
+                        )}
+                      >
+                        {formatSidebarBadge(badgeByHref[item.href] ?? 0)}
+                      </span>
+                    )}
                   </Link>
                 );
               })}

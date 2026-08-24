@@ -8,7 +8,34 @@ import { MessageList } from "./components/MessageList";
 import { Composer } from "./components/Composer";
 import { RatingForm } from "./components/RatingForm";
 import { PreChatForm, type PreChatValues } from "./components/PreChatForm";
+import { TicketForm, type TicketValues } from "./components/TicketForm";
 import { widgetStorage } from "./lib/storage";
+
+function BusyNotice() {
+  return (
+    <div className="mx-4 mt-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs leading-relaxed text-amber-300">
+      Saat ini lalu lintas chat kami sedang cukup padat. Silakan tunggu sebentar, pesan Anda berada dalam antrean prioritas kami.
+    </div>
+  );
+}
+
+function TicketSubmissionNotice({ ticketNumber, onSendAnother }: { ticketNumber: string; onSendAnother: () => void }) {
+  return (
+    <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 bg-ink px-6 text-center">
+      <p className="text-sm font-semibold text-white">Tiket Anda sudah tercatat</p>
+      <p className="rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs font-medium tracking-wide text-zinc-300">{ticketNumber}</p>
+      <p className="max-w-[85%] text-xs leading-relaxed text-zinc-500">
+        Tim kami akan menghubungi Anda melalui email atau telepon secepatnya.
+      </p>
+      <button
+        onClick={onSendAnother}
+        className="rounded-xl border border-gold bg-gold px-4 py-2 text-sm font-semibold text-ink shadow-lg"
+      >
+        Kirim tiket lagi
+      </button>
+    </div>
+  );
+}
 
 export default function App() {
   const { config, visitorToken, loading, error } = useWidgetSession();
@@ -16,6 +43,7 @@ export default function App() {
     conversation,
     messages,
     connected,
+    presenceStatus,
     agentTyping,
     agentTypingName,
     aiTyping,
@@ -28,8 +56,12 @@ export default function App() {
     submitFeedback,
     notifyTyping,
     loadConversation,
-  } = useConversation(visitorToken, config?.siteId ?? null);
+  } = useConversation(visitorToken, config?.siteId ?? null, config?.presenceStatus);
   const [leadConversationId, setLeadConversationId] = useState(() => widgetStorage.getLeadConversationId());
+  const [ticketInfo, setTicketInfo] = useState(() => widgetStorage.getTicketInfo());
+
+  const isOffline = presenceStatus === "OFFLINE";
+  const isBusy = presenceStatus === "BUSY";
 
   async function handlePreChatSubmit(values: PreChatValues) {
     if (!conversation || !visitorToken) {
@@ -47,6 +79,27 @@ export default function App() {
     if (targetConversationId !== conversation.id) {
       await loadConversation(targetConversationId);
     }
+  }
+
+  async function handleTicketSubmit(values: TicketValues): Promise<string> {
+    if (!conversation || !visitorToken) {
+      throw new Error("Percakapan belum siap. Coba lagi sebentar.");
+    }
+
+    const response = await api.post<{ id: string; ticketNumber: string }>(
+      `/api/v1/widget/conversations/${conversation.id}/ticket`,
+      values,
+      visitorToken,
+    );
+    const info = { conversationId: conversation.id, ticketNumber: response.ticketNumber };
+    widgetStorage.setTicketInfo(info);
+    setTicketInfo(info);
+    return response.ticketNumber;
+  }
+
+  function handleSendAnotherTicket() {
+    widgetStorage.clearTicketInfo();
+    setTicketInfo(null);
   }
 
   const [panelOpen, setPanelOpen] = useState(true);
@@ -77,10 +130,6 @@ export default function App() {
   useEffect(() => {
     sendToParent({ type: "solidchat:unread", count: unreadCount });
   }, [unreadCount]);
-
-  useEffect(() => {
-    sendToParent({ type: "solidchat:resize", height: 560 });
-  }, []);
 
   const [showRating, setShowRating] = useState(false);
   useEffect(() => {
@@ -114,27 +163,86 @@ export default function App() {
     return <div className="flex h-screen items-center justify-center bg-ink text-sm text-zinc-500">Menyiapkan percakapan...</div>;
   }
 
-  if (!leadSubmittedForConversation) {
+  const ticketSubmittedForConversation = !!conversation && ticketInfo?.conversationId === conversation.id;
+
+  if (isOffline && !leadSubmittedForConversation) {
     return (
-      <div className="flex h-screen flex-col overflow-hidden rounded-2xl border border-zinc-800 shadow-2xl">
+      <div className="flex h-screen min-h-0 flex-col overflow-hidden rounded-2xl border border-zinc-800 shadow-2xl">
         <Header
           config={config}
           connected={connected}
+          presenceStatus={presenceStatus}
           canStartNew={false}
           canEndConversation={false}
           onStartNewConversation={() => undefined}
           onEndConversation={() => undefined}
         />
+        {ticketSubmittedForConversation && ticketInfo ? (
+          <TicketSubmissionNotice ticketNumber={ticketInfo.ticketNumber} onSendAnother={handleSendAnotherTicket} />
+        ) : (
+          <TicketForm
+            widgetColor={config.widgetColor}
+            offlineMessage={config.offlineMessage}
+            onSubmit={handleTicketSubmit}
+            onSendAnother={handleSendAnotherTicket}
+          />
+        )}
+      </div>
+    );
+  }
+
+  if (!leadSubmittedForConversation) {
+    return (
+      <div className="flex h-screen min-h-0 flex-col overflow-hidden rounded-2xl border border-zinc-800 shadow-2xl">
+        <Header
+          config={config}
+          connected={connected}
+          presenceStatus={presenceStatus}
+          canStartNew={false}
+          canEndConversation={false}
+          onStartNewConversation={() => undefined}
+          onEndConversation={() => undefined}
+        />
+        {isBusy ? <BusyNotice /> : null}
         <PreChatForm widgetColor={config.widgetColor} onSubmit={handlePreChatSubmit} />
       </div>
     );
   }
 
+  if (isOffline && !conversationEnded) {
+    return (
+      <div className="flex h-screen min-h-0 flex-col overflow-hidden rounded-2xl border border-zinc-800 shadow-2xl">
+        <Header
+          config={config}
+          connected={connected}
+          presenceStatus={presenceStatus}
+          canStartNew={false}
+          canEndConversation={false}
+          onStartNewConversation={() => undefined}
+          onEndConversation={() => undefined}
+        />
+        {ticketSubmittedForConversation && ticketInfo ? (
+          <TicketSubmissionNotice ticketNumber={ticketInfo.ticketNumber} onSendAnother={handleSendAnotherTicket} />
+        ) : (
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            <TicketForm
+              widgetColor={config.widgetColor}
+              offlineMessage={config.offlineMessage}
+              onSubmit={handleTicketSubmit}
+              onSendAnother={handleSendAnotherTicket}
+            />
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
-    <div className="flex h-screen flex-col overflow-hidden rounded-2xl border border-zinc-800 shadow-2xl">
+    <div className="flex h-screen min-h-0 flex-col overflow-hidden rounded-2xl border border-zinc-800 shadow-2xl">
       <Header
         config={config}
         connected={connected}
+        presenceStatus={presenceStatus}
         canStartNew={conversationEnded}
         canEndConversation={!conversationEnded && !!conversation}
         onStartNewConversation={() => {
@@ -145,6 +253,7 @@ export default function App() {
         }}
         onEndConversation={closeConversation}
       />
+      {isBusy && !conversationEnded ? <BusyNotice /> : null}
       <MessageList
         messages={messages}
         config={config}

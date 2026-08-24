@@ -30,6 +30,11 @@ const envSchema = z.object({
   REDIS_HOST: z.string().default("localhost"),
   REDIS_PORT: z.coerce.number().default(6379),
   REDIS_PASSWORD: z.string().optional(),
+  MARKET_DATA_WS_ENABLED: booleanEnv(true),
+  MARKET_DATA_WS_URL: z.string().default("wss://wsprc.royalassetindo.co.id"),
+  MARKET_DATA_WS_SUBSCRIBE_MESSAGE: z.string().optional(),
+  MARKET_DATA_WS_RECONNECT_MS: z.coerce.number().default(5000),
+  MARKET_DATA_MAX_QUOTE_AGE_MS: z.coerce.number().default(30000),
 
   JWT_ACCESS_SECRET: z.string().min(16, "JWT_ACCESS_SECRET must be at least 16 chars"),
   JWT_REFRESH_SECRET: z.string().min(16, "JWT_REFRESH_SECRET must be at least 16 chars"),
