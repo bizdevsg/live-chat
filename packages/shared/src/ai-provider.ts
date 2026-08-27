@@ -34,6 +34,8 @@ export interface AnswerInput {
   intent: AiIntent;
   evidence: KnowledgeEvidence[];
   aiName: string;
+  /** Verified customer identity, if the widget has associated the visitor with a customer. */
+  customerName?: string | null;
   organizationName: string;
   systemPrompt?: string | null;
 }
@@ -48,6 +50,7 @@ export interface SuggestedReplyInput {
   language: string;
   evidence: KnowledgeEvidence[];
   aiName: string;
+  agentName: string;
   organizationName: string;
   systemPrompt?: string | null;
   agentDraft?: string;

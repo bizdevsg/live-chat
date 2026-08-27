@@ -9,6 +9,6 @@ import { CrmProviderFactory } from "./crm-provider.factory";
   imports: [BullModule.registerQueue({ name: QUEUE_NAMES.CRM_SYNC })],
   controllers: [LeadsController],
   providers: [LeadsService, CrmProviderFactory],
-  exports: [LeadsService],
+  exports: [LeadsService, CrmProviderFactory],
 })
 export class LeadsModule {}

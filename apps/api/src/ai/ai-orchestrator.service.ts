@@ -81,7 +81,10 @@ export class AiOrchestratorService {
   }
 
   async processVisitorTurn(conversationId: string): Promise<void> {
-    const conversation = await this.prisma.conversation.findUnique({ where: { id: conversationId } });
+    const conversation = await this.prisma.conversation.findUnique({
+      where: { id: conversationId },
+      include: { customer: { select: { name: true } } },
+    });
     if (!conversation || conversation.handlerType !== HandlerType.AI) return;
 
     const site = await this.prisma.site.findUnique({ where: { id: conversation.siteId }, include: { settings: true } });
@@ -163,6 +166,7 @@ export class AiOrchestratorService {
         intent: classification.intent,
         evidence,
         aiName: site.aiName,
+        customerName: conversation.customer?.name,
         organizationName: "PT Solid Gold Berjangka",
         systemPrompt: answerPrompt?.content ?? null,
       });
@@ -258,7 +262,7 @@ export class AiOrchestratorService {
     });
   }
 
-  async generateSuggestedReplyForAgent(conversationId: string) {
+  async generateSuggestedReplyForAgent(conversationId: string, agentId: string) {
     const conversation = await this.prisma.conversation.findUnique({ where: { id: conversationId } });
     if (!conversation) return null;
 
@@ -271,13 +275,14 @@ export class AiOrchestratorService {
     const lastVisitorMessage = [...messages].reverse().find((m) => m.senderType === SenderType.VISITOR || m.senderType === SenderType.CUSTOMER);
 
     const { provider, config } = await this.aiProviderFactory.getProviderForSite(conversation.siteId);
-    const [evidence, answerPrompt, site] = await Promise.all([
+    const [evidence, answerPrompt, site, agent] = await Promise.all([
       lastVisitorMessage ? this.retrieval.retrieveForAgent(conversation.siteId, lastVisitorMessage.content) : Promise.resolve([]),
       this.prisma.aiPrompt.findFirst({
         where: { aiConfigurationId: config.id, purpose: "ANSWER", isActive: true },
         orderBy: { version: "desc" },
       }),
       this.prisma.site.findUnique({ where: { id: conversation.siteId }, select: { aiName: true } }),
+      this.prisma.user.findUnique({ where: { id: agentId }, select: { name: true } }),
     ]);
 
     const start = Date.now();
@@ -286,6 +291,7 @@ export class AiOrchestratorService {
       language: conversation.language,
       evidence,
       aiName: site?.aiName ?? "Asisten Virtual",
+      agentName: agent?.name?.trim() || "Tim Customer Service",
       organizationName: "PT Solid Gold Berjangka",
       systemPrompt: answerPrompt?.content ?? null,
     });

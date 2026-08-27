@@ -138,8 +138,15 @@ export function AccountSettingsPanel() {
     return normalized;
   };
 
+  const buildSettingsPayload = (value: UserAccountSettings) => ({
+    playOnConversationSound: value.playOnConversationSound,
+    playNewMessagesSound: value.playNewMessagesSound,
+    onConversationSound: value.onConversationSound,
+    newMessagesSound: value.newMessagesSound,
+  });
+
   const saveMutation = useMutation({
-    mutationFn: () => apiClient.put<UserAccountSettings>("/api/v1/auth/account-settings", form),
+    mutationFn: () => apiClient.put<UserAccountSettings>("/api/v1/auth/account-settings", buildSettingsPayload(form)),
     onSuccess: (data) => {
       applyResolvedSettings(data);
       toast.push("Pengaturan notifikasi berhasil disimpan.", "success");

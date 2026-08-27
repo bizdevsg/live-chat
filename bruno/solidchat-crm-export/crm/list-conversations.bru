@@ -1,0 +1,33 @@
+meta {
+  name: List Conversations
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}{{basePath}}/conversessions
+  body: none
+  auth: none
+}
+
+params:query {
+  email: {{email}}
+}
+
+headers {
+  x-api-key: {{crmApiKey}}
+  Accept: application/json
+}
+
+vars:post-response {
+  conversationId: $res.body.data[0].id
+}
+
+assert {
+  $res.status: 200
+}
+
+docs {
+  Lists conversations by agent email. On success, the first returned conversation id is stored
+  into the request variable `conversationId` for quick chaining into the detail request.
+}

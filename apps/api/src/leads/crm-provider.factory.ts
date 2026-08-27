@@ -36,4 +36,9 @@ export class CrmProviderFactory {
 
     return mockCrmSingleton;
   }
+
+  async getRealAdapter(organizationId: string): Promise<CrmAdapter | null> {
+    const adapter = await this.getAdapter(organizationId);
+    return adapter.name === "mock" ? null : adapter;
+  }
 }

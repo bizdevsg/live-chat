@@ -58,6 +58,16 @@ Users (`/users`, `/users/roles`, `/users/invite`, `/users/:id`, `/users/:id/revo
 
 `GET /`, `GET /:id`, `POST /:id/retry`.
 
+## CRM Export (`/api/crm`)
+
+Protected by `x-api-key` or `Authorization: Bearer ...`, validated against `CRM_INBOUND_API_KEY`
+or `CRM_API_KEY` as fallback.
+
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/conversessions?email=` | External CRM-facing list endpoint by agent email. `/conversations?email=` alias also supported. |
+| GET | `/conversessions/detail/:conversationId` | External CRM-facing conversation detail. `/conversations/detail/:conversationId` alias also supported. |
+
 ## Analytics (`/api/v1/analytics`)
 
 `GET /{overview,conversations,agents,ai,intents,knowledge-gaps,customer-satisfaction}`, `GET /export` (CSV).

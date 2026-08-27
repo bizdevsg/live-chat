@@ -53,6 +53,7 @@ const envSchema = z.object({
   CRM_PROVIDER: z.enum(["mock", "rest"]).default("mock"),
   CRM_BASE_URL: z.string().optional(),
   CRM_API_KEY: z.string().optional(),
+  CRM_INBOUND_API_KEY: z.string().optional(),
 
   S3_ENDPOINT: z.string().default("http://localhost:9000"),
   S3_REGION: z.string().default("us-east-1"),

@@ -1,6 +1,5 @@
 import { PrismaClient } from "@prisma/client";
 import { hash } from "@node-rs/argon2";
-b;
 const prisma = new PrismaClient();
 
 const PERMISSIONS: { slug: string; category: string; description: string }[] = [

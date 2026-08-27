@@ -1,0 +1,25 @@
+meta {
+  name: Get Conversation Detail
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}{{basePath}}/conversessions/detail/{{conversationId}}
+  body: none
+  auth: none
+}
+
+headers {
+  x-api-key: {{crmApiKey}}
+  Accept: application/json
+}
+
+assert {
+  $res.status: 200
+}
+
+docs {
+  Returns one CRM-safe conversation detail payload. Internal notes and AI suggestion messages
+  should not appear in this response.
+}

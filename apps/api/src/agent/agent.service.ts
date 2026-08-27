@@ -1,10 +1,11 @@
-import { Injectable } from "@nestjs/common";
+import { HttpStatus, Injectable } from "@nestjs/common";
 import { ConversationStatus, Permission, type JwtAccessPayload } from "@solidchat/shared";
 import { PrismaService } from "../prisma/prisma.service";
 import { RealtimeEmitterService } from "../realtime/realtime-emitter.service";
 import { PresenceService } from "../common/presence/presence.service";
-import { ForbiddenApiException, NotFoundApiException } from "../common/errors/api.exception";
+import { ApiException, ForbiddenApiException, NotFoundApiException } from "../common/errors/api.exception";
 import { ErrorCode } from "@solidchat/shared";
+import { CrmProviderFactory } from "../leads/crm-provider.factory";
 
 @Injectable()
 export class AgentService {
@@ -12,6 +13,7 @@ export class AgentService {
     private readonly prisma: PrismaService,
     private readonly realtime: RealtimeEmitterService,
     private readonly presence: PresenceService,
+    private readonly crmProviderFactory: CrmProviderFactory,
   ) {}
 
   private conversationListInclude(userId: string) {
@@ -131,5 +133,23 @@ export class AgentService {
       this.prisma.aiRun.findMany({ where: { conversationId }, orderBy: { createdAt: "desc" }, take: 5 }),
     ]);
     return { conversation, messages, summary: summaries[0] ?? null, recentAiRuns: aiRuns };
+  }
+
+  async findCrmCustomerByEmail(user: JwtAccessPayload, email: string) {
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!normalizedEmail) {
+      throw new ApiException(ErrorCode.VALIDATION_ERROR, "Parameter email wajib diisi.");
+    }
+
+    const adapter = await this.crmProviderFactory.getRealAdapter(user.organizationId);
+    if (!adapter) {
+      throw new ApiException(
+        ErrorCode.CONFLICT,
+        "CRM real belum terkonfigurasi. Endpoint ini tidak mendukung mock atau dummy.",
+        HttpStatus.CONFLICT,
+      );
+    }
+    const customer = await adapter.findCustomer({ email: normalizedEmail });
+    return { email: normalizedEmail, customer };
   }
 }

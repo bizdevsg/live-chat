@@ -137,6 +137,17 @@ export class WidgetController {
     });
     await this.widgetService.assertOwnership(id, req.visitor.visitorId);
     const data = await this.leadsService.createFromWidget(req.visitor.siteId, id, dto);
+    if (data.conversationId) {
+      const greeting = `Selamat datang di ${data.siteName}, ${data.customerName}. Silakan sampaikan kebutuhan Anda, kami siap membantu.`;
+      // A stable per-conversation id makes a retried pre-chat submit return the original greeting instead of duplicating it.
+      await this.conversations.postMessage({
+        conversationId: data.conversationId,
+        senderType: SenderType.AI,
+        content: greeting,
+        messageType: MessageType.TEXT,
+        clientMessageId: `prechat-greeting:${data.conversationId}`,
+      });
+    }
     return { success: true, data: { id: data.id, syncStatus: data.syncStatus, conversationId: data.conversationId, resumedConversation: data.resumedConversation } };
   }
 

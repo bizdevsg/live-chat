@@ -28,6 +28,7 @@ import { LeadsModule } from "./leads/leads.module";
 import { AnalyticsModule } from "./analytics/analytics.module";
 import { HealthModule } from "./health/health.module";
 import { MarketDataModule } from "./market-data/market-data.module";
+import { CrmModule } from "./crm/crm.module";
 
 @Module({
   imports: [
@@ -62,6 +63,7 @@ import { MarketDataModule } from "./market-data/market-data.module";
     LeadsModule,
     AnalyticsModule,
     HealthModule,
+    CrmModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },

@@ -1,4 +1,4 @@
-import { IsIn, IsOptional, IsString, MaxLength, MinLength } from "class-validator";
+import { IsEmail, IsIn, IsOptional, IsString, MaxLength, MinLength } from "class-validator";
 import { AgentAvailability } from "@solidchat/shared";
 
 export class SendAgentMessageDto {
@@ -25,4 +25,9 @@ export class TransferConversationDto {
 export class UpdateAgentStatusDto {
   @IsIn(Object.values(AgentAvailability))
   availability!: string;
+}
+
+export class FindCrmCustomerByEmailDto {
+  @IsEmail()
+  email!: string;
 }

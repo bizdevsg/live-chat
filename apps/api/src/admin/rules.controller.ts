@@ -1,11 +1,12 @@
 import { Body, Controller, Delete, Get, Param, Post, Put, Query, UseGuards } from "@nestjs/common";
 import { ApiTags } from "@nestjs/swagger";
-import { Permission, type JwtAccessPayload } from "@solidchat/shared";
+import { ErrorCode, Permission, type JwtAccessPayload } from "@solidchat/shared";
 import { PermissionsGuard } from "../common/guards/permissions.guard";
 import { RequirePermissions } from "../common/decorators/permissions.decorator";
 import { CurrentUser } from "../common/decorators/current-user.decorator";
 import { PrismaService } from "../prisma/prisma.service";
 import { AuditLogService } from "../common/audit/audit-log.service";
+import { NotFoundApiException } from "../common/errors/api.exception";
 import { CreateHandoffRuleDto, CreateRoutingRuleDto, CreateTemplateDto, UpdateTemplateDto } from "./dto/admin.dto";
 
 @ApiTags("admin-rules")
@@ -112,7 +113,7 @@ export class RulesController {
   }
 
   @Get("templates")
-  @RequirePermissions(Permission.TEMPLATE_MANAGE)
+  @RequirePermissions(Permission.TEMPLATE_MANAGE, Permission.CONVERSATION_HANDLE)
   async listTemplates(@CurrentUser() user: JwtAccessPayload) {
     return { success: true, data: await this.prisma.responseTemplate.findMany({ where: { organizationId: user.organizationId } }) };
   }
@@ -128,14 +129,18 @@ export class RulesController {
 
   @Put("templates/:id")
   @RequirePermissions(Permission.TEMPLATE_MANAGE)
-  async updateTemplate(@Param("id") id: string, @Body() dto: UpdateTemplateDto) {
+  async updateTemplate(@Param("id") id: string, @Body() dto: UpdateTemplateDto, @CurrentUser() user: JwtAccessPayload) {
+    const existing = await this.prisma.responseTemplate.findFirst({ where: { id, organizationId: user.organizationId } });
+    if (!existing) throw new NotFoundApiException(ErrorCode.NOT_FOUND, "Response template tidak ditemukan.");
     const template = await this.prisma.responseTemplate.update({ where: { id }, data: dto });
     return { success: true, data: template };
   }
 
   @Delete("templates/:id")
   @RequirePermissions(Permission.TEMPLATE_MANAGE)
-  async deleteTemplate(@Param("id") id: string) {
+  async deleteTemplate(@Param("id") id: string, @CurrentUser() user: JwtAccessPayload) {
+    const existing = await this.prisma.responseTemplate.findFirst({ where: { id, organizationId: user.organizationId } });
+    if (!existing) throw new NotFoundApiException(ErrorCode.NOT_FOUND, "Response template tidak ditemukan.");
     await this.prisma.responseTemplate.delete({ where: { id } });
     return { success: true, data: null };
   }

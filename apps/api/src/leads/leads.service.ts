@@ -208,7 +208,13 @@ export class LeadsService {
         );
       }
     }
-    return { ...lead, conversationId: finalConversationId, resumedConversation };
+    return {
+      ...lead,
+      conversationId: finalConversationId,
+      resumedConversation,
+      customerName: normalized.name,
+      siteName: site.name,
+    };
   }
 
   async list(organizationId: string, siteId?: string) {

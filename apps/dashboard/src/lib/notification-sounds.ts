@@ -138,10 +138,9 @@ export function playNotificationSound(category: NotificationSoundCategory, sound
   if (typeof window === "undefined") return;
 
   const option = resolveSoundOption(category, soundId, settings);
-  getOrCreateCachedAudio(option.src);
-
-  const audio = new Audio(option.src);
-  audio.preload = "auto";
+  const audio = getOrCreateCachedAudio(option.src);
+  audio.muted = false;
+  audio.pause();
   audio.currentTime = 0;
   void audio.play().catch(() => {
     pendingPlayback = { category, soundId };

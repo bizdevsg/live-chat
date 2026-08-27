@@ -6,7 +6,7 @@ import { apiClient, ApiError } from "@/lib/api-client";
 import { useToast } from "@/components/ui/toast";
 import { Topbar } from "@/components/layout/topbar";
 import { Button } from "@/components/ui/button";
-import { Input, Label, Textarea } from "@/components/ui/input";
+import { Input, Label, Select, Textarea } from "@/components/ui/input";
 import { ConfirmModal, Modal } from "@/components/ui/modal";
 import { DashboardEmpty, DashboardPage, DashboardPageHeader, DashboardPageMetrics, DashboardTablePanel } from "@/components/layout/dashboard-page";
 
@@ -27,6 +27,7 @@ export default function TemplatesPage() {
   const [shortcut, setShortcut] = useState("");
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
+  const [language, setLanguage] = useState("id");
 
   const query = useQuery({ queryKey: ["templates"], queryFn: () => apiClient.get<Template[]>("/api/v1/admin/templates") });
   const templates = query.data ?? [];
@@ -34,7 +35,7 @@ export default function TemplatesPage() {
   const averageLength = templates.length > 0 ? Math.round(templates.reduce((total, template) => total + template.content.length, 0) / templates.length) : 0;
 
   const create = useMutation({
-    mutationFn: () => apiClient.post("/api/v1/admin/templates", { shortcut, title, content }),
+    mutationFn: () => apiClient.post("/api/v1/admin/templates", { shortcut, title, content, language }),
     onSuccess: () => {
       toast.push("Template dibuat.", "success");
       queryClient.invalidateQueries({ queryKey: ["templates"] });
@@ -47,7 +48,7 @@ export default function TemplatesPage() {
   });
 
   const update = useMutation({
-    mutationFn: () => apiClient.put(`/api/v1/admin/templates/${editTarget!.id}`, { title, content }),
+    mutationFn: () => apiClient.put(`/api/v1/admin/templates/${editTarget!.id}`, { shortcut, title, content, language }),
     onSuccess: () => {
       toast.push("Template diperbarui.", "success");
       queryClient.invalidateQueries({ queryKey: ["templates"] });
@@ -73,6 +74,7 @@ export default function TemplatesPage() {
     setShortcut("");
     setTitle("");
     setContent("");
+    setLanguage("id");
   };
 
   return (
@@ -112,6 +114,7 @@ export default function TemplatesPage() {
                         setShortcut(template.shortcut);
                         setTitle(template.title);
                         setContent(template.content);
+                        setLanguage(template.language);
                       }}
                     >
                       Edit
@@ -155,6 +158,13 @@ export default function TemplatesPage() {
             <Label htmlFor="content">Isi</Label>
             <Textarea id="content" required value={content} onChange={(e) => setContent(e.target.value)} />
           </div>
+          <div>
+            <Label htmlFor="language">Bahasa</Label>
+            <Select id="language" value={language} onChange={(e) => setLanguage(e.target.value)}>
+              <option value="id">Bahasa Indonesia</option>
+              <option value="en">English</option>
+            </Select>
+          </div>
           <div className="flex justify-end">
             <Button type="submit" disabled={create.isPending}>
               Simpan
@@ -180,7 +190,7 @@ export default function TemplatesPage() {
         >
           <div>
             <Label htmlFor="edit-shortcut">Shortcut</Label>
-            <Input id="edit-shortcut" value={shortcut} disabled />
+            <Input id="edit-shortcut" required value={shortcut} onChange={(e) => setShortcut(e.target.value)} />
           </div>
           <div>
             <Label htmlFor="edit-title">Judul</Label>
@@ -189,6 +199,13 @@ export default function TemplatesPage() {
           <div>
             <Label htmlFor="edit-content">Isi</Label>
             <Textarea id="edit-content" required value={content} onChange={(e) => setContent(e.target.value)} />
+          </div>
+          <div>
+            <Label htmlFor="edit-language">Bahasa</Label>
+            <Select id="edit-language" value={language} onChange={(e) => setLanguage(e.target.value)}>
+              <option value="id">Bahasa Indonesia</option>
+              <option value="en">English</option>
+            </Select>
           </div>
           <div className="flex justify-end">
             <Button type="submit" disabled={update.isPending}>

@@ -7,7 +7,7 @@ import { CurrentUser } from "../common/decorators/current-user.decorator";
 import { AgentService } from "./agent.service";
 import { ConversationsService } from "../conversations/conversations.service";
 import { AiOrchestratorService } from "../ai/ai-orchestrator.service";
-import { InternalNoteDto, SendAgentMessageDto, TransferConversationDto, UpdateAgentStatusDto } from "./dto/agent.dto";
+import { FindCrmCustomerByEmailDto, InternalNoteDto, SendAgentMessageDto, TransferConversationDto, UpdateAgentStatusDto } from "./dto/agent.dto";
 
 @ApiTags("agent")
 @UseGuards(PermissionsGuard)
@@ -35,6 +35,12 @@ export class AgentController {
   @Get("conversations/:id")
   async getConversation(@Param("id") id: string, @CurrentUser() user: JwtAccessPayload) {
     const data = await this.agentService.getConversationDetail(user, id);
+    return { success: true, data };
+  }
+
+  @Get("crm/customer")
+  async findCrmCustomerByEmail(@Query() query: FindCrmCustomerByEmailDto, @CurrentUser() user: JwtAccessPayload) {
+    const data = await this.agentService.findCrmCustomerByEmail(user, query.email);
     return { success: true, data };
   }
 
@@ -106,7 +112,7 @@ export class AgentController {
   @Post("conversations/:id/suggested-reply")
   async suggestedReply(@Param("id") id: string, @CurrentUser() user: JwtAccessPayload) {
     await this.agentService.assertConversationAccess(user, id);
-    const data = await this.aiOrchestrator.generateSuggestedReplyForAgent(id);
+    const data = await this.aiOrchestrator.generateSuggestedReplyForAgent(id, user.sub);
     return { success: true, data };
   }
 

@@ -29,6 +29,24 @@ function hasCustomerSeenMessage(message: Pick<MessageItem, "receipts">) {
   return hasReceipt(message, "VISITOR") || hasReceipt(message, "CUSTOMER");
 }
 
+function keepSuggestedReplyUnderAgentIdentity(reply: string, agentName?: string) {
+  const normalizedAgentName = agentName?.trim();
+  if (!normalizedAgentName) return reply;
+
+  const escapedAgentName = normalizedAgentName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return reply
+    .replace(/\bSolid Prime AI\b/gi, normalizedAgentName)
+    .replace(new RegExp(`(saya\\s+${escapedAgentName}),?\\s*(?:sebagai\\s+)?asisten\\s+(?:AI|virtual)\\s+dari`, "gi"), "$1 dari");
+}
+
+interface ResponseTemplate {
+  id: string;
+  shortcut: string;
+  title: string;
+  content: string;
+  language: string;
+}
+
 function appendRealtimeMessage(detail: ConversationDetail | undefined, message: MessageItem) {
   if (!detail) return detail;
   if (detail.messages.some((item) => item.id === message.id)) return detail;
@@ -133,6 +151,20 @@ export default function ConversationDetailPage() {
     queryKey: ["agent", "conversation", conversationId],
     queryFn: () => apiClient.get<ConversationDetail>(`/api/v1/agent/conversations/${conversationId}`),
   });
+  const templatesQuery = useQuery({
+    queryKey: ["response-templates"],
+    queryFn: () => apiClient.get<ResponseTemplate[]>("/api/v1/admin/templates"),
+  });
+  const shortcutMatch = draft.match(/(?:^|\s)\/([a-z0-9_-]*)$/i);
+  const shortcutQuery = shortcutMatch?.[1]?.toLowerCase() ?? null;
+  const matchingTemplates = shortcutQuery === null
+    ? []
+    : (templatesQuery.data ?? []).filter((template) => template.shortcut.toLowerCase().startsWith(shortcutQuery));
+
+  function insertResponseTemplate(template: ResponseTemplate) {
+    setDraft((current) => current.replace(/(^|\s)\/[a-z0-9_-]*$/i, `$1${template.content}`));
+    toast.push(`Template /${template.shortcut} ditambahkan ke balasan.`, "success");
+  }
 
   useEffect(() => {
     setIsHydrated(true);
@@ -287,7 +319,7 @@ export default function ConversationDetailPage() {
   const suggestedReply = useMutation({
     mutationFn: () => apiClient.post<{ reply: string }>(`/api/v1/agent/conversations/${conversationId}/suggested-reply`),
     onSuccess: ({ reply }) => {
-      setDraft(reply);
+      setDraft(keepSuggestedReplyUnderAgentIdentity(reply, user?.name));
       toast.push("Suggested reply sudah dimasukkan ke kolom balasan.", "success");
     },
     onError: (err) => toast.push(err instanceof ApiError ? err.message : "Gagal membuat suggested reply.", "error"),
@@ -416,7 +448,23 @@ export default function ConversationDetailPage() {
             <Button size="sm" variant="ghost" onClick={() => suggestedReply.mutate()} disabled={!canReply || suggestedReply.isPending}>
               {suggestedReply.isPending ? "Menyusun..." : "Suggested Reply"}
             </Button>
+            <span className="self-center text-xs text-zinc-500">Ketik <span className="font-mono text-gold-500">/shortcut</span> untuk memakai template.</span>
           </div>
+          {shortcutQuery !== null && canReply ? (
+            <div className="mb-2 rounded-xl border border-ink-600 bg-ink-800 p-2">
+              {matchingTemplates.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {matchingTemplates.map((template) => (
+                    <Button key={template.id} size="sm" variant="secondary" onClick={() => insertResponseTemplate(template)}>
+                      <span className="font-mono text-gold-500">/{template.shortcut}</span>&nbsp;{template.title}
+                    </Button>
+                  ))}
+                </div>
+              ) : (
+                <p className="px-1 py-0.5 text-xs text-zinc-500">Template dengan shortcut ini tidak ditemukan.</p>
+              )}
+            </div>
+          ) : null}
           <div className="flex gap-2">
             <Textarea
               value={draft}
@@ -428,6 +476,11 @@ export default function ConversationDetailPage() {
                 if (!canReply) return;
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
+                  const exactTemplate = matchingTemplates.find((template) => template.shortcut.toLowerCase() === shortcutQuery);
+                  if (exactTemplate) {
+                    insertResponseTemplate(exactTemplate);
+                    return;
+                  }
                   if (draft.trim()) {
                     sendMessage.mutate({ content: draft, clientMessageId: crypto.randomUUID() });
                     setDraft("");

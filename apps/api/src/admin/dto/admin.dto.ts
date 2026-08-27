@@ -5,6 +5,7 @@ import {
   IsEmail,
   IsIn,
   IsInt,
+  Matches,
   IsObject,
   IsOptional,
   IsString,
@@ -21,6 +22,13 @@ export class CreateUserDto {
   @MinLength(2)
   name!: string;
 
+  @IsString()
+  @MinLength(10, { message: "Password minimal 10 karakter." })
+  @Matches(/[a-z]/, { message: "Password harus mengandung huruf kecil." })
+  @Matches(/[A-Z]/, { message: "Password harus mengandung huruf besar." })
+  @Matches(/[0-9]/, { message: "Password harus mengandung angka." })
+  password!: string;
+
   @IsArray()
   @IsString({ each: true })
   roleSlugs!: string[];
@@ -32,6 +40,10 @@ export class CreateUserDto {
 
 export class UpdateUserDto {
   @IsOptional() @IsString() @MinLength(2) name?: string;
+  @IsOptional() @IsString() @MinLength(10, { message: "Password minimal 10 karakter." })
+  @Matches(/[a-z]/, { message: "Password harus mengandung huruf kecil." })
+  @Matches(/[A-Z]/, { message: "Password harus mengandung huruf besar." })
+  @Matches(/[0-9]/, { message: "Password harus mengandung angka." }) password?: string;
   @IsOptional() @IsBoolean() isActive?: boolean;
   @IsOptional() @IsArray() @IsString({ each: true }) roleSlugs?: string[];
   @IsOptional() @IsString() supervisorId?: string;
@@ -143,6 +155,7 @@ export class CreateTemplateDto {
 }
 
 export class UpdateTemplateDto {
+  @IsOptional() @IsString() shortcut?: string;
   @IsOptional() @IsString() title?: string;
   @IsOptional() @IsString() content?: string;
   @IsOptional() @IsString() language?: string;

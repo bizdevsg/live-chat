@@ -76,9 +76,8 @@ export default function App() {
     const targetConversationId = response.conversationId ?? conversation.id;
     widgetStorage.setLeadConversationId(targetConversationId);
     setLeadConversationId(targetConversationId);
-    if (targetConversationId !== conversation.id) {
-      await loadConversation(targetConversationId);
-    }
+    // Reload even when the ID is unchanged so the server-created greeting is immediately visible.
+    await loadConversation(targetConversationId);
   }
 
   async function handleTicketSubmit(values: TicketValues): Promise<string> {

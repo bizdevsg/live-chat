@@ -27,6 +27,8 @@ declare global {
 }
 
 const WIDGET_ORIGIN = new URL(__WIDGET_URL__).origin;
+const FLOATING_BOTTOM_OFFSET = 40;
+const PANEL_BOTTOM_OFFSET = FLOATING_BOTTOM_OFFSET;
 
 function supportsRequiredFeatures(): boolean {
   return (
@@ -82,21 +84,18 @@ function init() {
   const shadow = host.attachShadow({ mode: "open" });
   const style = document.createElement("style");
   style.textContent = `
-    .bubble { position: fixed; bottom: 20px; ${config.position === "bottom-left" ? "left: 20px;" : "right: 20px;"}
+    .bubble { position: fixed; bottom: ${FLOATING_BOTTOM_OFFSET}px; ${config.position === "bottom-left" ? "left: 20px;" : "right: 20px;"}
       width: 88px; height: 88px; border: none; cursor: pointer; padding: 0;
       background: transparent; color: #0b0b0c; font-size: 26px; box-shadow: none;
       display: flex; align-items: center; justify-content: center; transition: transform .15s ease; }
     .bubble:hover { transform: scale(1.05); }
     .bubble-image { width: 100%; height: 100%; display: block; object-fit: contain; }
-    .bubble-close { width: 60px; height: 60px; border-radius: 50%; background: #D4AF37; color: #0b0b0c;
-      display: none; align-items: center; justify-content: center; font: 700 26px/1 system-ui, sans-serif; }
-    .bubble.open .bubble-image { display: none; }
-    .bubble.open .bubble-close { display: flex; }
-    .badge { position: fixed; bottom: 62px; ${config.position === "bottom-left" ? "left: 62px;" : "right: 62px;"}
+    .bubble.open { display: none; }
+    .badge { position: fixed; bottom: ${FLOATING_BOTTOM_OFFSET + 42}px; ${config.position === "bottom-left" ? "left: 62px;" : "right: 62px;"}
       min-width: 20px; height: 20px; padding: 0 5px; border-radius: 10px; background: #e5484d;
       color: #fff; font: 600 11px/20px system-ui, sans-serif; text-align: center; display: none; }
     .badge.visible { display: block; }
-    .panel { position: fixed; bottom: 96px; ${config.position === "bottom-left" ? "left: 20px;" : "right: 20px;"}
+    .panel { position: fixed; bottom: ${PANEL_BOTTOM_OFFSET}px; ${config.position === "bottom-left" ? "left: 20px;" : "right: 20px;"}
       width: 370px; height: 560px; max-height: calc(100vh - 120px); border: none; border-radius: 16px;
       box-shadow: 0 10px 40px rgba(0,0,0,.45); display: none; background: #0b0b0c; }
     .panel.open { display: block; }
@@ -117,11 +116,6 @@ function init() {
   bubbleImage.setAttribute("draggable", "false");
   bubble.appendChild(bubbleImage);
 
-  const bubbleClose = document.createElement("span");
-  bubbleClose.className = "bubble-close";
-  bubbleClose.setAttribute("aria-hidden", "true");
-  bubbleClose.textContent = "X";
-  bubble.appendChild(bubbleClose);
   shadow.appendChild(bubble);
 
   const badge = document.createElement("div");

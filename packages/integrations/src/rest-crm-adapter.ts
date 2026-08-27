@@ -21,19 +21,37 @@ export class RestCrmAdapter implements CrmAdapter {
 
   constructor(private readonly config: RestCrmAdapterConfig) {}
 
+  private buildAuthHeaders() {
+    return this.config.apiKey.startsWith("x-api-key_")
+      ? { "x-api-key": this.config.apiKey }
+      : { Authorization: `Bearer ${this.config.apiKey}` };
+  }
+
   private async request<T>(path: string, init: RequestInit & { idempotencyKey?: string } = {}): Promise<T> {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), this.config.timeoutMs ?? 10_000);
+    const headers = new Headers();
+    headers.set("Content-Type", "application/json");
+
+    for (const [key, value] of Object.entries(this.buildAuthHeaders())) {
+      if (value) headers.set(key, value);
+    }
+
+    if (init.idempotencyKey) {
+      headers.set("Idempotency-Key", init.idempotencyKey);
+    }
+
+    if (init.headers) {
+      new Headers(init.headers).forEach((value, key) => {
+        headers.set(key, value);
+      });
+    }
+
     try {
       const response = await fetch(`${this.config.baseUrl}${path}`, {
         ...init,
         signal: controller.signal,
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${this.config.apiKey}`,
-          ...(init.idempotencyKey ? { "Idempotency-Key": init.idempotencyKey } : {}),
-          ...init.headers,
-        },
+        headers,
       });
       if (!response.ok) {
         throw new Error(`CRM request failed: ${response.status} ${await response.text()}`);
@@ -51,8 +69,9 @@ export class RestCrmAdapter implements CrmAdapter {
     if (input.externalId) params.set("externalId", input.externalId);
     try {
       return await this.request<CrmCustomerResult>(`/customers/search?${params.toString()}`, { method: "GET" });
-    } catch {
-      return null;
+    } catch (error) {
+      if ((error as Error).message.includes("404")) return null;
+      throw error;
     }
   }
 

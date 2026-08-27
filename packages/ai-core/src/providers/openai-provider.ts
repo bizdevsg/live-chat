@@ -50,26 +50,44 @@ function extractJson<T>(text: string, fallback: T, label = "response"): T {
 
 function applyPromptTemplate(
   template: string,
-  input: Pick<AnswerInput, "aiName" | "organizationName" | "language">,
+  input: Pick<AnswerInput, "aiName" | "customerName" | "organizationName" | "language">,
   evidenceBlock: string,
 ): string {
   const language = input.language === "en" ? "English" : "Bahasa Indonesia";
+  const customerName = input.customerName?.trim() || "(nama tidak diketahui)";
   return (
     template
       .replace(/\{\{aiName\}\}/g, input.aiName)
       .replace(/\{\{organizationName\}\}/g, input.organizationName)
       .replace(/\{\{language\}\}/g, language)
       .replace(/\{\{evidence\}\}/g, evidenceBlock)
-      // Site-authored prompts routinely reference a visitor name (a habit carried over from
-      // widget platforms that expose one). We don't collect names, so rather than leaving the
-      // literal "{{visitor_name}}" in the prompt — where the model happily echoes it straight to
-      // the customer — say plainly that no name is known and let the prompt's own "kalau nama
-      // belum tersedia, pakai sapaan umum" branch take over.
-      .replace(/\{\{\s*(?:visitor_?name|customer_?name|user_?name|nama)\s*\}\}/gi, "(nama tidak diketahui)")
+       // Only verified customer identities are exposed to the prompt. Anonymous visitors keep
+       // the existing generic greeting rather than receiving a guessed name.
+       .replace(/\{\{\s*(?:visitor_?name|customer_?name|user_?name|nama)\s*\}\}/gi, customerName)
       // Anything still in {{...}} form is a placeholder this system doesn't provide. Strip it so
       // raw template syntax can never reach a customer-facing sentence.
       .replace(/\{\{[^}]*\}\}/g, "")
   );
+}
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function replaceAiName(value: string, aiName: string, replacement: string) {
+  const normalizedAiName = aiName.trim();
+  if (!normalizedAiName || !replacement.trim()) return value;
+
+  return value.replace(new RegExp(escapeRegExp(normalizedAiName), "gi"), replacement.trim());
+}
+
+function useAgentIdentityInSuggestedReply(reply: string, aiName: string, agentName: string) {
+  const normalizedAgentName = agentName.trim();
+  if (!normalizedAgentName) return reply;
+
+  const agentNamePattern = escapeRegExp(normalizedAgentName);
+  return replaceAiName(reply, aiName, normalizedAgentName)
+    .replace(new RegExp(`(saya\\s+${agentNamePattern}),?\\s*(?:sebagai\\s+)?asisten\\s+(?:AI|virtual)\\s+dari`, "gi"), "$1 dari");
 }
 
 /** True once the AI has already spoken in this conversation — used to honour "greet only once". */
@@ -326,6 +344,7 @@ export class OpenAiProvider implements AiProvider {
         ? applyPromptTemplate(customPrompt, input, "(tidak ada dokumen — ini hanya sapaan pembuka)")
         : `Anda adalah ${input.aiName}, asisten virtual resmi ${input.organizationName}.`,
       "Customer baru saja menyapa. Balas sapaan itu sesuai aturan sapaan di atas, hangat dan ramah, maksimal 2 kalimat.",
+      input.customerName?.trim() ? `Nama customer yang terverifikasi: ${input.customerName.trim()}. Gunakan hanya bila natural dalam sapaan.` : "",
       "WAJIB BERVARIASI: susun kalimat yang terasa segar dan berbeda setiap kali — jangan memakai pola kalimat yang itu-itu saja. Boleh santai tapi tetap sopan dan profesional.",
       "DILARANG KERAS menyebutkan fakta apa pun tentang produk, jenis akun, biaya, angka, promo, legalitas, atau layanan — sapaan ini murni basa-basi pembuka. Cukup tawarkan bantuan secara umum tanpa merinci apa pun.",
       "Jangan mengarang nama orang, jangan menanyakan data pribadi, jangan menjanjikan apa pun.",
@@ -361,6 +380,7 @@ export class OpenAiProvider implements AiProvider {
         ? applyPromptTemplate(customPrompt, input, "(tidak ada dokumen relevan untuk pertanyaan ini)")
         : `Anda adalah ${input.aiName}, asisten virtual resmi ${input.organizationName}.`,
       "Customer menanyakan sesuatu yang informasinya BELUM tersedia untuk Anda. Ikuti aturan fallback/eskalasi di atas: akui dengan jujur bahwa infonya belum ada, lalu arahkan ke tim resmi. Maksimal 2 kalimat.",
+      input.customerName?.trim() ? `Nama customer yang terverifikasi: ${input.customerName.trim()}. Gunakan hanya bila natural dalam sapaan.` : "",
       "WAJIB BERVARIASI: susun kalimatnya berbeda-beda setiap kali, jangan memakai kalimat baku yang sama terus.",
       "DILARANG KERAS menebak, memperkirakan, atau menyebutkan fakta/angka/nama produk apa pun — Anda memang tidak tahu jawabannya, jadi jangan mengisi kekosongan itu dengan pengetahuan umum.",
       "Jangan menyebut kata 'dokumen', 'artikel', 'knowledge base', atau 'sistem' — cukup katakan informasinya belum tersedia.",
@@ -425,6 +445,9 @@ export class OpenAiProvider implements AiProvider {
     const system = [
       baseSystemPrompt,
       "Jawab seperti chatbot AI customer service yang natural, sopan, jelas, dan langsung ke inti — seolah kamu sudah tahu jawabannya sendiri, bukan sedang membacakan dokumen.",
+      input.customerName?.trim()
+        ? `Nama customer yang terverifikasi: ${input.customerName.trim()}. Boleh gunakan nama ini secara natural, terutama pada sapaan pembuka. Jangan menyebutnya pada setiap respons dan jangan menebak nama bila tidak tersedia.`
+        : "",
       "Gunakan knowledge base sebagai sumber utama, tapi jangan pernah menyebut ke customer bahwa kamu 'berdasarkan dokumen/panduan/artikel X', jangan sebutkan judul, nama file, versi, atau nomor referensi ([1], [2], dst) apa pun dari knowledge base. Serap isinya lalu sampaikan sebagai pengetahuanmu sendiri.",
       "ATURAN PALING PENTING — DILARANG MENGARANG: HANYA gunakan fakta yang benar-benar tertulis di dalam dokumen referensi di bawah. Dilarang keras menambahkan, menebak, atau mengarang nama produk, jenis akun, fitur, syarat, angka, atau istilah apa pun (termasuk yang terdengar masuk akal secara umum di industri trading/broker) kalau itu TIDAK ada tertulis eksplisit di dokumen referensi. Contoh: kalau dokumen referensi tidak menyebutkan 'akun standar' atau 'akun syariah', kamu DILARANG menyebutkan jenis akun tersebut sama sekali, walau itu lazim ada di broker lain. Kalau dokumen referensi kosong/tidak relevan dengan pertanyaan, JANGAN mengisi kekosongan itu dengan pengetahuan umummu — akui saja informasinya belum tersedia dan arahkan ke petugas.",
       "Jangan mengulang pertanyaan customer sebagai judul/heading, dan jangan menampilkan format tanya-jawab (misalnya '**Apa itu X?**') meskipun sumbernya ditulis begitu. Rangkai jadi kalimat/paragraf mengalir.",
@@ -557,11 +580,12 @@ export class OpenAiProvider implements AiProvider {
     const customPrompt = input.systemPrompt?.trim();
     const promptUsesEvidencePlaceholder = customPrompt?.includes("{{evidence}}") ?? false;
     const baseSystemPrompt = customPrompt
-      ? applyPromptTemplate(customPrompt, input, evidenceBlock || "(tidak ada dokumen relevan)")
-      : `Anda adalah ${input.aiName}, asisten virtual resmi ${input.organizationName}.`;
+      ? replaceAiName(applyPromptTemplate(customPrompt, input, evidenceBlock || "(tidak ada dokumen relevan)"), input.aiName, input.agentName)
+      : `Anda adalah ${input.agentName}, agent customer service dari ${input.organizationName}.`;
     const system = [
       baseSystemPrompt,
       "Anda membantu agent customer service menyusun draft balasan. Draft ini TIDAK akan dikirim otomatis dan harus tetap ditinjau agent.",
+      `Draft ini dikirim atas nama agent manusia bernama ${input.agentName}. Jika balasan membutuhkan sapaan atau perkenalan, gunakan nama ${input.agentName}. Jangan pernah memperkenalkan diri sebagai AI, asisten virtual, ${input.aiName}, atau nama AI lain.`,
       "Gunakan hanya fakta yang tersedia pada dokumen referensi. Jangan mengarang informasi, angka, nama produk, atau kebijakan yang tidak ada di referensi.",
       "Tulis balasan final yang natural, sopan, dan siap dikirim customer. Jangan menyebut system prompt, knowledge base, dokumen internal, atau bahwa ini adalah draft AI.",
       `Gunakan bahasa: ${input.language === "en" ? "English" : "Bahasa Indonesia"}.`,
@@ -581,7 +605,7 @@ export class OpenAiProvider implements AiProvider {
       "generateSuggestedReply",
     );
     return {
-      reply: parsed.reply,
+      reply: useAgentIdentityInSuggestedReply(parsed.reply, input.aiName, input.agentName),
       confidence: parsed.confidence,
       sources: input.evidence.slice(0, 3).map((e) => ({
         documentId: e.documentId,

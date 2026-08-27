@@ -27,6 +27,10 @@ interface UserRow {
   roles: Array<{ role: Role }>;
 }
 
+function isValidPassword(value: string) {
+  return value.length >= 10 && /[a-z]/.test(value) && /[A-Z]/.test(value) && /[0-9]/.test(value);
+}
+
 export default function UsersPage() {
   const queryClient = useQueryClient();
   const toast = useToast();
@@ -38,6 +42,8 @@ export default function UsersPage() {
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
+  const [password, setPassword] = useState("");
+  const [editPassword, setEditPassword] = useState("");
   const [roleSlug, setRoleSlug] = useState("cs_agent");
 
   const usersQuery = useQuery({ queryKey: ["users"], queryFn: () => apiClient.get<UserRow[]>("/api/v1/admin/users") });
@@ -53,13 +59,14 @@ export default function UsersPage() {
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ["users"] });
 
   const create = useMutation({
-    mutationFn: () => apiClient.post<{ temporaryPassword: string }>("/api/v1/admin/users", { email, name, roleSlugs: [roleSlug] }),
-    onSuccess: (data) => {
-      toast.push(`User dibuat. Password sementara: ${data.temporaryPassword}`, "success");
+    mutationFn: () => apiClient.post("/api/v1/admin/users", { email, name, password, roleSlugs: [roleSlug] }),
+    onSuccess: () => {
+      toast.push("User berhasil dibuat.", "success");
       invalidate();
       setOpen(false);
       setEmail("");
       setName("");
+      setPassword("");
     },
     onError: (err) => toast.push(err instanceof ApiError ? err.message : "Gagal membuat user.", "error"),
   });
@@ -75,12 +82,14 @@ export default function UsersPage() {
       apiClient.put(`/api/v1/admin/users/${editTarget!.id}`, {
         name,
         roleSlugs: [roleSlug],
+        ...(editPassword ? { password: editPassword } : {}),
       }),
     onSuccess: () => {
       toast.push("User berhasil diperbarui.", "success");
       invalidate();
       setEditTarget(null);
       setName("");
+      setEditPassword("");
     },
     onError: (err) => toast.push(err instanceof ApiError ? err.message : "Gagal memperbarui user.", "error"),
   });
@@ -110,7 +119,19 @@ export default function UsersPage() {
           <DashboardPageHeader
             title="Users"
             description="Manajemen user ditata ulang agar role, status, dan aksi keamanan penting seperti revoke session atau delete account lebih mudah dipindai."
-            actions={<Button onClick={() => setOpen(true)}>+ User Baru</Button>}
+            actions={
+              <Button
+                onClick={() => {
+                  setEmail("");
+                  setName("");
+                  setPassword("");
+                  setRoleSlug("cs_agent");
+                  setOpen(true);
+                }}
+              >
+                + User Baru
+              </Button>
+            }
           />
           <DashboardPageMetrics
             items={[
@@ -161,6 +182,7 @@ export default function UsersPage() {
                               setEditTarget(user);
                               setName(user.name);
                               setRoleSlug(user.roles[0]?.role.slug ?? "cs_agent");
+                              setEditPassword("");
                             }}
                           >
                             Edit
@@ -199,10 +221,21 @@ export default function UsersPage() {
         </div>
       </DashboardPage>
 
-      <Modal open={open} title="User Baru" onClose={() => setOpen(false)}>
+      <Modal
+        open={open}
+        title="User Baru"
+        onClose={() => {
+          setOpen(false);
+          setPassword("");
+        }}
+      >
         <form
           onSubmit={(e) => {
             e.preventDefault();
+            if (!isValidPassword(password)) {
+              toast.push("Password harus minimal 10 karakter dan mengandung huruf besar, huruf kecil, serta angka.", "error");
+              return;
+            }
             create.mutate();
           }}
           className="space-y-3"
@@ -214,6 +247,19 @@ export default function UsersPage() {
           <div>
             <Label htmlFor="email">Email</Label>
             <Input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+          </div>
+          <div>
+            <Label htmlFor="password">Password</Label>
+            <Input
+              id="password"
+              type="password"
+              autoComplete="new-password"
+              required
+              minLength={10}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+            <p className="mt-1 text-xs text-zinc-500">Minimal 10 karakter, berisi huruf besar, huruf kecil, dan angka.</p>
           </div>
           <div>
             <Label htmlFor="role">Role</Label>
@@ -239,11 +285,16 @@ export default function UsersPage() {
         onClose={() => {
           setEditTarget(null);
           setName("");
+          setEditPassword("");
         }}
       >
         <form
           onSubmit={(e) => {
             e.preventDefault();
+            if (editPassword && !isValidPassword(editPassword)) {
+              toast.push("Password harus minimal 10 karakter dan mengandung huruf besar, huruf kecil, serta angka.", "error");
+              return;
+            }
             updateUser.mutate();
           }}
           className="space-y-3"
@@ -251,6 +302,19 @@ export default function UsersPage() {
           <div>
             <Label htmlFor="edit-name">Nama</Label>
             <Input id="edit-name" required value={name} onChange={(e) => setName(e.target.value)} />
+          </div>
+          <div>
+            <Label htmlFor="edit-password">Password Baru</Label>
+            <Input
+              id="edit-password"
+              type="password"
+              autoComplete="new-password"
+              minLength={10}
+              value={editPassword}
+              onChange={(e) => setEditPassword(e.target.value)}
+              placeholder="Kosongkan jika tidak diubah"
+            />
+            <p className="mt-1 text-xs text-zinc-500">Jika diisi, minimal 10 karakter dengan huruf besar, huruf kecil, dan angka.</p>
           </div>
           <div>
             <Label htmlFor="edit-role">Role</Label>

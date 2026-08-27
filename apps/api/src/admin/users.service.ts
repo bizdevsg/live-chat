@@ -30,8 +30,7 @@ export class UsersService {
   }
 
   async create(organizationId: string, dto: CreateUserDto, actorId: string) {
-    const temporaryPassword = nanoid(16);
-    const passwordHash = await hash(temporaryPassword);
+    const passwordHash = await hash(dto.password);
     const user = await this.prisma.user.create({
       data: { organizationId, email: dto.email, name: dto.name, passwordHash, isActive: true },
     });
@@ -42,14 +41,15 @@ export class UsersService {
       if (isAgentRole) await this.prisma.agentProfile.create({ data: { userId: user.id } });
     }
     await this.auditLog.record({ organizationId, actorType: "USER", actorId, action: "user.created", resourceType: "user", resourceId: user.id });
-    return { ...user, temporaryPassword };
+    return { id: user.id, email: user.email, name: user.name };
   }
 
   async update(id: string, dto: UpdateUserDto, organizationId: string, actorId: string) {
     const before = await this.prisma.user.findUniqueOrThrow({ where: { id } });
+    const passwordHash = dto.password ? await hash(dto.password) : undefined;
     const user = await this.prisma.user.update({
       where: { id },
-      data: { name: dto.name, isActive: dto.isActive, supervisorId: dto.supervisorId },
+      data: { name: dto.name, passwordHash, isActive: dto.isActive, supervisorId: dto.supervisorId },
     });
     if (dto.roleSlugs) await this.attachRoles(id, organizationId, dto.roleSlugs);
     await this.auditLog.record({
