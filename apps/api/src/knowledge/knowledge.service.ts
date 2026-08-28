@@ -1,6 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { chunkText } from "@solidchat/ai-core";
-import { AI_MODELS, KnowledgeStatus, ErrorCode } from "@solidchat/shared";
+import { AI_MODELS, KnowledgeStatus, ErrorCode, normalizeWikiLinksForIndexing } from "@solidchat/shared";
 import { PrismaService } from "../prisma/prisma.service";
 import { AuditLogService } from "../common/audit/audit-log.service";
 import { AiProviderFactory } from "../ai/ai-provider.factory";
@@ -222,7 +222,7 @@ export class KnowledgeService {
   async reprocess(id: string) {
     const doc = await this.getRawOrThrow(id);
     const { provider } = await this.aiProviderFactory.getProviderForSite(doc.siteId);
-    const chunks = chunkText(doc.content);
+    const chunks = chunkText(normalizeWikiLinksForIndexing(doc.content));
 
     await this.prisma.knowledgeChunk.deleteMany({ where: { documentId: id } });
     for (const chunk of chunks) {

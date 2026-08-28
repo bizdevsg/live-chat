@@ -47,6 +47,7 @@ function toWidgetSettingsForm(settings: WidgetSettingsResponse): WidgetSettingsF
 }
 
 const WIDGET_ORIGIN = process.env.NEXT_PUBLIC_WIDGET_URL ?? "http://localhost:3001";
+const API_ORIGIN = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
 
 export default function WidgetSettingsPage() {
   const queryClient = useQueryClient();
@@ -87,7 +88,7 @@ export default function WidgetSettingsPage() {
 
   if (!site || !settings) return <div className="flex-1 p-6 text-sm text-zinc-500">Memuat…</div>;
 
-  const embedScript = `<script\n  src="${WIDGET_ORIGIN}/widget.js"\n  data-site-id="${site.siteKey}"\n  data-position="bottom-right"\n  data-language="id"\n  async>\n</script>`;
+  const embedScript = `<script\n  src="${WIDGET_ORIGIN}/widget.js"\n  data-site-id="${site.siteKey}"\n  data-api-url="${API_ORIGIN}"\n  data-position="bottom-right"\n  data-language="id"\n  async>\n</script>`;
 
   return (
     <>
@@ -127,7 +128,7 @@ export default function WidgetSettingsPage() {
             ))}
           </ul>
           <div className="flex gap-2">
-            <Input placeholder="sg-berjangka.com" value={newDomain} onChange={(e) => setNewDomain(e.target.value)} />
+            <Input placeholder="sg-berjangka.com atau https://domain.com/path" value={newDomain} onChange={(e) => setNewDomain(e.target.value)} />
               <Button variant="secondary" onClick={() => addDomain.mutate()} disabled={!newDomain}>
                 Tambah
               </Button>

@@ -12,12 +12,10 @@ export type NavIcon =
   | "bot"
   | "message"
   | "widget"
-  | "plug"
   | "route"
   | "team"
   | "shield"
-  | "file"
-  | "settings";
+  | "file";
 
 export interface NavItem {
   href: string;
@@ -60,13 +58,11 @@ export const NAV_SECTIONS: NavSection[] = [
       { href: "/ai/runs", label: "AI Runs", icon: "spark", permission: Permission.AI_CONFIG_MANAGE },
       { href: "/templates", label: "Response Templates", icon: "message", permission: Permission.TEMPLATE_MANAGE },
       { href: "/widget", label: "Widget Settings", icon: "widget", permission: Permission.WIDGET_MANAGE },
-      { href: "/integrations", label: "Integrations", icon: "plug", permission: Permission.INTEGRATION_MANAGE },
       { href: "/routing", label: "Routing Rules", icon: "route", permission: Permission.ROUTING_MANAGE },
       { href: "/teams", label: "CS & Teams", icon: "team", permission: Permission.TEAM_MANAGE },
       { href: "/users", label: "Users", icon: "users", permission: Permission.USER_MANAGE },
       { href: "/security", label: "Security", icon: "shield", permission: Permission.SECURITY_MANAGE },
       { href: "/audit-logs", label: "Audit Logs", icon: "file", permission: Permission.AUDIT_LOG_VIEW },
-      { href: "/settings", label: "System Settings", icon: "settings", permission: Permission.SITE_MANAGE },
     ],
   },
 ];

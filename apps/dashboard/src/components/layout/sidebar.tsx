@@ -102,14 +102,6 @@ function SidebarIcon({ icon, active }: { icon: NavIcon; active: boolean }) {
         <path {...commonProps} d="M12 16h.01" />
       </>
     ),
-    plug: (
-      <>
-        <path {...commonProps} d="M9 7.5v4" />
-        <path {...commonProps} d="M15 7.5v4" />
-        <path {...commonProps} d="M7.5 11.5h9v1.5a4.5 4.5 0 0 1-9 0Z" />
-        <path {...commonProps} d="M12 16v4" />
-      </>
-    ),
     route: (
       <>
         <circle {...commonProps} cx="6.5" cy="6.5" r="2.5" />
@@ -137,19 +129,6 @@ function SidebarIcon({ icon, active }: { icon: NavIcon; active: boolean }) {
         <path {...commonProps} d="M14 4.5v4h4" />
         <path {...commonProps} d="M9.5 12h5" />
         <path {...commonProps} d="M9.5 15h5" />
-      </>
-    ),
-    settings: (
-      <>
-        <circle {...commonProps} cx="12" cy="12" r="2.5" />
-        <path {...commonProps} d="M12 4.5v2.2" />
-        <path {...commonProps} d="M12 17.3v2.2" />
-        <path {...commonProps} d="m19.5 12h-2.2" />
-        <path {...commonProps} d="M6.7 12H4.5" />
-        <path {...commonProps} d="m17.3 6.7-1.6 1.6" />
-        <path {...commonProps} d="m8.3 15.7-1.6 1.6" />
-        <path {...commonProps} d="m17.3 17.3-1.6-1.6" />
-        <path {...commonProps} d="M8.3 8.3 6.7 6.7" />
       </>
     ),
   };

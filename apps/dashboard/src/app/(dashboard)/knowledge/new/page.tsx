@@ -37,6 +37,10 @@ export default function NewKnowledgeArticlePage() {
     queryKey: ["knowledge-categories"],
     queryFn: () => apiClient.get<Category[]>("/api/v1/knowledge/categories"),
   });
+  const wikilinkTargets = useQuery({
+    queryKey: ["knowledge-wikilink-targets"],
+    queryFn: () => apiClient.get<{ items: Array<{ id: string; title: string; slug?: string | null }> }>("/api/v1/knowledge/documents?pageSize=500"),
+  });
 
   const create = useMutation({
     mutationFn: () =>
@@ -109,6 +113,7 @@ export default function NewKnowledgeArticlePage() {
                 rows={18}
                 value={content}
                 minLength={20}
+                wikilinkTargets={wikilinkTargets.data?.items ?? []}
                 placeholder={`# Judul artikel
 
 Ringkas konteks artikel di awal.

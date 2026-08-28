@@ -60,7 +60,6 @@ AI hanya boleh memakai artikel berstatus **PUBLISHED** (dan belum kadaluwarsa). 
 | Response Templates | `/templates` | Balasan siap pakai dengan kode shortcut. |
 | Widget Settings | `/widget` | Script pemasangan widget + daftar domain yang diizinkan. |
 | Analytics | `/analytics` | Performa AI/agent, top intents, export CSV. |
-| Integrations | `/integrations` | Status koneksi CRM & riwayat sinkronisasi. |
 | Security | `/security` | Kejadian keamanan (login gagal, domain asing, dsb). |
 | Audit Logs | `/audit-logs` | Jejak seluruh tindakan penting — baca saja. |
 

@@ -1,4 +1,19 @@
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:4000";
+function resolveApiUrl() {
+  if (typeof window !== "undefined") {
+    const apiUrl = new URLSearchParams(window.location.search).get("apiUrl");
+    if (apiUrl) {
+      try {
+        return new URL(apiUrl).origin;
+      } catch {
+        // Ignore invalid overrides and fall back to the build-time default.
+      }
+    }
+  }
+
+  return import.meta.env.VITE_API_URL || "http://localhost:4000";
+}
+
+const API_URL = resolveApiUrl();
 
 interface ApiEnvelope<T> {
   success: boolean;

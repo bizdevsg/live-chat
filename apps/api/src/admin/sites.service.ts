@@ -5,6 +5,20 @@ import { NotFoundApiException } from "../common/errors/api.exception";
 import { ErrorCode } from "@solidchat/shared";
 import type { AddDomainDto, CreateSiteDto, UpdateSiteDto, UpdateWidgetSettingsDto } from "./dto/admin.dto";
 
+function normalizeSiteDomain(input: string) {
+  const trimmed = input.trim().toLowerCase();
+  if (!trimmed) return trimmed;
+
+  try {
+    return new URL(trimmed.includes("://") ? trimmed : `https://${trimmed}`).host.toLowerCase();
+  } catch {
+    return trimmed
+      .replace(/^[a-z]+:\/\//i, "")
+      .replace(/\/.*$/, "")
+      .toLowerCase();
+  }
+}
+
 @Injectable()
 export class SitesService {
   constructor(
@@ -47,8 +61,16 @@ export class SitesService {
   }
 
   async addDomain(siteId: string, dto: AddDomainDto, actorId: string) {
-    const domain = await this.prisma.siteDomain.create({ data: { siteId, domain: dto.domain.toLowerCase() } });
-    await this.auditLog.record({ actorType: "USER", actorId, action: "site.domain_added", resourceType: "site", resourceId: siteId, afterData: dto });
+    const normalizedDomain = normalizeSiteDomain(dto.domain);
+    const domain = await this.prisma.siteDomain.create({ data: { siteId, domain: normalizedDomain } });
+    await this.auditLog.record({
+      actorType: "USER",
+      actorId,
+      action: "site.domain_added",
+      resourceType: "site",
+      resourceId: siteId,
+      afterData: { domain: normalizedDomain },
+    });
     return domain;
   }
 

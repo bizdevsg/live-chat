@@ -1,11 +1,13 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import type { ComponentType } from "react";
 import { useMemo, useState } from "react";
+import { rewriteWikiLinksToMarkdown, type KnowledgeLinkTarget } from "@solidchat/shared";
 import { Button } from "./button";
 import { cn } from "./cn";
 
-const MDEditor = dynamic(() => import("@uiw/react-md-editor"), {
+const MDEditor = dynamic(() => import("@uiw/react-md-editor").then((mod) => mod.default), {
   ssr: false,
   loading: () => (
     <div className="min-h-[720px] animate-pulse rounded-xl border border-ink-600 bg-ink-800/70 p-4 text-sm text-zinc-500">
@@ -13,6 +15,25 @@ const MDEditor = dynamic(() => import("@uiw/react-md-editor"), {
     </div>
   ),
 });
+
+type MarkdownPreviewProps = {
+  source: string;
+};
+
+const MarkdownPreview = dynamic(
+  () =>
+    import("@uiw/react-md-editor").then(
+      (mod) => (mod.default as unknown as { Markdown: ComponentType<MarkdownPreviewProps> }).Markdown,
+    ),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="min-h-[720px] animate-pulse rounded-xl border border-ink-600 bg-ink-800/70 p-4 text-sm text-zinc-500">
+        Memuat editor markdown...
+      </div>
+    ),
+  },
+);
 
 type MarkdownEditorProps = {
   id?: string;
@@ -24,6 +45,8 @@ type MarkdownEditorProps = {
   placeholder?: string;
   rows?: number;
   className?: string;
+  wikilinkTargets?: KnowledgeLinkTarget[];
+  wikilinkBasePath?: string;
 };
 
 export function MarkdownEditor({
@@ -36,10 +59,35 @@ export function MarkdownEditor({
   placeholder,
   rows = 16,
   className,
+  wikilinkTargets = [],
+  wikilinkBasePath = "/knowledge",
 }: MarkdownEditorProps) {
   const [preview, setPreview] = useState<"live" | "edit" | "preview">("live");
   const editorHeight = useMemo(() => Math.max(rows * 36, 720), [rows]);
   const stats = `${value.length} karakter | ${value ? value.split("\n").length : 1} baris`;
+  const previewSource = useMemo(
+    () => rewriteWikiLinksToMarkdown(value, wikilinkTargets, wikilinkBasePath),
+    [value, wikilinkTargets, wikilinkBasePath],
+  );
+  const editorProps = {
+    id,
+    value,
+    height: editorHeight,
+    minHeight: editorHeight,
+    visibleDragbar: false,
+    textareaProps: {
+      id,
+      disabled,
+      required,
+      minLength,
+      placeholder,
+    },
+    previewOptions: {
+      style: { backgroundColor: "transparent", padding: 0 },
+      disallowedElements: ["style", "script"],
+    },
+    onChange: (nextValue?: string) => onChange(nextValue ?? ""),
+  };
 
   return (
     <div data-color-mode="dark" className={cn("space-y-3", className)}>
@@ -74,29 +122,26 @@ export function MarkdownEditor({
           >
             Sisipkan Section
           </Button>
+          <span className="rounded-full border border-ink-600 bg-ink-800/70 px-3 py-1">
+            Wikilink: <code>[[Judul Artikel]]</code> atau <code>[[Judul Artikel|Alias]]</code>
+          </span>
         </div>
       </div>
 
-      <MDEditor
-        id={id}
-        value={value}
-        preview={preview}
-        height={editorHeight}
-        minHeight={editorHeight}
-        visibleDragbar={false}
-        textareaProps={{
-          id,
-          disabled,
-          required,
-          minLength,
-          placeholder,
-        }}
-        previewOptions={{
-          style: { backgroundColor: "transparent", padding: 0 },
-          disallowedElements: ["style", "script"],
-        }}
-        onChange={(nextValue) => onChange(nextValue ?? "")}
-      />
+      {preview === "edit" ? (
+        <MDEditor {...editorProps} preview="edit" />
+      ) : preview === "preview" ? (
+        <div className="min-h-[720px] overflow-auto rounded-xl border border-ink-600 bg-ink-800/70 p-4">
+          <MarkdownPreview source={previewSource} />
+        </div>
+      ) : (
+        <div className="grid gap-4 xl:grid-cols-2">
+          <MDEditor {...editorProps} preview="edit" />
+          <div className="min-h-[720px] overflow-auto rounded-xl border border-ink-600 bg-ink-800/70 p-4">
+            <MarkdownPreview source={previewSource} />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

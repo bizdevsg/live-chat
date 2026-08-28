@@ -16,6 +16,26 @@ function hashIp(ip: string | undefined): string | undefined {
   return createHash("sha256").update(ip).digest("hex").slice(0, 32);
 }
 
+function normalizeDomainEntry(input: string) {
+  const trimmed = input.trim().toLowerCase();
+  if (!trimmed) return trimmed;
+
+  try {
+    return new URL(trimmed.includes("://") ? trimmed : `https://${trimmed}`).host.toLowerCase();
+  } catch {
+    return trimmed
+      .replace(/^[a-z]+:\/\//i, "")
+      .replace(/\/.*$/, "")
+      .toLowerCase();
+  }
+}
+
+function wildcardMatches(hostname: string, pattern: string) {
+  if (!pattern.startsWith("*.")) return false;
+  const suffix = pattern.slice(2);
+  return hostname === suffix || hostname.endsWith(`.${suffix}`);
+}
+
 @Injectable()
 export class WidgetService {
   constructor(
@@ -60,18 +80,30 @@ export class WidgetService {
             privacyNoticeUrl: site.settings.privacyNoticeUrl,
             termsUrl: site.settings.termsUrl,
             ratingFormEnabled: site.settings.ratingFormEnabled,
-          }
+      }
         : null,
     };
   }
 
-  private extractHostname(url?: string): string | null {
+  private extractPageOrigin(url?: string): { host: string; hostname: string } | null {
     if (!url) return null;
     try {
-      return new URL(url).hostname;
+      const parsed = new URL(url);
+      return { host: parsed.host.toLowerCase(), hostname: parsed.hostname.toLowerCase() };
     } catch {
       return null;
     }
+  }
+
+  private isAllowedDomain(pageOrigin: { host: string; hostname: string }, allowedDomains: string[]) {
+    return allowedDomains.some((entry) => {
+      const normalized = normalizeDomainEntry(entry);
+      return (
+        normalized === pageOrigin.host ||
+        normalized === pageOrigin.hostname ||
+        wildcardMatches(pageOrigin.hostname, normalized)
+      );
+    });
   }
 
   async createSession(dto: CreateWidgetSessionDto, meta: { ip?: string; userAgent?: string }) {
@@ -80,15 +112,15 @@ export class WidgetService {
       throw new NotFoundApiException(ErrorCode.SITE_NOT_FOUND, "Website tidak ditemukan atau tidak aktif.");
     }
 
-    const hostname = this.extractHostname(dto.pageUrl);
-    const allowedHostnames = new Set(site.domains.map((d) => d.domain.toLowerCase()));
-    if (hostname && !allowedHostnames.has(hostname.toLowerCase())) {
+    const pageOrigin = this.extractPageOrigin(dto.pageUrl);
+    const allowedDomains = site.domains.map((d) => d.domain);
+    if (pageOrigin && !this.isAllowedDomain(pageOrigin, allowedDomains)) {
       await this.securityEvents.record({
         organizationId: site.organizationId,
         type: "DOMAIN_NOT_ALLOWED",
         severity: "MEDIUM",
         ipAddress: meta.ip,
-        details: { siteId: dto.siteId, hostname },
+        details: { siteId: dto.siteId, hostname: pageOrigin.hostname, host: pageOrigin.host },
       });
       throw new ApiException(ErrorCode.DOMAIN_NOT_ALLOWED, "Domain ini tidak diizinkan untuk widget Anda.", HttpStatus.FORBIDDEN);
     }

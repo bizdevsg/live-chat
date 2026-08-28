@@ -26,7 +26,6 @@ declare global {
   }
 }
 
-const WIDGET_ORIGIN = new URL(__WIDGET_URL__).origin;
 const FLOATING_BOTTOM_OFFSET = 40;
 const PANEL_BOTTOM_OFFSET = FLOATING_BOTTOM_OFFSET;
 
@@ -42,6 +41,7 @@ function supportsRequiredFeatures(): boolean {
 function readConfig(script: HTMLOrSVGScriptElement & HTMLElement) {
   return {
     siteId: script.dataset.siteId ?? "",
+    apiUrl: script.dataset.apiUrl ?? __API_URL__,
     position:
       script.dataset.position === "bottom-left"
         ? "bottom-left"
@@ -66,6 +66,7 @@ function init() {
   const script = currentScript();
   if (!script) return;
   const config = readConfig(script);
+  const widgetOrigin = new URL(script.src || __WIDGET_URL__, window.location.href).origin;
   if (!config.siteId) {
     console.warn(
       "[SolidChat] data-site-id is required on the widget.js <script> tag.",
@@ -110,7 +111,7 @@ function init() {
   bubble.setAttribute("aria-label", "Buka live chat");
   const bubbleImage = document.createElement("img");
   bubbleImage.className = "bubble-image";
-  bubbleImage.src = `${__WIDGET_URL__}/live-bubble.png`;
+  bubbleImage.src = `${widgetOrigin}/live-bubble.png`;
   bubbleImage.alt = "";
   bubbleImage.setAttribute("aria-hidden", "true");
   bubbleImage.setAttribute("draggable", "false");
@@ -147,15 +148,16 @@ function init() {
     iframe.setAttribute("allow", "clipboard-write");
     const params = new URLSearchParams({
       siteId: config.siteId,
+      apiUrl: config.apiUrl,
       language: config.language,
     });
-    iframe.src = `${__WIDGET_URL__}/?${params.toString()}`;
+    iframe.src = `${widgetOrigin}/?${params.toString()}`;
     shadow.appendChild(iframe);
     return iframe;
   }
 
   function postToIframe(message: unknown) {
-    iframe?.contentWindow?.postMessage(message, WIDGET_ORIGIN);
+    iframe?.contentWindow?.postMessage(message, widgetOrigin);
   }
 
   function open() {
@@ -184,7 +186,7 @@ function init() {
   bubble.addEventListener("click", () => (isOpen ? close() : open()));
 
   function onMessage(event: MessageEvent) {
-    if (event.origin !== WIDGET_ORIGIN) return; // only trust our own iframe's origin
+    if (event.origin !== widgetOrigin) return; // only trust our own iframe's origin
     if (!iframe || event.source !== iframe.contentWindow) return;
     const data = event.data as
       { type?: string; height?: number; count?: number } | undefined;

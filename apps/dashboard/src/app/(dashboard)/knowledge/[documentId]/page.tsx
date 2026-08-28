@@ -23,6 +23,7 @@ interface Category {
 
 interface KnowledgeDocDetail {
   id: string;
+  slug?: string;
   title: string;
   summary?: string | null;
   content: string;
@@ -58,6 +59,10 @@ export default function KnowledgeDetailPage() {
   const categories = useQuery({
     queryKey: ["knowledge-categories"],
     queryFn: () => apiClient.get<Category[]>("/api/v1/knowledge/categories"),
+  });
+  const wikilinkTargets = useQuery({
+    queryKey: ["knowledge-wikilink-targets"],
+    queryFn: () => apiClient.get<{ items: Array<{ id: string; title: string; slug?: string | null }> }>("/api/v1/knowledge/documents?pageSize=500"),
   });
 
   const [title, setTitle] = useState("");
@@ -152,6 +157,7 @@ export default function KnowledgeDetailPage() {
                 value={content}
                 disabled={!editable}
                 rows={18}
+                wikilinkTargets={wikilinkTargets.data?.items ?? []}
                 placeholder={`# Judul artikel
 
 Tulis isi knowledge di sini...`}
