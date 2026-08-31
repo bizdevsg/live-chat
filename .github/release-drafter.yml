@@ -1,0 +1,25 @@
+name-template: "v$RESOLVED_VERSION"
+tag-template: "v$RESOLVED_VERSION"
+categories:
+  - title: "🚀 Fitur Baru (Features)"
+    label: "feat"
+  - title: "🐛 Perbaikan Bug (Bug Fixes)"
+    label: "fix"
+  - title: "📝 Dokumentasi (Documentation)"
+    label: "docs"
+  - title: "refactor: Perubahan Kode (Refactoring)"
+    label: "refactor"
+version-resolver:
+  major:
+    labels:
+      - "major"
+  minor:
+    labels:
+      - "enhancement"
+      - "feat"
+  patch:
+    labels:
+      - "fix"
+      - "patch"
+default-branch: main
+sort-by: "title"
