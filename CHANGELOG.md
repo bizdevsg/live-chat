@@ -3,7 +3,16 @@
 Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
-- Belum ada perubahan terdeteksi.
+### Added
+- Menambahkan workflow `.github/workflows/auto-version-release.yml`.
+- Menambahkan `scripts/changelog-utils.mjs`.
+- Menambahkan `scripts/resolve-version-bump.mjs`.
+
+### Changed
+- Memperbarui `.github/release-drafter.yml` agar sinkron dengan branch `dev`.
+- Memperbarui `package.json` untuk script versioning otomatis.
+- Memperbarui `scripts/release-version.mjs`.
+- Memperbarui `scripts/update-changelog.mjs`.
 
 ## [0.2.0] - 2026-08-31
 ### Added
@@ -16,6 +25,7 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 - Memperbarui `apps/dashboard/src/app/(dashboard)/knowledge/page.tsx`.
 - Memperbarui `package.json`.
 - Memperbarui `scripts/update-changelog.mjs`.
+
 ## [0.1.0] - 2026-08-31
 ### Added
 - Menambahkan `.githooks/pre-commit`.

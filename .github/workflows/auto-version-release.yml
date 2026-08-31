@@ -1,0 +1,88 @@
+name: Auto Version Release
+
+on:
+  push:
+    branches:
+      - dev
+
+permissions:
+  contents: write
+
+jobs:
+  auto-version:
+    if: github.actor != 'github-actions[bot]' && !contains(github.event.head_commit.message, '[skip version]')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Resolve next version
+        id: version
+        run: |
+          node scripts/resolve-version-bump.mjs \
+            --from-ref "${{ github.event.before }}" \
+            --to-ref "${{ github.sha }}" >> "$GITHUB_OUTPUT"
+
+      - name: Stop when no releasable commits
+        if: steps.version.outputs.should_release != 'true'
+        run: echo "Tidak ada bump version untuk push ini."
+
+      - name: Check existing tag
+        if: steps.version.outputs.should_release == 'true'
+        id: tag-check
+        run: |
+          if git rev-parse -q --verify "refs/tags/v${{ steps.version.outputs.next_version }}" >/dev/null; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Stop when release tag already exists
+        if: steps.version.outputs.should_release == 'true' && steps.tag-check.outputs.exists == 'true'
+        run: echo "Tag v${{ steps.version.outputs.next_version }} sudah ada, release otomatis dilewati."
+
+      - name: Build unreleased changelog from pushed commits
+        if: steps.version.outputs.should_release == 'true' && steps.tag-check.outputs.exists != 'true'
+        run: |
+          node scripts/update-changelog.mjs \
+            --from-ref "${{ steps.version.outputs.from_ref }}" \
+            --to-ref "${{ steps.version.outputs.to_ref }}" \
+            --write
+
+      - name: Promote release version
+        if: steps.version.outputs.should_release == 'true' && steps.tag-check.outputs.exists != 'true'
+        run: node scripts/release-version.mjs "${{ steps.version.outputs.next_version }}"
+
+      - name: Commit package version and changelog
+        if: steps.version.outputs.should_release == 'true' && steps.tag-check.outputs.exists != 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json CHANGELOG.md
+          git commit -m "chore(release): v${{ steps.version.outputs.next_version }} [skip version]"
+
+      - name: Create tag
+        if: steps.version.outputs.should_release == 'true' && steps.tag-check.outputs.exists != 'true'
+        run: git tag "v${{ steps.version.outputs.next_version }}"
+
+      - name: Push release commit and tag
+        if: steps.version.outputs.should_release == 'true' && steps.tag-check.outputs.exists != 'true'
+        run: git push origin HEAD:${{ github.ref_name }} --follow-tags
+
+      - name: Publish GitHub release
+        if: steps.version.outputs.should_release == 'true' && steps.tag-check.outputs.exists != 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version.outputs.next_version }}
+          generate_release_notes: true
