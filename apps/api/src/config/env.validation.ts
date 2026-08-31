@@ -64,7 +64,7 @@ const envSchema = z.object({
 
   ENCRYPTION_KEY: z.string().min(32, "ENCRYPTION_KEY must be at least 32 chars"),
   COOKIE_DOMAIN: z.string().default("localhost"),
-  CORS_ALLOWED_ORIGINS: z.string().default("http://localhost:3000,http://localhost:3001"),
+  CORS_ALLOWED_ORIGINS: z.string().default(""),
 
   DEFAULT_TIMEZONE: z.string().default("Asia/Jakarta"),
   DEFAULT_LANGUAGE: z.string().default("id"),

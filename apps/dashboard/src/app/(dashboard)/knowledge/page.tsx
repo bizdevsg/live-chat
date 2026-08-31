@@ -9,6 +9,7 @@ import { Topbar } from "@/components/layout/topbar";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/components/ui/cn";
 import { ConfirmModal } from "@/components/ui/modal";
 import { Input, Select } from "@/components/ui/input";
 import { useAuthStore } from "@/lib/auth-store";
@@ -45,6 +46,7 @@ export default function KnowledgePage() {
   const user = useAuthStore((s) => s.user);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [deletingDoc, setDeletingDoc] = useState<KnowledgeDoc | null>(null);
+  const [pendingToggleId, setPendingToggleId] = useState<string | null>(null);
   const isSuperAdmin = isSuperAdminRole(user?.roles);
 
   const categories = useQuery({
@@ -88,9 +90,31 @@ export default function KnowledgePage() {
     onSuccess: () => {
       toast.push("Artikel dihapus.", "success");
       queryClient.invalidateQueries({ queryKey: ["knowledge"] });
+      queryClient.invalidateQueries({ queryKey: ["knowledge-overview"] });
       setDeletingDoc(null);
     },
     onError: (err) => toast.push(err instanceof ApiError ? err.message : "Gagal menghapus artikel.", "error"),
+  });
+  const toggleStatus = useMutation({
+    mutationFn: ({ id, nextStatus }: { id: string; nextStatus: "ACTIVE" | "NON_ACTIVE" }) =>
+      apiClient.post(
+        `/api/v1/knowledge/documents/${id}/${nextStatus === "ACTIVE" ? "activate" : "deactivate"}`,
+      ),
+    onMutate: ({ id }) => {
+      setPendingToggleId(id);
+    },
+    onSuccess: (_, variables) => {
+      toast.push(
+        variables.nextStatus === "ACTIVE" ? "Artikel diaktifkan untuk AI." : "Artikel dinonaktifkan dari AI.",
+        "success",
+      );
+      queryClient.invalidateQueries({ queryKey: ["knowledge"] });
+      queryClient.invalidateQueries({ queryKey: ["knowledge-overview"] });
+    },
+    onError: (err) => toast.push(err instanceof ApiError ? err.message : "Gagal mengubah status artikel.", "error"),
+    onSettled: () => {
+      setPendingToggleId(null);
+    },
   });
 
   const docs = query.data?.items ?? [];
@@ -277,7 +301,38 @@ export default function KnowledgePage() {
                     <td className="px-4 py-4 text-zinc-400">{doc.audience}</td>
                     <td className="px-4 py-4 text-zinc-400">v{doc.version}</td>
                     <td className="px-4 py-4">
-                      <Badge tone={STATUS_TONE[doc.status] ?? "neutral"}>{doc.status}</Badge>
+                      <div className="flex items-center gap-3">
+                        <Badge tone={STATUS_TONE[doc.status] ?? "neutral"}>{doc.status}</Badge>
+                        {isSuperAdmin && (
+                          <button
+                            type="button"
+                            role="switch"
+                            aria-checked={doc.status === "ACTIVE"}
+                            aria-label={doc.status === "ACTIVE" ? `Nonaktifkan ${doc.title}` : `Aktifkan ${doc.title}`}
+                            onClick={() =>
+                              toggleStatus.mutate({
+                                id: doc.id,
+                                nextStatus: doc.status === "ACTIVE" ? "NON_ACTIVE" : "ACTIVE",
+                              })
+                            }
+                            disabled={pendingToggleId === doc.id || removeArticle.isPending}
+                            className={cn(
+                              "relative inline-flex h-7 w-12 shrink-0 items-center rounded-full border transition-colors",
+                              doc.status === "ACTIVE"
+                                ? "border-emerald-400/40 bg-emerald-500"
+                                : "border-ink-500 bg-zinc-600",
+                              pendingToggleId === doc.id || removeArticle.isPending ? "cursor-wait opacity-60" : "cursor-pointer",
+                            )}
+                          >
+                            <span
+                              className={cn(
+                                "inline-block h-5 w-5 rounded-full bg-white shadow-sm transition-transform",
+                                doc.status === "ACTIVE" ? "translate-x-6" : "translate-x-1",
+                              )}
+                            />
+                          </button>
+                        )}
+                      </div>
                     </td>
                     <td className="px-4 py-4 text-zinc-500">{new Date(doc.updatedAt).toLocaleDateString("id-ID")}</td>
                     <td className="px-4 py-4">
