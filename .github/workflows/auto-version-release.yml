@@ -34,9 +34,34 @@ jobs:
             --from-ref "${{ github.event.before }}" \
             --to-ref "${{ github.sha }}" >> "$GITHUB_OUTPUT"
 
-      - name: Stop when no releasable commits
-        if: steps.version.outputs.should_release != 'true'
-        run: echo "Tidak ada bump version untuk push ini."
+      - name: Build unreleased changelog from pushed commits
+        run: |
+          node scripts/update-changelog.mjs \
+            --from-ref "${{ steps.version.outputs.from_ref }}" \
+            --to-ref "${{ steps.version.outputs.to_ref }}" \
+            --write
+
+      - name: Detect changelog changes
+        id: changelog
+        run: |
+          if git diff --quiet -- CHANGELOG.md; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Stop when nothing changed
+        if: steps.version.outputs.should_release != 'true' && steps.changelog.outputs.changed != 'true'
+        run: echo "Tidak ada version bump atau perubahan changelog untuk push ini."
+
+      - name: Commit changelog only
+        if: steps.version.outputs.should_release != 'true' && steps.changelog.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add CHANGELOG.md
+          git commit -m "docs(changelog): sync unreleased [skip version]"
+          git push origin HEAD:${{ github.ref_name }}
 
       - name: Check existing tag
         if: steps.version.outputs.should_release == 'true'
@@ -51,14 +76,6 @@ jobs:
       - name: Stop when release tag already exists
         if: steps.version.outputs.should_release == 'true' && steps.tag-check.outputs.exists == 'true'
         run: echo "Tag v${{ steps.version.outputs.next_version }} sudah ada, release otomatis dilewati."
-
-      - name: Build unreleased changelog from pushed commits
-        if: steps.version.outputs.should_release == 'true' && steps.tag-check.outputs.exists != 'true'
-        run: |
-          node scripts/update-changelog.mjs \
-            --from-ref "${{ steps.version.outputs.from_ref }}" \
-            --to-ref "${{ steps.version.outputs.to_ref }}" \
-            --write
 
       - name: Promote release version
         if: steps.version.outputs.should_release == 'true' && steps.tag-check.outputs.exists != 'true'

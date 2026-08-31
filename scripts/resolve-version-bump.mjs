@@ -35,7 +35,54 @@ function bumpVersion(currentVersion, bump) {
   return `${major}.${minor}.${patch + 1}`;
 }
 
-const currentVersion = readPackageVersion();
+function parseSemver(version) {
+  const match = version.match(/^(\d+)\.(\d+)\.(\d+)$/);
+  if (!match) {
+    return null;
+  }
+
+  return {
+    raw: version,
+    major: Number(match[1]),
+    minor: Number(match[2]),
+    patch: Number(match[3]),
+  };
+}
+
+function compareSemver(left, right) {
+  if (left.major !== right.major) return left.major - right.major;
+  if (left.minor !== right.minor) return left.minor - right.minor;
+  return left.patch - right.patch;
+}
+
+function getLatestTaggedVersion() {
+  const tagOutput = runGit(["tag", "--list", "v*"], { allowFailure: true });
+  const versions = tagOutput
+    .split(/\r?\n/)
+    .map((tag) => tag.trim().replace(/^v/, ""))
+    .map(parseSemver)
+    .filter(Boolean)
+    .sort(compareSemver);
+
+  return versions.at(-1)?.raw ?? null;
+}
+
+const packageVersion = readPackageVersion();
+const taggedVersion = getLatestTaggedVersion();
+const currentVersion = (() => {
+  const packageSemver = parseSemver(packageVersion);
+  const taggedSemver = taggedVersion ? parseSemver(taggedVersion) : null;
+
+  if (!packageSemver) {
+    return taggedVersion ?? packageVersion;
+  }
+
+  if (!taggedSemver) {
+    return packageVersion;
+  }
+
+  return compareSemver(packageSemver, taggedSemver) >= 0 ? packageVersion : taggedVersion;
+})();
 const normalizedFromRef = normalizeRef(fromRef);
 const range = resolveRangeFromArgs(normalizedFromRef, toRef);
 const output = range ? runGit(["log", "--format=%s%n%b%x1e", range], { allowFailure: true }) : "";
