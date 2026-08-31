@@ -126,32 +126,9 @@ docker compose exec api pnpm --filter @solidchat/database seed
 
 Full detail (including production TLS setup) in [`docs/deployment.md`](docs/deployment.md).
 
-## 11a. Run with Docker (development + hot reload)
-
-```bash
-cp .env.example .env
-docker compose -f docker-compose.dev.yml up --build
-docker compose -f docker-compose.dev.yml exec api pnpm --filter @solidchat/database migrate
-docker compose -f docker-compose.dev.yml exec api pnpm --filter @solidchat/database seed
-```
-
-Behavior:
-- `api`, `worker`, `dashboard`, `widget`, and `widget-loader` all stay inside Docker
-- source code is bind-mounted, so app changes reload automatically without `docker compose up --build` again
-- MySQL/Redis/MinIO/phpMyAdmin/nginx stay in Docker as usual
-- dev stack is standalone and uses a different Docker project name: `solidchat-ai-dev`, so it can run side-by-side with the production-like stack
-
-Useful URLs in dev Docker mode:
-- dashboard: `http://localhost:5276`
-- api: `http://localhost:4400`
-- widget app: `http://localhost:3101`
-- phpMyAdmin: `http://localhost:8082`
-- MinIO: `http://localhost:9100` and `http://localhost:9101`
-- nginx reverse proxy: `http://localhost:8088`
-- MySQL host port: `3308`
-
 Notes:
-- if you change dependencies (`package.json` / `pnpm-lock.yaml`) or the Docker config itself, rebuild is still needed
+- `docker-compose.yml` is the only Compose entrypoint for this repo
+- if you change app source, dependencies (`package.json` / `pnpm-lock.yaml`), or Docker config, rebuild the affected services
 - if you change Prisma schema, regenerate/migrate may still be needed manually
 
 ## 12. Create the first admin

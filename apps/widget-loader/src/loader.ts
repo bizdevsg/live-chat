@@ -90,12 +90,18 @@ function init() {
       background: transparent; color: #0b0b0c; font-size: 26px; box-shadow: none;
       display: flex; align-items: center; justify-content: center; transition: transform .15s ease; }
     .bubble:hover { transform: scale(1.05); }
+    .bubble.has-unread { filter: drop-shadow(0 0 14px rgba(229,72,77,.45)); }
     .bubble-image { width: 100%; height: 100%; display: block; object-fit: contain; }
     .bubble.open { display: none; }
     .badge { position: fixed; bottom: ${FLOATING_BOTTOM_OFFSET + 42}px; ${config.position === "bottom-left" ? "left: 62px;" : "right: 62px;"}
       min-width: 20px; height: 20px; padding: 0 5px; border-radius: 10px; background: #e5484d;
       color: #fff; font: 600 11px/20px system-ui, sans-serif; text-align: center; display: none; }
-    .badge.visible { display: block; }
+    .badge.visible { display: block; animation: badge-pulse 1.8s ease-out infinite; }
+    @keyframes badge-pulse {
+      0% { box-shadow: 0 0 0 0 rgba(229,72,77,.45); }
+      70% { box-shadow: 0 0 0 10px rgba(229,72,77,0); }
+      100% { box-shadow: 0 0 0 0 rgba(229,72,77,0); }
+    }
     .panel { position: fixed; bottom: ${PANEL_BOTTOM_OFFSET}px; ${config.position === "bottom-left" ? "left: 20px;" : "right: 20px;"}
       width: 370px; height: 560px; max-height: calc(100vh - 120px); border: none; border-radius: 16px;
       box-shadow: 0 10px 40px rgba(0,0,0,.45); display: none; background: #0b0b0c; }
@@ -132,11 +138,13 @@ function init() {
   function setUnreadBadge(count: number) {
     if (isOpen || count <= 0) {
       badge.classList.remove("visible");
+      bubble.classList.remove("has-unread");
       bubble.setAttribute("aria-label", "Buka live chat");
       return;
     }
     badge.textContent = count > 9 ? "9+" : String(count);
     badge.classList.add("visible");
+    bubble.classList.add("has-unread");
     bubble.setAttribute("aria-label", `Buka live chat, ${count} pesan baru`);
   }
 

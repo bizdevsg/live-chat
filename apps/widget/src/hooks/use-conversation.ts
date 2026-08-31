@@ -14,6 +14,10 @@ export interface WidgetMessage {
   senderName?: string | null;
 }
 
+function isReplyMessage(message: Pick<WidgetMessage, "senderType">) {
+  return message.senderType === "AI" || message.senderType === "AGENT";
+}
+
 interface ConversationState {
   id: string;
   status: string;
@@ -23,6 +27,7 @@ interface ConversationState {
 export function useConversation(visitorToken: string | null, siteId: string | null, initialPresence?: SitePresenceStatus) {
   const [conversation, setConversation] = useState<ConversationState | null>(null);
   const [messages, setMessages] = useState<WidgetMessage[]>([]);
+  const [lastIncomingReply, setLastIncomingReply] = useState<WidgetMessage | null>(null);
   const [connected, setConnected] = useState(false);
   const [presenceStatus, setPresenceStatus] = useState<SitePresenceStatus | undefined>(initialPresence);
   const [agentTyping, setAgentTyping] = useState(false);
@@ -61,6 +66,7 @@ export function useConversation(visitorToken: string | null, siteId: string | nu
         if (payload.message.senderType === "AI") setAiTyping(false);
         // A human has spoken — the "connecting you to an agent" notice has served its purpose.
         if (payload.message.senderType === "AGENT") setAgentRequested(false);
+        if (isReplyMessage(payload.message)) setLastIncomingReply(payload.message);
         setMessages((prev) => {
           const incoming = payload.message;
           const existingIndex = prev.findIndex(
@@ -107,6 +113,7 @@ export function useConversation(visitorToken: string | null, siteId: string | nu
       );
       widgetStorage.setConversationId(detail.conversation.id);
       setMessages(detail.messages);
+      setLastIncomingReply(null);
       setConversation(detail.conversation);
       setAgentRequested(false);
       attachSocket(detail.conversation);
@@ -127,13 +134,16 @@ export function useConversation(visitorToken: string | null, siteId: string | nu
         );
         conv = detail.conversation;
         setMessages(detail.messages);
+        setLastIncomingReply(null);
       } else {
         conv = await api.post<ConversationState>("/api/v1/widget/conversations", {}, visitorToken);
         setMessages([]);
+        setLastIncomingReply(null);
       }
     } catch {
       conv = await api.post<ConversationState>("/api/v1/widget/conversations", {}, visitorToken);
       setMessages([]);
+      setLastIncomingReply(null);
     }
 
     widgetStorage.setConversationId(conv.id);
@@ -185,6 +195,7 @@ export function useConversation(visitorToken: string | null, siteId: string | nu
     widgetStorage.clearConversationId();
     setConversation(null);
     setMessages([]);
+    setLastIncomingReply(null);
     setAgentRequested(false);
     const conv = await api.post<ConversationState>("/api/v1/widget/conversations", {}, visitorToken);
     widgetStorage.setConversationId(conv.id);
@@ -225,6 +236,7 @@ export function useConversation(visitorToken: string | null, siteId: string | nu
   return {
     conversation,
     messages,
+    lastIncomingReply,
     connected,
     presenceStatus,
     agentTyping,

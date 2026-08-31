@@ -42,38 +42,14 @@ docker compose exec api pnpm --filter @solidchat/database seed
 
 Services: `mysql`, `redis`, `minio`, `api` (:4000), `worker`, `dashboard` (:3000), `widget` (:3001, serves both the chat SPA and `/widget.js`), `nginx` (:80, reverse-proxies the subdomain topology — see `infrastructure/nginx/solidchat.conf`).
 
-## Docker Compose (development with hot reload)
+## Docker Compose
 
-If you want every app to stay inside Docker but still pick up code edits without rebuilding on each change, use the dev override:
-
-```bash
-cp .env.example .env
-docker compose -f docker-compose.dev.yml up --build
-docker compose -f docker-compose.dev.yml exec api pnpm --filter @solidchat/database migrate
-docker compose -f docker-compose.dev.yml exec api pnpm --filter @solidchat/database seed
-```
-
-What this changes:
-- `api` and `worker` run `nest start --watch`
-- `dashboard` runs `next dev`
-- `widget` runs `vite`
-- `widget-loader` rebuilds `widget.js` in watch mode
-- nginx switches to `infrastructure/nginx/solidchat.dev.conf`, which proxies to the dev servers and serves the watched `widget.js`
-- the stack is standalone and uses the Docker project name `solidchat-ai-dev`, so it is isolated from the production-like stack
-
-Direct local ports in this mode:
-- dashboard: `http://localhost:5276`
-- api: `http://localhost:4400`
-- widget iframe app: `http://localhost:3101`
-- phpMyAdmin: `http://localhost:8082`
-- MinIO API: `http://localhost:9100`
-- MinIO Console: `http://localhost:9101`
-- nginx: `http://localhost:8088`
-- MySQL host port: `3308`
+Use `docker-compose.yml` as the single Compose entrypoint for local and production-like runs.
 
 Rebuild is still required when:
 - dependencies change (`package.json` / `pnpm-lock.yaml`)
-- Dockerfiles or compose files change
+- Dockerfiles or compose config change
+- any frontend app (`dashboard`, `widget`, `widget-loader`) changes, because those assets are built into the image
 - you intentionally want a clean image refresh
 
 ## Production

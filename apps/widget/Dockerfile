@@ -12,6 +12,7 @@ ENV VITE_API_URL=$VITE_API_URL
 ENV WIDGET_URL=$WIDGET_URL
 ENV API_URL=$API_URL
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml turbo.json ./
+COPY scripts ./scripts
 COPY packages ./packages
 COPY apps/widget ./apps/widget
 COPY apps/widget-loader ./apps/widget-loader

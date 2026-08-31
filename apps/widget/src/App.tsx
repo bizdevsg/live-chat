@@ -9,7 +9,12 @@ import { Composer } from "./components/Composer";
 import { RatingForm } from "./components/RatingForm";
 import { PreChatForm, type PreChatValues } from "./components/PreChatForm";
 import { TicketForm, type TicketValues } from "./components/TicketForm";
+import { playNotificationSound, prepareNotificationSound } from "./lib/notification-sound";
 import { widgetStorage } from "./lib/storage";
+
+function isReplyMessage(senderType: string) {
+  return senderType === "AI" || senderType === "AGENT";
+}
 
 function BusyNotice() {
   return (
@@ -42,6 +47,7 @@ export default function App() {
   const {
     conversation,
     messages,
+    lastIncomingReply,
     connected,
     presenceStatus,
     agentTyping,
@@ -116,19 +122,26 @@ export default function App() {
     });
   }, [visitorToken]);
 
+  useEffect(() => prepareNotificationSound(), []);
+
   useEffect(() => {
     if (panelOpen) {
       readCountRef.current = messages.length;
       setUnreadCount(0);
       return;
     }
-    const unseen = messages.filter((m, i) => i >= readCountRef.current && m.senderType !== "VISITOR" && m.senderType !== "CUSTOMER").length;
+    const unseen = messages.filter((m, i) => i >= readCountRef.current && isReplyMessage(m.senderType)).length;
     setUnreadCount(unseen);
   }, [messages, panelOpen]);
 
   useEffect(() => {
     sendToParent({ type: "solidchat:unread", count: unreadCount });
   }, [unreadCount]);
+
+  useEffect(() => {
+    if (!lastIncomingReply) return;
+    playNotificationSound();
+  }, [lastIncomingReply]);
 
   const [showRating, setShowRating] = useState(false);
   useEffect(() => {

@@ -4,6 +4,7 @@ FROM node:20-bookworm-slim AS build
 RUN corepack enable && apt-get update && apt-get install -y --no-install-recommends openssl ca-certificates && rm -rf /var/lib/apt/lists/*
 WORKDIR /repo
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml turbo.json ./
+COPY scripts ./scripts
 COPY packages ./packages
 COPY apps/worker ./apps/worker
 # --prefer-frozen-lockfile, not --frozen-lockfile: install straight from pnpm-lock.yaml when it

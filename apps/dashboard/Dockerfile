@@ -8,6 +8,7 @@ ARG NEXT_PUBLIC_WIDGET_URL=http://localhost:3001
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_WIDGET_URL=$NEXT_PUBLIC_WIDGET_URL
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml turbo.json ./
+COPY scripts ./scripts
 COPY packages ./packages
 COPY apps/dashboard ./apps/dashboard
 # --prefer-frozen-lockfile, not --frozen-lockfile: install straight from pnpm-lock.yaml when it
