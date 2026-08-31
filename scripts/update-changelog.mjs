@@ -7,6 +7,9 @@ import path from "node:path";
 const args = new Set(process.argv.slice(2));
 const shouldWrite = args.has("--write");
 const shouldStage = args.has("--stage");
+const CHANGELOG_TITLE = "# Changelog";
+const CHANGELOG_DESCRIPTION = "Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.";
+const SECTION_NAMES = ["Added", "Changed", "Fixed", "Removed"];
 
 function runGit(commandArgs) {
   try {
@@ -25,20 +28,37 @@ function runGit(commandArgs) {
   }
 }
 
-function pad(value) {
-  return String(value).padStart(2, "0");
-}
-
-function formatDate(date = new Date()) {
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
-}
-
 function normalizePath(filePath) {
   return filePath.replace(/\\/g, "/");
 }
 
 function unique(items) {
   return [...new Set(items)];
+}
+
+function resolveGitHubRepoUrl() {
+  const candidates = ["origin", "upstream"];
+
+  for (const remoteName of candidates) {
+    try {
+      const rawUrl = runGit(["remote", "get-url", remoteName]).trim();
+      if (!rawUrl) {
+        continue;
+      }
+
+      if (rawUrl.startsWith("git@github.com:")) {
+        return `https://github.com/${rawUrl.slice("git@github.com:".length).replace(/\.git$/, "")}`;
+      }
+
+      if (rawUrl.startsWith("https://github.com/") || rawUrl.startsWith("http://github.com/")) {
+        return rawUrl.replace(/\.git$/, "").replace(/^http:\/\//, "https://");
+      }
+    } catch {
+      continue;
+    }
+  }
+
+  return null;
 }
 
 function readVersion() {
@@ -154,80 +174,169 @@ function buildSections(changes) {
     }
   }
 
-  for (const key of Object.keys(sections)) {
-    sections[key] = unique(sections[key]).sort();
+  for (const sectionName of Object.keys(sections)) {
+    sections[sectionName] = unique(sections[sectionName]).sort();
   }
 
   return sections;
 }
 
-function extractPreviousVersionSections(currentVersion) {
+function parseChangelog(content) {
+  const lines = content.split(/\r?\n/);
+  const releases = [];
+  let currentRelease = null;
+  let currentSection = null;
+  const releaseHeadingPattern = /^## \[(.+?)\](?: - (.+))?$/;
+
+  for (const rawLine of lines) {
+    const line = rawLine.trimEnd();
+    const releaseMatch = line.match(releaseHeadingPattern);
+
+    if (releaseMatch) {
+      if (currentRelease) {
+        releases.push(currentRelease);
+      }
+
+      currentRelease = {
+        version: releaseMatch[1],
+        date: releaseMatch[2] ?? null,
+        sections: Object.fromEntries(SECTION_NAMES.map((sectionName) => [sectionName, []])),
+        notes: [],
+      };
+      currentSection = null;
+      continue;
+    }
+
+    if (!currentRelease) {
+      continue;
+    }
+
+    const sectionMatch = line.match(/^### (Added|Changed|Fixed|Removed)$/);
+    if (sectionMatch) {
+      currentSection = sectionMatch[1];
+      continue;
+    }
+
+    if (line.startsWith("[")) {
+      continue;
+    }
+
+    if (line.startsWith("- ")) {
+      if (currentSection) {
+        currentRelease.sections[currentSection].push(line.slice(2));
+      } else if (line.slice(2).trim()) {
+        currentRelease.notes.push(line.slice(2));
+      }
+      continue;
+    }
+
+    if (line.trim()) {
+      currentRelease.notes.push(line.trim());
+    }
+  }
+
+  if (currentRelease) {
+    releases.push(currentRelease);
+  }
+
+  return releases;
+}
+
+function loadExistingReleases() {
   const changelogPath = path.join(process.cwd(), "CHANGELOG.md");
   if (!existsSync(changelogPath)) {
     return [];
   }
 
-  const lines = readFileSync(changelogPath, "utf8").split(/\r?\n/);
-  const sections = [];
-  let currentSection = null;
+  const content = readFileSync(changelogPath, "utf8");
+  return parseChangelog(content);
+}
 
-  for (const line of lines) {
-    if (line.startsWith("## [")) {
-      if (currentSection) {
-        sections.push(currentSection.join("\n").trimEnd());
-      }
-      currentSection = [line];
+function mergeUnreleasedRelease(existingUnreleased, nextSections) {
+  const merged = {
+    version: "Unreleased",
+    date: null,
+    sections: Object.fromEntries(SECTION_NAMES.map((sectionName) => [sectionName, []])),
+    notes: [],
+  };
+
+  for (const sectionName of SECTION_NAMES) {
+    const currentEntries = nextSections[sectionName] ?? [];
+    const previousEntries = existingUnreleased?.sections[sectionName] ?? [];
+    merged.sections[sectionName] = unique([...currentEntries, ...previousEntries]).sort();
+  }
+
+  merged.notes = unique(existingUnreleased?.notes ?? []);
+
+  return merged;
+}
+
+function buildVersionLinks(releases) {
+  const repoUrl = resolveGitHubRepoUrl();
+  if (!repoUrl) {
+    return [];
+  }
+
+  const releasedVersions = releases.filter((release) => release.version !== "Unreleased").map((release) => release.version);
+  const latestReleased = releasedVersions[0] ?? readVersion();
+  const lines = [`[Unreleased]: ${repoUrl}/compare/v${latestReleased}...HEAD`];
+
+  for (let index = 0; index < releasedVersions.length; index += 1) {
+    const version = releasedVersions[index];
+    const previousVersion = releasedVersions[index + 1];
+
+    if (previousVersion) {
+      lines.push(`[${version}]: ${repoUrl}/compare/v${previousVersion}...v${version}`);
       continue;
     }
 
-    if (currentSection) {
-      currentSection.push(line);
-    }
+    lines.push(`[${version}]: ${repoUrl}/releases/tag/v${version}`);
   }
 
-  if (currentSection) {
-    sections.push(currentSection.join("\n").trimEnd());
-  }
-
-  return sections.filter((section) => !section.startsWith(`## [${currentVersion}] -`));
+  return lines;
 }
 
-function buildChangelog() {
-  const version = readVersion();
-  const currentDate = formatDate();
-  const changes = getTrackedChanges();
-  const sections = buildSections(changes);
-  const previousSections = extractPreviousVersionSections(version);
-  const lines = [
-    "# Changelog",
-    "",
-    "Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.",
-    "",
-    `## [${version}] - ${currentDate}`,
-  ];
+function renderRelease(release) {
+  const lines = [release.version === "Unreleased" ? "## [Unreleased]" : `## [${release.version}] - ${release.date ?? ""}`.trim()];
+  let hasContent = false;
 
-  const sectionOrder = ["Added", "Changed", "Fixed", "Removed"];
-  let hasEntries = false;
-
-  for (const sectionName of sectionOrder) {
-    const entries = sections[sectionName];
+  for (const sectionName of SECTION_NAMES) {
+    const entries = unique(release.sections[sectionName] ?? []);
     if (entries.length === 0) {
       continue;
     }
 
-    hasEntries = true;
+    hasContent = true;
     lines.push(`### ${sectionName}`);
     lines.push(...entries.map((entry) => `- ${entry}`));
     lines.push("");
   }
 
-  if (!hasEntries) {
+  if (!hasContent) {
     lines.push("- Belum ada perubahan terdeteksi.");
     lines.push("");
   }
 
-  if (previousSections.length > 0) {
-    lines.push(...previousSections);
+  return lines.join("\n").trimEnd();
+}
+
+function buildChangelog() {
+  const changes = getTrackedChanges();
+  const nextSections = buildSections(changes);
+  const existingReleases = loadExistingReleases();
+  const existingUnreleased = existingReleases.find((release) => release.version === "Unreleased") ?? null;
+  const releasedVersions = existingReleases.filter((release) => release.version !== "Unreleased");
+  const releases = [mergeUnreleasedRelease(existingUnreleased, nextSections), ...releasedVersions];
+  const versionLinks = buildVersionLinks(releases);
+  const lines = [CHANGELOG_TITLE, "", CHANGELOG_DESCRIPTION, ""];
+
+  for (const release of releases) {
+    lines.push(renderRelease(release));
+    lines.push("");
+  }
+
+  if (versionLinks.length > 0) {
+    lines.push(...versionLinks);
     lines.push("");
   }
 

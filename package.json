@@ -1,6 +1,6 @@
 {
   "name": "solidchat-ai",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "engines": {
     "node": ">=20.0.0",
@@ -16,6 +16,7 @@
     "clean": "turbo run clean",
     "prepare": "node scripts/setup-githooks.mjs",
     "changelog:update": "node scripts/update-changelog.mjs --write",
+    "release:version": "node scripts/release-version.mjs",
     "hooks:setup": "node scripts/setup-githooks.mjs",
     "db:generate": "pnpm --filter @solidchat/database generate",
     "db:migrate": "pnpm --filter @solidchat/database migrate",
