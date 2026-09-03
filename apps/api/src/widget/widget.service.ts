@@ -74,12 +74,15 @@ export class WidgetService {
             quickReplies: site.settings.quickReplies,
             suggestedQuestions: site.settings.suggestedQuestions,
             showAgentButton: site.settings.showAgentButton,
+            agentButtonLabel: site.settings.agentButtonLabel,
             allowAttachments: site.settings.allowAttachments,
             allowedFileTypes: site.settings.allowedFileTypes,
             maxFileSizeBytes: site.settings.maxFileSizeBytes,
             privacyNoticeUrl: site.settings.privacyNoticeUrl,
             termsUrl: site.settings.termsUrl,
             ratingFormEnabled: site.settings.ratingFormEnabled,
+            agentReplyTimeoutSeconds: site.settings.agentReplyTimeoutSeconds,
+            showAiSourcesToCustomer: site.settings.showAiSourcesToCustomer,
       }
         : null,
     };
@@ -137,7 +140,7 @@ export class WidgetService {
   }
 
   async ensureConversation(siteId: string, visitorId: string, context?: CreateWidgetSessionDto & { language?: string }) {
-    const site = await this.prisma.site.findUniqueOrThrow({ where: { id: siteId } });
+    const site = await this.prisma.site.findUniqueOrThrow({ where: { id: siteId }, include: { settings: true } });
     const existing = await this.conversations.getActiveConversation(siteId, visitorId);
     if (existing) return existing;
 
@@ -145,6 +148,7 @@ export class WidgetService {
       organizationId: site.organizationId,
       siteId,
       visitorId,
+      skipRouting: !!site.settings?.preChatFormEnabled,
       context: {
         pageUrl: context?.pageUrl,
         pageTitle: context?.pageTitle,

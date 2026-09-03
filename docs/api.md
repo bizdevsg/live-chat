@@ -58,15 +58,21 @@ Users (`/users`, `/users/roles`, `/users/invite`, `/users/:id`, `/users/:id/revo
 
 `GET /`, `GET /:id`, `POST /:id/retry`.
 
-## CRM Export (`/api/crm`)
+## CRM Export (`/api/v1/conversations`)
 
-Protected by `x-api-key` or `Authorization: Bearer ...`, validated against `CRM_INBOUND_API_KEY`
-or `CRM_API_KEY` as fallback.
+`GET`-only, server-to-server lookup for CRM consumers, by the handling agent's email — see
+[`crm-integration.md`](./crm-integration.md) for background and how this relates to "Kebutuhan
+API Live Chat dan SSO Dashboard untuk Integrasi Clara" v1.1. Protected by
+`Authorization: Bearer <API_KEY>` or `x-api-key`, matched against `CRM_API_KEYS` (per-site
+scoped credentials, preferred) or the legacy `CRM_INBOUND_API_KEY`/`CRM_API_KEY` fallback
+(unrestricted, all sites).
 
 | Method | Path | Notes |
 |---|---|---|
-| GET | `/conversessions?email=` | External CRM-facing list endpoint by agent email. `/conversations?email=` alias also supported. |
-| GET | `/conversessions/detail/:conversationId` | External CRM-facing conversation detail. `/conversations/detail/:conversationId` alias also supported. |
+| GET | `/conversations?email=&site_id=` | Conversations assigned to/handled by the agent with this email. `site_id` required only if the API key can read more than one site. |
+| GET | `/conversations/:conversationId` | Full conversation detail (messages, summary, tickets, leads) — internal notes and AI-suggestion drafts excluded. |
+
+Standard `{success, data}` envelope.
 
 ## Analytics (`/api/v1/analytics`)
 
@@ -78,4 +84,4 @@ or `CRM_API_KEY` as fallback.
 
 ## Error codes
 
-`VALIDATION_ERROR`, `UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND`, `CONVERSATION_NOT_FOUND`, `SITE_NOT_FOUND`, `DOMAIN_NOT_ALLOWED`, `RATE_LIMITED`, `CONFLICT`, `INTERNAL_ERROR`, `TOKEN_EXPIRED`, `TOKEN_INVALID`, `ACCOUNT_LOCKED`, `ACCOUNT_DISABLED`.
+`VALIDATION_ERROR`, `UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND`, `CONVERSATION_NOT_FOUND`, `SITE_NOT_FOUND`, `DOMAIN_NOT_ALLOWED`, `RATE_LIMITED`, `CONFLICT`, `INTERNAL_ERROR`, `TOKEN_EXPIRED`, `TOKEN_INVALID`, `ACCOUNT_LOCKED`, `ACCOUNT_DISABLED`, `INVALID_CURSOR`.

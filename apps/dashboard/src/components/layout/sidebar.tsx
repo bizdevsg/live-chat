@@ -11,6 +11,7 @@ import { isSuperAdminRole } from "@/lib/is-super-admin";
 import { Permission } from "@/lib/permissions";
 import type { ConversationSummary } from "@/lib/types";
 import { NAV_SECTIONS, type NavIcon } from "./nav-items";
+import { useDashboardShell } from "./dashboard-shell";
 import { getDashboardSocket } from "@/lib/socket";
 import { cn } from "@/components/ui/cn";
 
@@ -151,6 +152,7 @@ function isOngoingConversation(status: string) {
 export function Sidebar() {
   const pathname = usePathname();
   const queryClient = useQueryClient();
+  const { isSidebarOpen, closeSidebar } = useDashboardShell();
   const hasPermission = useAuthStore((s) => s.hasPermission);
   const user = useAuthStore((s) => s.user);
   const isSuperadmin = isSuperAdminRole(user?.roles);
@@ -207,8 +209,13 @@ export function Sidebar() {
     };
   }, [queryClient]);
 
+  useEffect(() => {
+    closeSidebar();
+  }, [closeSidebar, pathname]);
+
   const inboxBadgeCount =
-    (inboxBadgeQuery.data?.length ?? 0) + (ongoingInboxQuery.data?.filter((conversation) => isOngoingConversation(conversation.status)).length ?? 0);
+    (inboxBadgeQuery.data?.filter((conversation) => isOngoingConversation(conversation.status)).length ?? 0) +
+    (ongoingInboxQuery.data?.filter((conversation) => isOngoingConversation(conversation.status)).length ?? 0);
 
   const badgeByHref: Partial<Record<string, number>> = {
     "/inbox": inboxBadgeCount,
@@ -223,72 +230,100 @@ export function Sidebar() {
     .filter((section) => section.items.length > 0);
 
   return (
-    <aside className="flex h-screen w-72 shrink-0 flex-col border-r border-ink-600 bg-ink-800">
-      <div className="flex h-20 items-center border-b border-ink-600 px-6">
-        <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-gold-500/20 bg-gold-500/10 text-xl font-bold text-gold-500">
-          SC
-        </div>
-        <div className="ml-3 min-w-0">
-          <div className="truncate text-sm font-semibold uppercase tracking-[0.24em] text-zinc-100">SolidChat</div>
-          <div className="mt-1 text-xs tracking-[0.3em] text-gold-500/80">ADMIN PANEL</div>
-        </div>
-      </div>
-      <nav className="scrollbar-thin flex-1 overflow-y-auto px-4 py-5">
-        {sections.map((section) => (
-          <div key={section.id} className="mb-7 last:mb-0">
-            <div className="px-3 pb-3 text-[11px] font-semibold uppercase tracking-[0.32em] text-gold-500/70">{section.label}</div>
-            <div className="space-y-1">
-              {section.items.map((item) => {
-                const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={cn(
-                      "flex items-center gap-3 rounded-2xl px-3 py-3 text-sm transition-colors",
-                      active
-                        ? "border border-gold-500/20 bg-gold-500/12 text-gold-500 shadow-[0_0_0_1px_rgba(185,146,68,0.08)]"
-                        : "text-zinc-400 hover:bg-ink-700 hover:text-zinc-100",
-                    )}
-                  >
-                    <SidebarIcon icon={item.icon} active={active} />
-                    <span className="min-w-0 flex-1 truncate">{item.label}</span>
-                    {(badgeByHref[item.href] ?? 0) > 0 && (
-                      <span
-                        className={cn(
-                          "inline-flex min-w-6 shrink-0 items-center justify-center rounded-full px-2 py-0.5 text-[11px] font-semibold leading-none",
-                          active ? "bg-gold-500 text-ink-900" : "bg-rose-500 text-white",
-                        )}
-                      >
-                        {formatSidebarBadge(badgeByHref[item.href] ?? 0)}
-                      </span>
-                    )}
-                  </Link>
-                );
-              })}
+    <>
+      <button
+        type="button"
+        aria-label="Tutup sidebar"
+        onClick={closeSidebar}
+        className={cn(
+          "fixed inset-0 z-30 bg-black/60 opacity-0 transition-opacity lg:hidden",
+          isSidebarOpen ? "pointer-events-auto opacity-100" : "pointer-events-none",
+        )}
+      />
+      <aside
+        className={cn(
+          "fixed inset-y-0 left-0 z-40 flex h-screen w-[min(19rem,calc(100vw-1rem))] shrink-0 flex-col border-r border-ink-600 bg-ink-800 shadow-2xl transition-transform lg:static lg:z-auto lg:w-72 lg:translate-x-0 lg:shadow-none",
+          isSidebarOpen ? "translate-x-0" : "-translate-x-full",
+        )}
+      >
+        <div className="flex h-20 items-center justify-between border-b border-ink-600 px-5 lg:px-6">
+          <div className="flex min-w-0 items-center">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-gold-500/20 bg-gold-500/10 text-xl font-bold text-gold-500">
+              SC
+            </div>
+            <div className="ml-3 min-w-0">
+              <div className="truncate text-sm font-semibold uppercase tracking-[0.24em] text-zinc-100">SolidChat</div>
+              <div className="mt-1 text-xs tracking-[0.3em] text-gold-500/80">ADMIN PANEL</div>
             </div>
           </div>
-        ))}
-      </nav>
-      <div className="border-t border-ink-600 p-4">
-        <Link
-          href="/profile"
-          className={cn(
-            "flex items-center gap-3 rounded-2xl border px-3 py-3 transition-colors",
-            pathname === "/profile"
-              ? "border-gold-500/20 bg-gold-500/12 text-gold-500 shadow-[0_0_0_1px_rgba(185,146,68,0.08)]"
-              : "border-ink-600 bg-ink-700/60 hover:bg-ink-700",
-          )}
-        >
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-gold-500/20 bg-gold-500/10 text-sm font-semibold text-gold-500">
-            {(user?.name ?? "U").slice(0, 2).toUpperCase()}
-          </div>
-          <div className="min-w-0">
-            <div className="truncate text-sm font-medium text-zinc-100">{user?.name ?? "User"}</div>
-            <div className="truncate text-xs text-zinc-500">{user?.email ?? "No email"}</div>
-          </div>
-        </Link>
-      </div>
-    </aside>
+          <button
+            type="button"
+            onClick={closeSidebar}
+            aria-label="Tutup menu"
+            className="ml-3 inline-flex h-10 w-10 items-center justify-center rounded-xl border border-ink-600 bg-ink-700 text-zinc-300 transition-colors hover:bg-ink-600 hover:text-white lg:hidden"
+          >
+            <span className="text-lg leading-none">x</span>
+          </button>
+        </div>
+        <nav className="scrollbar-thin flex-1 overflow-y-auto px-4 py-5">
+          {sections.map((section) => (
+            <div key={section.id} className="mb-7 last:mb-0">
+              <div className="px-3 pb-3 text-[11px] font-semibold uppercase tracking-[0.32em] text-gold-500/70">{section.label}</div>
+              <div className="space-y-1">
+                {section.items.map((item) => {
+                  const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      className={cn(
+                        "flex items-center gap-3 rounded-2xl px-3 py-3 text-sm transition-colors",
+                        active
+                          ? "border border-gold-500/20 bg-gold-500/12 text-gold-500 shadow-[0_0_0_1px_rgba(185,146,68,0.08)]"
+                          : "text-zinc-400 hover:bg-ink-700 hover:text-zinc-100",
+                      )}
+                      onClick={closeSidebar}
+                    >
+                      <SidebarIcon icon={item.icon} active={active} />
+                      <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                      {(badgeByHref[item.href] ?? 0) > 0 && (
+                        <span
+                          className={cn(
+                            "inline-flex min-w-6 shrink-0 items-center justify-center rounded-full px-2 py-0.5 text-[11px] font-semibold leading-none",
+                            active ? "bg-gold-500 text-ink-900" : "bg-rose-500 text-white",
+                          )}
+                        >
+                          {formatSidebarBadge(badgeByHref[item.href] ?? 0)}
+                        </span>
+                      )}
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </nav>
+        <div className="border-t border-ink-600 p-4">
+          <Link
+            href="/profile"
+            className={cn(
+              "flex items-center gap-3 rounded-2xl border px-3 py-3 transition-colors",
+              pathname === "/profile"
+                ? "border-gold-500/20 bg-gold-500/12 text-gold-500 shadow-[0_0_0_1px_rgba(185,146,68,0.08)]"
+                : "border-ink-600 bg-ink-700/60 hover:bg-ink-700",
+            )}
+            onClick={closeSidebar}
+          >
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-gold-500/20 bg-gold-500/10 text-sm font-semibold text-gold-500">
+              {(user?.name ?? "U").slice(0, 2).toUpperCase()}
+            </div>
+            <div className="min-w-0">
+              <div className="truncate text-sm font-medium text-zinc-100">{user?.name ?? "User"}</div>
+              <div className="truncate text-xs text-zinc-500">{user?.email ?? "No email"}</div>
+            </div>
+          </Link>
+        </div>
+      </aside>
+    </>
   );
 }

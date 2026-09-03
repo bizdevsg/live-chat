@@ -239,6 +239,7 @@ async function main() {
       bubblePosition: "bottom-right",
       preChatFormEnabled: false,
       showAgentButton: true,
+      agentButtonLabel: "Hubungi Agent Kami",
       allowAttachments: true,
       allowedFileTypes: [
         "image/png",
@@ -329,7 +330,7 @@ async function main() {
     create: {
       userId: agent.id,
       availability: "OFFLINE",
-      maxConcurrentChats: 5,
+      maxConcurrentChats: 1,
     },
   });
   await prisma.teamMember.upsert({

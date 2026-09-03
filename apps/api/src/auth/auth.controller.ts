@@ -40,7 +40,7 @@ export class AuthController {
       userAgent: req.headers["user-agent"],
     });
     this.setCookies(req, res, tokens.accessToken, tokens.refreshToken);
-    return { success: true, data: { expiresIn: tokens.expiresIn } };
+    return { success: true, data: tokens };
   }
 
   @Public()
@@ -53,7 +53,7 @@ export class AuthController {
       userAgent: req.headers["user-agent"],
     });
     this.setCookies(req, res, tokens.accessToken, tokens.refreshToken);
-    return { success: true, data: { expiresIn: tokens.expiresIn } };
+    return { success: true, data: tokens };
   }
 
   @Post("logout")

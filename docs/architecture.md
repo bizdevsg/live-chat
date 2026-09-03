@@ -60,7 +60,7 @@ Visitor message saved (sanitized + sensitive-data masked)
   → Knowledge retrieval (KnowledgeRetriever: MySQL FULLTEXT candidates → cosine re-rank)
   → Answer generation (AiProvider.generateAnswer, evidence-grounded, never fabricates)
   → Post AI message, record AiRun (tokens/latency/confidence/intent)
-  → If confidence < threshold for 2 consecutive answers → AI_FAILED_TWICE handoff
+  → If handoffRequired or confidence < threshold → immediate requestAgent() (KNOWLEDGE_INSUFFICIENT / LOW_CONFIDENCE)
 ```
 
 **Architectural deviation from §37**: AI response generation, knowledge embedding on publish, and conversation summarization run **synchronously inside the API request path**, not as BullMQ jobs. This was a deliberate simplification — the API process already holds the Socket.IO server in-process, so running AI turns inline avoids cross-process socket relay (which would otherwise require a Redis Socket.IO adapter) and keeps end-to-end latency lower for a chat product where the visitor is actively waiting. The worker instead owns genuinely decoupled background work: CRM sync/retry, daily analytics rollups, and retention cleanup. If AI call volume grows enough to threaten the API's request-handling capacity, the fix is to extract `AiOrchestratorService` and `KnowledgeRetriever` into a package consumable by the worker too, and switch to a queued flow — the `AiProvider`/`CrmAdapter` interfaces already make the provider swap-safe; only the transport (in-process vs. queued) would change.

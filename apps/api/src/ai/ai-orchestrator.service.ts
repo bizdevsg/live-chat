@@ -1,6 +1,16 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { extractCustomerServiceQuery } from "@solidchat/ai-core";
-import { DEFAULT_CONFIDENCE_THRESHOLD, HandlerType, HandoffReason, MessageType, SenderType, type ChatTurn } from "@solidchat/shared";
+import {
+  DEFAULT_CONFIDENCE_THRESHOLD,
+  ErrorCode,
+  HandlerType,
+  HandoffReason,
+  MAX_AI_FAILURES_BEFORE_HANDOFF,
+  MessageType,
+  SenderType,
+  type AnswerResult,
+  type ChatTurn,
+} from "@solidchat/shared";
 import { PrismaService } from "../prisma/prisma.service";
 import { ConversationsService } from "../conversations/conversations.service";
 import { RetrievalService } from "../knowledge/retrieval.service";
@@ -9,12 +19,13 @@ import { HandoffEvaluatorService } from "./handoff-evaluator.service";
 import { SecurityEventService } from "../common/security/security-event.service";
 import { RealtimeEmitterService } from "../realtime/realtime-emitter.service";
 import { MarketDataService } from "../market-data/market-data.service";
+import { ApiException } from "../common/errors/api.exception";
 
 @Injectable()
 export class AiOrchestratorService {
   private readonly logger = new Logger(AiOrchestratorService.name);
-  private readonly initialResponseDelayMs = 10_000;
-  private readonly pendingInitialResponses = new Map<string, NodeJS.Timeout>();
+  /** Guards against double-answering when a visitor fires several messages in quick succession. */
+  private readonly inFlightTurns = new Set<string>();
 
   constructor(
     private readonly prisma: PrismaService,
@@ -27,60 +38,128 @@ export class AiOrchestratorService {
     private readonly marketData: MarketDataService,
   ) {}
 
-  /** Runs the full §16 pipeline for the visitor's latest message. Called right after ConversationsService.postMessage. */
+  /**
+   * Runs the full §16 pipeline for the visitor's latest message. Called right after
+   * ConversationsService.postMessage. The AI responds immediately — there is no initial
+   * delay; visitors who want a human use the "Hubungi Agent" button or are handed off
+   * automatically when the AI cannot answer confidently.
+   */
   async scheduleVisitorTurn(conversationId: string): Promise<void> {
     const conversation = await this.prisma.conversation.findUnique({
       where: { id: conversationId },
-      select: { id: true, status: true, handlerType: true },
+      select: { status: true, handlerType: true },
     });
     if (!conversation || conversation.status === "CLOSED" || conversation.status === "RESOLVED" || conversation.handlerType !== HandlerType.AI) {
-      this.clearPendingInitialResponse(conversationId);
       return;
     }
 
-    const publicMessages = await this.prisma.message.findMany({
-      where: {
-        conversationId,
-        deletedAt: null,
-        isInternal: false,
-        senderType: { in: [SenderType.VISITOR, SenderType.CUSTOMER, SenderType.AI, SenderType.AGENT] },
-      },
-      orderBy: { createdAt: "asc" },
-      select: { senderType: true, createdAt: true },
-    });
-
-    const firstVisitorMessage = publicMessages.find((message) => message.senderType === SenderType.VISITOR || message.senderType === SenderType.CUSTOMER);
-    if (!firstVisitorMessage) return;
-
-    const hasResponderMessage = publicMessages.some(
-      (message) =>
-        message.createdAt > firstVisitorMessage.createdAt &&
-        (message.senderType === SenderType.AI || message.senderType === SenderType.AGENT),
-    );
-
-    if (hasResponderMessage) {
-      this.clearPendingInitialResponse(conversationId);
-      await this.processVisitorTurn(conversationId);
-      return;
-    }
-
-    const delayMs = firstVisitorMessage.createdAt.getTime() + this.initialResponseDelayMs - Date.now();
-    if (delayMs <= 0) {
-      this.clearPendingInitialResponse(conversationId);
-      await this.processVisitorTurn(conversationId);
-      return;
-    }
-
-    if (this.pendingInitialResponses.has(conversationId)) return;
-
-    const timeout = setTimeout(() => {
-      this.pendingInitialResponses.delete(conversationId);
-      this.processVisitorTurn(conversationId).catch((error) => this.logger.error(error));
-    }, delayMs);
-    this.pendingInitialResponses.set(conversationId, timeout);
+    await this.processVisitorTurn(conversationId);
   }
 
   async processVisitorTurn(conversationId: string): Promise<void> {
+    // Serialize turns per conversation so a visitor firing several messages in quick
+    // succession never triggers overlapping AI answers.
+    if (this.inFlightTurns.has(conversationId)) return;
+    this.inFlightTurns.add(conversationId);
+    try {
+      await this.runVisitorTurn(conversationId);
+    } finally {
+      this.inFlightTurns.delete(conversationId);
+    }
+
+    // If the visitor sent another message while the AI was answering, handle it now.
+    if (await this.conversations.hasPendingVisitorMessageSince(conversationId, new Date(0))) {
+      await this.processVisitorTurn(conversationId);
+    }
+  }
+
+  async previewKnowledgeAnswer(organizationId: string, message: string) {
+    const site = await this.prisma.site.findFirst({
+      where: { organizationId },
+      include: {
+        organization: { select: { name: true } },
+        settings: { select: { showAiSourcesToCustomer: true } },
+      },
+      orderBy: { createdAt: "asc" },
+    });
+    if (!site) {
+      throw new ApiException(ErrorCode.SITE_NOT_FOUND, "Site tidak ditemukan untuk organization ini.");
+    }
+
+    const trimmedMessage = message.trim();
+    const history: ChatTurn[] = [];
+    const { provider, config } = await this.aiProviderFactory.getProviderForSite(site.id);
+    const classification = await provider.classifyIntent({
+      message: trimmedMessage,
+      history,
+      language: site.language,
+    });
+    const forcedHandoffReason = this.handoffEvaluator.evaluate(trimmedMessage, classification);
+    const retrievalQuery = extractCustomerServiceQuery(trimmedMessage, classification.intent);
+    const [marketEvidence, knowledgeEvidence, answerPrompt] = await Promise.all([
+      Promise.resolve(this.marketData.getRealtimePriceEvidence(trimmedMessage)),
+      this.retrieval.retrieveForCustomer(site.id, retrievalQuery),
+      this.prisma.aiPrompt.findFirst({
+        where: {
+          aiConfigurationId: config.id,
+          purpose: "ANSWER",
+          isActive: true,
+        },
+        orderBy: { version: "desc" },
+      }),
+    ]);
+    const evidence = [...marketEvidence, ...knowledgeEvidence];
+
+    const answer = forcedHandoffReason
+      ? null
+      : await provider.generateAnswer({
+          message: trimmedMessage,
+          history,
+          language: site.language,
+          intent: classification.intent,
+          evidence,
+          aiName: site.aiName,
+          organizationName: site.organization.name,
+          systemPrompt: answerPrompt?.content ?? null,
+        });
+
+    return {
+      site: {
+        id: site.id,
+        name: site.name,
+        aiName: site.aiName,
+        language: site.language,
+        organizationName: site.organization.name,
+      },
+      classification,
+      retrievalQuery,
+      forcedHandoffReason,
+      evidence: evidence.map((item, index) => ({
+        index: index + 1,
+        sourceType: item.chunkId.startsWith("market-quote:") ? "MARKET" : "KNOWLEDGE",
+        documentId: item.documentId,
+        chunkId: item.chunkId,
+        title: item.title,
+        version: item.version,
+        audience: item.audience,
+        content: item.content,
+      })),
+      answer: answer
+        ? {
+            ...answer,
+            formattedAnswer: this.formatAnswerForCustomer(
+              answer.answer,
+              answer.sources,
+              site.settings?.showAiSourcesToCustomer ?? false,
+            ),
+            lowConfidence: answer.confidence < DEFAULT_CONFIDENCE_THRESHOLD,
+            wouldAutoHandoff: answer.handoffRequired && this.shouldAutoHandoffAfterAnswer(answer),
+          }
+        : null,
+    };
+  }
+
+  private async runVisitorTurn(conversationId: string): Promise<void> {
     const conversation = await this.prisma.conversation.findUnique({
       where: { id: conversationId },
       include: { customer: { select: { name: true } } },
@@ -170,11 +249,15 @@ export class AiOrchestratorService {
         organizationName: "PT Solid Gold Berjangka",
         systemPrompt: answerPrompt?.content ?? null,
       });
+      const shouldAutoHandoffForKnowledge = answer.handoffRequired && this.shouldAutoHandoffAfterAnswer(answer);
+      const hasLowConfidence = answer.confidence < DEFAULT_CONFIDENCE_THRESHOLD;
+      const shouldAutoHandoffForLowConfidence =
+        hasLowConfidence && (await this.hasConsecutiveLowConfidence(conversationId, DEFAULT_CONFIDENCE_THRESHOLD));
       const aiRun = await this.recordAiRun(conversationId, "ANSWER", provider.name, config.model, {
         latencyMs: Date.now() - answerStart,
         confidence: answer.confidence,
         intent: answer.intent,
-        handoffRequired: answer.handoffRequired,
+        handoffRequired: shouldAutoHandoffForKnowledge || shouldAutoHandoffForLowConfidence,
       });
 
       await this.conversations.postMessage({
@@ -186,12 +269,15 @@ export class AiOrchestratorService {
         metadata: { confidence: answer.confidence, intent: answer.intent, sources: answer.sources },
       });
 
-      const belowThreshold = answer.confidence < DEFAULT_CONFIDENCE_THRESHOLD || answer.handoffRequired;
-      if (belowThreshold) {
-        const consecutiveLowConfidence = await this.hasConsecutiveLowConfidence(conversationId, DEFAULT_CONFIDENCE_THRESHOLD);
-        if (consecutiveLowConfidence) {
-          await this.conversations.requestAgent(conversationId, HandoffReason.AI_FAILED_TWICE);
-        }
+      // Immediate handoff is only for explicit AI inability. A merely low-confidence answer
+      // should not yank the conversation away if the AI still produced a usable response.
+      if (shouldAutoHandoffForKnowledge) {
+        await this.conversations.requestAgent(conversationId, HandoffReason.KNOWLEDGE_INSUFFICIENT);
+        return;
+      }
+
+      if (shouldAutoHandoffForLowConfidence) {
+        await this.conversations.requestAgent(conversationId, HandoffReason.AI_FAILED_TWICE);
       }
     } finally {
       this.realtime.toConversation(conversationId, "typing:updated", { from: "AI", typing: false });
@@ -210,27 +296,39 @@ export class AiOrchestratorService {
     await this.summarize(conversationId, "HANDOFF");
   }
 
-  private async hasConsecutiveLowConfidence(conversationId: string, threshold: number): Promise<boolean> {
-    const lastTwo = await this.prisma.aiRun.findMany({
-      where: { conversationId, purpose: "ANSWER" },
-      orderBy: { createdAt: "desc" },
-      take: 2,
-    });
-    if (lastTwo.length < 2) return false;
-    return lastTwo.every((run) => (run.confidence ?? 1) < threshold);
-  }
-
   private formatAnswerForCustomer(answer: string, sources: { title: string }[], showSources: boolean): string {
     if (!showSources || sources.length === 0) return answer;
     const list = sources.map((s) => `• ${s.title}`).join("\n");
     return `${answer}\n\nSumber:\n${list}`;
   }
 
-  private clearPendingInitialResponse(conversationId: string) {
-    const timeout = this.pendingInitialResponses.get(conversationId);
-    if (!timeout) return;
-    clearTimeout(timeout);
-    this.pendingInitialResponses.delete(conversationId);
+  private shouldAutoHandoffAfterAnswer(answer: AnswerResult): boolean {
+    if (answer.sources.length === 0) return true;
+
+    const normalized = answer.answer.toLowerCase();
+    return [
+      "mohon maaf",
+      "belum memiliki informasi",
+      "belum punya informasi",
+      "belum tersedia",
+      "belum dapat memproses",
+      "saya akan menghubungkan anda dengan petugas",
+      "saya hubungkan ke petugas",
+      "petugas kami",
+      "informasinya belum lengkap",
+      "informasi detail untuk pertanyaan ini belum tersedia",
+    ].some((phrase) => normalized.includes(phrase));
+  }
+
+  private async hasConsecutiveLowConfidence(conversationId: string, threshold: number): Promise<boolean> {
+    const recentRuns = await this.prisma.aiRun.findMany({
+      where: { conversationId, purpose: "ANSWER" },
+      orderBy: { createdAt: "desc" },
+      take: MAX_AI_FAILURES_BEFORE_HANDOFF,
+      select: { confidence: true },
+    });
+    if (recentRuns.length < MAX_AI_FAILURES_BEFORE_HANDOFF) return false;
+    return recentRuns.every((run) => (run.confidence ?? 1) < threshold);
   }
 
   async summarize(conversationId: string, trigger: "HANDOFF" | "RESOLVED" | "LENGTH" | "MANUAL") {

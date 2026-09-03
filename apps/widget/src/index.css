@@ -17,6 +17,18 @@ body,
     sans-serif;
 }
 
+/* Below the `md` breakpoint the loader stretches this iframe edge to edge, so the app shell drops
+   its floating-window chrome and keeps its content clear of the notch / home indicator. */
+@media (max-width: 767.98px) {
+  #root > div {
+    border-radius: 0;
+    border-width: 0;
+    background-color: #0b0b0c;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+}
+
 .scrollbar-thin::-webkit-scrollbar {
   width: 5px;
 }

@@ -8,7 +8,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import { AuditLogService } from "../common/audit/audit-log.service";
 import { AiOrchestratorService } from "./ai-orchestrator.service";
 import { AiProviderFactory } from "./ai-provider.factory";
-import { UpdateAiConfigurationDto, AiFeedbackDto } from "./dto/ai.dto";
+import { UpdateAiConfigurationDto, AiFeedbackDto, AiKnowledgeTestDto } from "./dto/ai.dto";
 import { ForbiddenApiException } from "../common/errors/api.exception";
 
 const ANSWER_PROMPT_PURPOSE = "ANSWER";
@@ -160,6 +160,13 @@ export class AiController {
   @RequirePermissions(Permission.CONVERSATION_HANDLE)
   async feedback(@Param("id") aiRunId: string, @Body() dto: AiFeedbackDto, @CurrentUser() user: JwtAccessPayload) {
     const data = await this.aiOrchestrator.submitFeedback(aiRunId, user.sub, dto.helpful, dto.used ?? false, dto.edited ?? false);
+    return { success: true, data };
+  }
+
+  @Post("test-answer")
+  @RequirePermissions(Permission.KNOWLEDGE_EDIT, Permission.KNOWLEDGE_APPROVE, Permission.AUDIT_LOG_VIEW, Permission.AI_CONFIG_MANAGE)
+  async testAnswer(@Body() dto: AiKnowledgeTestDto, @CurrentUser() user: JwtAccessPayload) {
+    const data = await this.aiOrchestrator.previewKnowledgeAnswer(user.organizationId, dto.message);
     return { success: true, data };
   }
 }

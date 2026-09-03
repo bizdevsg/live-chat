@@ -1,5 +1,5 @@
 import { AI_CHAT_MODELS } from "@solidchat/shared";
-import { IsBoolean, IsIn, IsOptional, IsString } from "class-validator";
+import { IsBoolean, IsIn, IsOptional, IsString, MinLength } from "class-validator";
 
 export class UpdateAiConfigurationDto {
   @IsOptional()
@@ -34,4 +34,10 @@ export class AiFeedbackDto {
   @IsOptional()
   @IsBoolean()
   edited?: boolean;
+}
+
+export class AiKnowledgeTestDto {
+  @IsString()
+  @MinLength(2, { message: "Pertanyaan test minimal 2 karakter." })
+  message!: string;
 }

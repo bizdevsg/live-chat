@@ -20,15 +20,27 @@ function getSenderStyle(senderType: WidgetMessage["senderType"]) {
   };
 }
 
+function formatMessageTime(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return new Intl.DateTimeFormat("id-ID", {
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+}
+
 function Bubble({ message, config }: { message: WidgetMessage; config: SiteConfig }) {
   const isVisitor = message.senderType === "VISITOR" || message.senderType === "CUSTOMER";
   const isAi = message.senderType === "AI";
   const isSystem = message.senderType === "SYSTEM";
   const senderStyle = getSenderStyle(message.senderType);
   const senderLabel = isAi ? config.aiName : message.senderName?.trim() || "Agent";
+  const messageTime = formatMessageTime(message.createdAt);
 
   if (isSystem) {
-    return <div className="mx-auto max-w-[85%] rounded-full bg-zinc-800 px-3 py-1 text-center text-[11px] text-zinc-400">{message.content}</div>;
+    return (
+      <div className="text-[11px] text-center text-zinc-500">~ {message.content} ~</div>
+    );
   }
 
   return (
@@ -36,9 +48,8 @@ function Bubble({ message, config }: { message: WidgetMessage; config: SiteConfi
       <div className="max-w-[80%]">
         {!isVisitor && <div className={`mb-0.5 ml-1 text-[10px] ${senderStyle.label}`}>{senderLabel}</div>}
         <div
-          className={`rounded-2xl px-3.5 py-2 text-sm leading-relaxed ${
-            isVisitor ? "rounded-br-sm text-ink" : senderStyle.bubble
-          }`}
+          className={`rounded-2xl px-3.5 py-2 text-sm leading-relaxed ${isVisitor ? "rounded-br-sm text-ink" : senderStyle.bubble
+            }`}
           style={isVisitor ? { backgroundColor: config.widgetColor } : undefined}
         >
           {isVisitor ? (
@@ -47,6 +58,9 @@ function Bubble({ message, config }: { message: WidgetMessage; config: SiteConfi
             <RichText content={message.content} />
           )}
         </div>
+        {messageTime ? (
+          <div className={`mt-1 text-[10px] ${isVisitor ? "mr-1 text-right text-zinc-500" : "ml-1 text-zinc-500"}`}>{messageTime}</div>
+        ) : null}
       </div>
     </div>
   );
@@ -71,15 +85,30 @@ function TypingBubble({ name, senderType }: { name: string; senderType: "AI" | "
 }
 
 /** Centered status pill shown while the visitor waits for a human to take over. */
-function ConnectingAgentBadge() {
+function formatRemainingTime(totalSeconds: number) {
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+}
+
+function ConnectingAgentBadge({ remainingSeconds }: { remainingSeconds: number | null }) {
+  const countdown = remainingSeconds === null ? null : formatRemainingTime(remainingSeconds);
+
   return (
     <div
       role="status"
       aria-live="polite"
-      className="mx-auto flex max-w-[85%] items-center justify-center gap-2 rounded-full bg-zinc-800 px-3 py-1.5 text-center text-[11px] text-zinc-300"
+      className="mx-auto max-w-[85%] rounded-2xl border border-amber-500/20 bg-zinc-900/95 px-3 py-2 text-center text-[11px] text-zinc-300"
     >
-      <Loader2 className="h-3 w-3 shrink-0 animate-spin text-zinc-400" />
-      Sedang menghubungkan dengan agent
+      <div className="flex items-center justify-center gap-2">
+        <Loader2 className="h-3 w-3 shrink-0 animate-spin text-amber-300" />
+        <span>Sedang menghubungkan dengan agent</span>
+      </div>
+      <div className="mt-1 text-[10px] leading-relaxed text-zinc-400">
+        {countdown
+          ? `Jika agent belum membalas, AI akan membantu lagi dalam ${countdown}.`
+          : "Jika agent belum membalas, AI akan membantu lagi sebentar lagi."}
+      </div>
     </div>
   );
 }
@@ -91,6 +120,8 @@ export function MessageList({
   agentTypingName,
   aiTyping,
   agentConnecting,
+  agentReplyRemainingSeconds,
+  agentReplyTimedOut,
 }: {
   messages: WidgetMessage[];
   config: SiteConfig;
@@ -98,6 +129,8 @@ export function MessageList({
   agentTypingName: string | null;
   aiTyping: boolean;
   agentConnecting: boolean;
+  agentReplyRemainingSeconds: number | null;
+  agentReplyTimedOut: boolean;
 }) {
   const endRef = useRef<HTMLDivElement>(null);
 
@@ -110,7 +143,7 @@ export function MessageList({
       {messages.map((m) => (
         <Bubble key={m.id} message={m} config={config} />
       ))}
-      {agentConnecting && <ConnectingAgentBadge />}
+      {agentConnecting && !agentReplyTimedOut && <ConnectingAgentBadge remainingSeconds={agentReplyRemainingSeconds} />}
       {aiTyping && <TypingBubble name={config.aiName} senderType="AI" />}
       {agentTyping && <TypingBubble name={agentTypingName?.trim() || "Agent"} senderType="AGENT" />}
       <div ref={endRef} />

@@ -81,6 +81,9 @@ export class WidgetGateway implements OnGatewayInit, OnGatewayConnection {
   ) {
     try {
       await this.widgetService.assertOwnership(body.conversationId, client.data.visitorId);
+      // Stuck in a timed-out "waiting for an agent" queue? Hand it back to the AI before posting,
+      // so this message actually gets answered instead of vanishing into an unwatched queue.
+      await this.conversations.autoReturnToAiIfAgentReplyTimedOut(body.conversationId).catch((error) => this.logger.error(error));
       await this.conversations.postMessage({
         conversationId: body.conversationId,
         senderType: SenderType.VISITOR,

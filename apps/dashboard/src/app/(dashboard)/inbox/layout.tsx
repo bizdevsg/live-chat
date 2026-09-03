@@ -11,11 +11,36 @@ import type { ConversationSummary } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/components/ui/cn";
 
-type Tab = "waiting" | "mine" | "resolved";
+type Tab = "waiting" | "mine";
 
-function StatusBadge({ status }: { status: string }) {
-  const tone = status === "RESOLVED" || status === "CLOSED" ? "green" : status === "QUEUED" || status === "WAITING_AGENT" ? "amber" : "gold";
-  return <Badge tone={tone}>{status}</Badge>;
+/** A visitor asked for a human (or the AI handed off) and no agent has picked it up yet. */
+const WAITING_FOR_AGENT = new Set(["QUEUED", "WAITING_AGENT"]);
+const ONGOING_STATUSES = new Set(["AI_ACTIVE", "QUEUED", "WAITING_AGENT", "AGENT_ACTIVE"]);
+
+function getWaitingRank(status: string) {
+  if (WAITING_FOR_AGENT.has(status)) return 0;
+  if (status === "AI_ACTIVE") return 1;
+  if (status === "RESOLVED" || status === "CLOSED") return 2;
+  return 3;
+}
+
+const STATUS_META: Record<string, { label: string; tone: "green" | "amber" | "gold" | "blue" | "red" }> = {
+  QUEUED: { label: "Sedang Menunggu Agent", tone: "amber" },
+  WAITING_AGENT: { label: "Sedang Menunggu Agent", tone: "amber" },
+  AGENT_ACTIVE: { label: "Ditangani Agent", tone: "green" },
+  AI_ACTIVE: { label: "AI Aktif", tone: "blue" },
+  RESOLVED: { label: "Selesai", tone: "green" },
+  CLOSED: { label: "Ditutup", tone: "red" },
+};
+
+function StatusBadge({ status, assignedAgentId, handlerType }: { status: string; assignedAgentId?: string | null; handlerType?: string | null }) {
+  if (status === "RESOLVED") {
+    const resolvedLabel = assignedAgentId ? "Selesai Agent" : handlerType === "AI" ? "Selesai AI" : "Selesai";
+    return <Badge tone="green">{resolvedLabel}</Badge>;
+  }
+
+  const meta = STATUS_META[status] ?? { label: status, tone: "gold" as const };
+  return <Badge tone={meta.tone}>{meta.label}</Badge>;
 }
 
 function ConversationNotificationBadge({ show }: { show: boolean }) {
@@ -34,22 +59,21 @@ export default function InboxLayout({ children }: { children: ReactNode }) {
   const unreadByConversationId = useConversationRealtimeStore((s) => s.unreadByConversationId);
   const activeConversationId = useConversationRealtimeStore((s) => s.activeConversationId);
 
+  // Socket `queue:updated` is the fast path; this poll is the fallback for when the realtime
+  // connection is down (e.g. a dropped tunnel). refetchIntervalInBackground keeps it running
+  // when the agent has the inbox open in an unfocused tab.
   const waitingQuery = useQuery({
     queryKey: ["agent", "queue"],
     queryFn: () => apiClient.get<ConversationSummary[]>("/api/v1/agent/queue"),
     refetchInterval: 15000,
+    refetchIntervalInBackground: true,
   });
 
   const mineQuery = useQuery({
     queryKey: ["agent", "conversations", "mine"],
     queryFn: () => apiClient.get<ConversationSummary[]>("/api/v1/agent/conversations"),
     refetchInterval: 15000,
-  });
-
-  const resolvedQuery = useQuery({
-    queryKey: ["agent", "conversations", "resolved"],
-    queryFn: () => apiClient.get<ConversationSummary[]>("/api/v1/agent/conversations?status=RESOLVED"),
-    refetchInterval: 15000,
+    refetchIntervalInBackground: true,
   });
 
   useEffect(() => {
@@ -74,25 +98,34 @@ export default function InboxLayout({ children }: { children: ReactNode }) {
     };
   }, [queryClient]);
 
-  const list = tab === "waiting" ? (waitingQuery.data ?? []) : tab === "mine" ? (mineQuery.data ?? []) : (resolvedQuery.data ?? []);
+  const rawList = tab === "waiting" ? (waitingQuery.data ?? []) : (mineQuery.data ?? []);
+  // In the Waiting tab, float conversations that need a human to the top (server order —
+  // lastMessageAt desc — is preserved within each group since Array.sort is stable).
+  const list =
+    tab === "waiting"
+      ? [...rawList].sort(
+          (a, b) => getWaitingRank(a.status) - getWaitingRank(b.status),
+        )
+      : rawList;
   const tabCounts = {
-    waiting: waitingQuery.data?.length ?? 0,
+    waiting: waitingQuery.data?.filter((conversation) => ONGOING_STATUSES.has(conversation.status)).length ?? 0,
     mine: mineQuery.data?.length ?? 0,
-    resolved: resolvedQuery.data?.length ?? 0,
   };
 
   return (
-    <div className="flex flex-1 overflow-hidden">
-      <div className="flex w-72 shrink-0 flex-col border-r border-ink-600 bg-ink-800/40">
+    <div className="flex min-w-0 flex-1 flex-col overflow-hidden md:flex-row">
+      <div
+        className="flex max-h-[42vh] min-h-[240px] w-full min-w-0 flex-col border-b border-ink-600 bg-ink-800/40 md:max-h-none md:min-h-0 md:w-72 md:shrink-0 md:border-b-0 md:border-r"
+      >
         <div className="flex border-b border-ink-600 text-xs">
-          {(["waiting", "mine", "resolved"] as Tab[]).map((t) => (
+          {(["waiting", "mine"] as Tab[]).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
               className={cn("flex-1 py-3 font-medium uppercase tracking-wide", tab === t ? "border-b-2 border-gold-500 text-gold-500" : "text-zinc-500")}
             >
               <span className="inline-flex items-center gap-2">
-                <span>{t === "waiting" ? "Waiting" : t === "mine" ? "My Chats" : "Resolved"}</span>
+                <span>{t === "waiting" ? "Waiting" : "My Chats"}</span>
                 <span className={cn("rounded-full px-1.5 py-0.5 text-[10px] leading-none", tab === t ? "bg-gold-500/20 text-gold-500" : "bg-zinc-800 text-zinc-400")}>
                   {tabCounts[t]}
                 </span>
@@ -113,7 +146,6 @@ export default function InboxLayout({ children }: { children: ReactNode }) {
                 (latestMessage.receipts?.length ?? 0) === 0;
               const hasUnreadFromSession = !!unreadByConversationId[c.id] && activeConversationId !== c.id;
               const hasUnreadCustomerMessage = hasUnreadFromServer || hasUnreadFromSession;
-
               return (
                 <Link
                   key={c.id}
@@ -130,7 +162,7 @@ export default function InboxLayout({ children }: { children: ReactNode }) {
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
                       <ConversationNotificationBadge show={hasUnreadCustomerMessage} />
-                      <StatusBadge status={c.status} />
+                      <StatusBadge status={c.status} assignedAgentId={c.assignedAgentId} handlerType={c.handlerType} />
                     </div>
                   </div>
                   <div className="mt-1 text-[11px] text-zinc-600">
@@ -142,7 +174,7 @@ export default function InboxLayout({ children }: { children: ReactNode }) {
           ))}
         </div>
       </div>
-      {children}
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col xl:flex-row">{children}</div>
     </div>
   );
 }

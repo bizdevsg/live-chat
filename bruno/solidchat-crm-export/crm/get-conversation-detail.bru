@@ -5,13 +5,13 @@ meta {
 }
 
 get {
-  url: {{baseUrl}}{{basePath}}/conversessions/detail/{{conversationId}}
+  url: {{baseUrl}}{{basePath}}/conversations/{{conversationId}}
   body: none
   auth: none
 }
 
 headers {
-  x-api-key: {{crmApiKey}}
+  Authorization: Bearer {{crmApiKey}}
   Accept: application/json
 }
 

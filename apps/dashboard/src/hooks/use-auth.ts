@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient, ApiError } from "@/lib/api-client";
+import { authTokenStore } from "@/lib/auth-token-store";
 import { useAuthStore, type AuthUser } from "@/lib/auth-store";
 
 export function useMe() {
@@ -17,8 +18,11 @@ export function useMe() {
 
   useEffect(() => {
     if (query.isSuccess) setUser(query.data);
-    if (query.isError) setUser(null);
+    if (query.isError && isUnauthorized(query.error)) setUser(null);
     if (query.isPending) setStatus("loading");
+    if (query.isError && !isUnauthorized(query.error)) {
+      setStatus(useAuthStore.getState().user ? "authenticated" : "unauthenticated");
+    }
   }, [query.isSuccess, query.isError, query.isPending, query.data, setUser, setStatus]);
 
   return query;
@@ -38,6 +42,7 @@ export function useLogout() {
   return useMutation({
     mutationFn: () => apiClient.post("/api/v1/auth/logout"),
     onSuccess: () => {
+      authTokenStore.clear();
       setUser(null);
       queryClient.clear();
     },

@@ -54,6 +54,8 @@ export default function App() {
     agentTypingName,
     aiTyping,
     agentConnecting,
+    agentReplyRemainingSeconds,
+    agentReplyTimedOut,
     canRequestAgent,
     sendMessage,
     requestAgent,
@@ -62,7 +64,12 @@ export default function App() {
     submitFeedback,
     notifyTyping,
     loadConversation,
-  } = useConversation(visitorToken, config?.siteId ?? null, config?.presenceStatus);
+  } = useConversation(
+    visitorToken,
+    config?.siteId ?? null,
+    config?.presenceStatus,
+    config?.settings?.agentReplyTimeoutSeconds ?? 60,
+  );
   const [leadConversationId, setLeadConversationId] = useState(() => widgetStorage.getLeadConversationId());
   const [ticketInfo, setTicketInfo] = useState(() => widgetStorage.getTicketInfo());
 
@@ -74,14 +81,29 @@ export default function App() {
       throw new Error("Percakapan belum siap. Coba lagi sebentar.");
     }
 
+    const { message, ...lead } = values;
     const response = await api.post<{ id: string; syncStatus: string; conversationId?: string | null; resumedConversation?: boolean }>(
       `/api/v1/widget/conversations/${conversation.id}/lead`,
-      values,
+      lead,
       visitorToken,
     );
     const targetConversationId = response.conversationId ?? conversation.id;
     widgetStorage.setLeadConversationId(targetConversationId);
     setLeadConversationId(targetConversationId);
+
+    // Send the visitor's first message (typed in the pre-chat form) before reloading, so it's in
+    // the transcript and the AI answers it right after the greeting.
+    const firstMessage = message.trim();
+    if (firstMessage) {
+      await api
+        .post(
+          `/api/v1/widget/conversations/${targetConversationId}/messages`,
+          { content: firstMessage, clientMessageId: crypto.randomUUID() },
+          visitorToken,
+        )
+        .catch(() => undefined);
+    }
+
     // Reload even when the ID is unchanged so the server-created greeting is immediately visible.
     await loadConversation(targetConversationId);
   }
@@ -216,7 +238,12 @@ export default function App() {
           onEndConversation={() => undefined}
         />
         {isBusy ? <BusyNotice /> : null}
-        <PreChatForm widgetColor={config.widgetColor} onSubmit={handlePreChatSubmit} />
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <PreChatForm
+            widgetColor={config.widgetColor}
+            onSubmit={handlePreChatSubmit}
+          />
+        </div>
       </div>
     );
   }
@@ -273,6 +300,8 @@ export default function App() {
         agentTypingName={agentTypingName}
         aiTyping={aiTyping}
         agentConnecting={agentConnecting}
+        agentReplyRemainingSeconds={agentReplyRemainingSeconds}
+        agentReplyTimedOut={agentReplyTimedOut}
       />
       {showRating ? (
         <div className="px-4 pb-3">
