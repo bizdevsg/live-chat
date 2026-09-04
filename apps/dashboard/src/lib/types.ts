@@ -11,6 +11,8 @@ export interface ConversationSummary {
   createdAt: string;
   lastMessageAt: string | null;
   ratingScore: number | null;
+  /** ISO time the conversation auto-returns to the AI if no agent picks it up — drives the countdown. */
+  agentReplyDeadlineAt?: string | null;
   context?: { pageUrl?: string | null; pageTitle?: string | null } | null;
   customer?: { id: string; name: string; email: string | null } | null;
   leads?: Array<{ id: string; name: string; email: string | null; phone: string | null }>;
@@ -57,4 +59,6 @@ export interface ConversationDetail {
     openIssues: string[];
   } | null;
   recentAiRuns: Array<{ id: string; purpose: string; confidence: number | null; intent: string | null; createdAt: string }>;
+  /** ISO time the conversation auto-returns to the AI if no agent picks it up — drives the countdown. */
+  agentReplyDeadlineAt?: string | null;
 }

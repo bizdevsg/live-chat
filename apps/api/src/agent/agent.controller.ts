@@ -23,7 +23,16 @@ export class AgentController {
   @Get("queue")
   async queue(@CurrentUser() user: JwtAccessPayload) {
     const data = await this.agentService.queue(user);
-    return { success: true, data };
+    const withDeadline = await Promise.all(
+      data.map(async (conversation) => ({
+        ...conversation,
+        agentReplyDeadlineAt:
+          conversation.handlerType === "AI" || conversation.assignedAgentId
+            ? null
+            : ((await this.conversations.resolveAgentReplyDeadline(conversation.id))?.toISOString() ?? null),
+      })),
+    );
+    return { success: true, data: withDeadline };
   }
 
   @Get("conversations")
@@ -35,7 +44,8 @@ export class AgentController {
   @Get("conversations/:id")
   async getConversation(@Param("id") id: string, @CurrentUser() user: JwtAccessPayload) {
     const data = await this.agentService.getConversationDetail(user, id);
-    return { success: true, data };
+    const agentReplyDeadlineAt = (await this.conversations.resolveAgentReplyDeadline(id))?.toISOString() ?? null;
+    return { success: true, data: { ...data, agentReplyDeadlineAt } };
   }
 
   @Get("crm/customer")

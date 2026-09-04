@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea, Input, Select, Label } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Modal } from "@/components/ui/modal";
+import { AutoReturnCountdown } from "@/components/inbox/auto-return-countdown";
 import { Permission } from "@/lib/permissions";
 import type { ConversationDetail, MessageItem, MessageReceiptItem } from "@/lib/types";
 
@@ -362,7 +363,7 @@ export default function ConversationDetailPage() {
   if (detailQuery.isLoading) return <div className="flex-1 p-6 text-sm text-zinc-500">Memuat conversation...</div>;
   if (!detailQuery.data) return <div className="flex-1 p-6 text-sm text-red-400">Conversation tidak ditemukan.</div>;
 
-  const { conversation, summary, recentAiRuns } = detailQuery.data;
+  const { conversation, summary, recentAiRuns, agentReplyDeadlineAt } = detailQuery.data;
   const customerDisplayName = conversation.customer?.name ?? conversation.leads?.[0]?.name ?? "Visitor anonim";
   const isMine = isHydrated && conversation.assignedAgentId === user?.userId;
   const isQueued =
@@ -424,7 +425,10 @@ export default function ConversationDetailPage() {
             <Badge tone={conversation.handlerType === "AI" ? "blue" : "green"}>{conversation.handlerType}</Badge>
             {conversation.intent && <Badge>{conversation.intent}</Badge>}
           </div>
-          <div className="flex flex-wrap justify-end gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {isHydrated && isQueued && !conversation.assignedAgentId && (
+              <AutoReturnCountdown deadlineAt={agentReplyDeadlineAt} />
+            )}
             {isHydrated && isQueued && !conversation.assignedAgentId && (
               <Button size="sm" onClick={() => accept.mutate(undefined)}>
                 Accept

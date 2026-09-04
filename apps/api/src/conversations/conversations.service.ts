@@ -120,6 +120,23 @@ export class ConversationsService {
     return handoffEvent?.createdAt ?? conversation?.assignedAt ?? null;
   }
 
+  /**
+   * When an unanswered handoff / silent-agent assignment will auto-return to the AI, or null if the
+   * conversation is not currently waiting on a human. Drives the agent-side "Kembali ke AI dalam …"
+   * countdown, mirroring the visitor-side one in the widget.
+   */
+  async resolveAgentReplyDeadline(conversationId: string): Promise<Date | null> {
+    const conversation = await this.prisma.conversation.findUnique({
+      where: { id: conversationId },
+      select: { status: true, handlerType: true },
+    });
+    if (!conversation || !this.isAwaitingAgentReply(conversation.status, conversation.handlerType)) return null;
+    const startedAt = await this.resolveAgentReplyTimeoutStart(conversationId);
+    if (!startedAt) return null;
+    const timeoutMs = await this.resolveAgentReplyTimeoutMs(conversationId);
+    return new Date(startedAt.getTime() + timeoutMs);
+  }
+
   private async cancelAgentReplyTimeout(conversationId: string) {
     const jobId = getAgentReplyTimeoutJobId(conversationId);
     const existing = await this.conversationTimeoutQueue.getJob(jobId);
@@ -561,7 +578,10 @@ export class ConversationsService {
       where: { id: conversationId },
       data: { status: ConversationStatus.QUEUED, handlerType: HandlerType.NONE, assignedAgentId: null },
     });
-    await this.safelyCancelAgentReplyTimeout(conversationId);
+    // Start the pickup clock: if no agent Accepts within agentReplyTimeoutSeconds the conversation
+    // auto-returns to the AI (autoReturnToAiOnAgentTimeout), and the agent dashboard shows the
+    // matching "Kembali ke AI dalam …" countdown.
+    await this.safelyRefreshAgentReplyTimeout(conversationId);
     await this.logEvent(conversationId, "handoff.requested", "SYSTEM", null, { reason, teamId: targetTeam.id, outcome: "queued" });
     this.realtime.toConversation(conversationId, "conversation:updated", {
       conversationId,

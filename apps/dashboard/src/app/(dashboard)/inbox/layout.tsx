@@ -10,6 +10,7 @@ import { getDashboardSocket } from "@/lib/socket";
 import type { ConversationSummary } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/components/ui/cn";
+import { AutoReturnCountdown } from "@/components/inbox/auto-return-countdown";
 
 type Tab = "waiting" | "mine";
 
@@ -165,8 +166,9 @@ export default function InboxLayout({ children }: { children: ReactNode }) {
                       <StatusBadge status={c.status} assignedAgentId={c.assignedAgentId} handlerType={c.handlerType} />
                     </div>
                   </div>
-                  <div className="mt-1 text-[11px] text-zinc-600">
-                    {c.lastMessageAt ? new Date(c.lastMessageAt).toLocaleString("id-ID") : "-"}
+                  <div className="mt-1 flex items-center justify-between gap-2 text-[11px] text-zinc-600">
+                    <span className="truncate">{c.lastMessageAt ? new Date(c.lastMessageAt).toLocaleString("id-ID") : "-"}</span>
+                    <AutoReturnCountdown deadlineAt={c.agentReplyDeadlineAt} compact />
                   </div>
                 </Link>
               );
