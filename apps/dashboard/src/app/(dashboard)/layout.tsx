@@ -7,6 +7,7 @@ import { isUnauthorized, useMe } from "@/hooks/use-auth";
 import { useAuthStore } from "@/lib/auth-store";
 import { useConversationRealtimeStore } from "@/lib/conversation-realtime-store";
 import { playNotificationSoundForType, prepareNotificationSounds } from "@/lib/notification-sounds";
+import { showBrowserNotification } from "@/lib/browser-notifications";
 import { DashboardShellProvider } from "@/components/layout/dashboard-shell";
 import { Sidebar } from "@/components/layout/sidebar";
 import { getDashboardSocket, disconnectDashboardSocket } from "@/lib/socket";
@@ -98,6 +99,7 @@ export default function DashboardGroupLayout({ children }: { children: ReactNode
       if (payload.title) {
         toast.push(payload.body ? `${payload.title} - ${payload.body}` : payload.title, "info");
       }
+      showBrowserNotification(payload);
       playNotificationSoundForType(payload.type, accountSettings);
     };
 

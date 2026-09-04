@@ -6,10 +6,22 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 ### Added
 - Menambahkan `apps/dashboard/public/notification/new-massages/universfield-new-notification-022-370046.mp3`.
 - Menambahkan `apps/dashboard/public/notification/on-conversesion/universfield-new-notification-012-363675.mp3`.
+- Menambahkan `apps/dashboard/src/lib/browser-notifications.ts`.
+- Menambahkan notifikasi native browser untuk dashboard saat berada di tab lain atau diminimalkan.
 
 ### Changed
 - Memperbarui `.github/workflows/auto-version-release.yml`.
+- Memperbarui `apps/dashboard/src/app/(dashboard)/layout.tsx`.
+- Memperbarui `apps/dashboard/src/components/account/account-settings-panel.tsx`.
+- Memperbarui `apps/dashboard/src/lib/notification-sounds.ts`.
+- Memperbarui `apps/widget/src/lib/notification-sound.ts`.
 - Memperbarui `package.json`.
+- Menambahkan kontrol aktivasi izin notifikasi browser pada pengaturan profil agent.
+
+### Fixed
+- Memastikan notifikasi browser kompatibel dengan definisi API yang digunakan saat build dashboard.
+- Memetakan notifikasi conversation inbox dan pesan customer ke kategori suara yang sesuai.
+- Memperbaiki pemutaran suara notifikasi agar tetap dapat di-unlock setelah pengaturan akun dimuat.
 
 ## [0.4.0] - 2026-09-04
 ### Added

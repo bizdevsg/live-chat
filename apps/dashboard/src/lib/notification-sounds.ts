@@ -135,11 +135,10 @@ export function prepareNotificationSounds(settings?: UserAccountSettings | null)
   window.addEventListener("keydown", handleInteraction);
   document.addEventListener("visibilitychange", handleVisible);
 
-  return () => {
-    window.removeEventListener("pointerdown", handleInteraction);
-    window.removeEventListener("keydown", handleInteraction);
-    document.removeEventListener("visibilitychange", handleVisible);
-  };
+  // These listeners intentionally live for the dashboard session. React reruns this
+  // setup after account settings load; removing them during that rerun could leave
+  // audio permanently locked until the page is reloaded.
+  return () => undefined;
 }
 
 export function playNotificationSound(category: NotificationSoundCategory, soundId: string, settings?: UserAccountSettings | null) {
@@ -156,7 +155,8 @@ export function playNotificationSound(category: NotificationSoundCategory, sound
 }
 
 export function resolveNotificationSoundCategory(type: string | undefined): NotificationSoundCategory | null {
-  if (type === "NEW_WAITING_CONVERSATION") return "newMessages";
+  if (type === "NEW_WAITING_CONVERSATION" || type === "NEW_INBOX_CONVERSATION") return "newMessages";
+  if (type === "NEW_CUSTOMER_MESSAGE") return "onConversation";
   return null;
 }
 

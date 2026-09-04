@@ -1,4 +1,5 @@
-const NOTIFICATION_SOUND_SRC = "/sound-notif/universfield-new-notification-056-494256.mp3";
+const NOTIFICATION_SOUND_SRC =
+  "/sound-notif/universfield-new-notification-056-494256.mp3";
 
 let unlocked = false;
 let pendingPlayback = false;
@@ -32,7 +33,8 @@ export function prepareNotificationSound() {
     if (!currentAudio || unlocked) return;
 
     currentAudio.muted = true;
-    void currentAudio.play()
+    void currentAudio
+      .play()
       .then(() => {
         currentAudio.pause();
         currentAudio.currentTime = 0;

@@ -7,6 +7,7 @@ import { apiClient, ApiError } from "@/lib/api-client";
 import { useAuthStore, type AuthUser } from "@/lib/auth-store";
 import { DEFAULT_USER_ACCOUNT_SETTINGS, normalizeUserAccountSettings, type NotificationSoundCategory, type UserAccountSettings } from "@/lib/account-settings";
 import { getNotificationSoundOptions } from "@/lib/notification-sounds";
+import { getBrowserNotificationPermission, requestBrowserNotificationPermission } from "@/lib/browser-notifications";
 import { useToast } from "@/components/ui/toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
@@ -106,6 +107,11 @@ export function AccountSettingsPanel() {
   const [form, setForm] = useState<UserAccountSettings>(user?.accountSettings ?? DEFAULT_USER_ACCOUNT_SETTINGS);
   const previewAudioRef = useRef<HTMLAudioElement | null>(null);
   const [previewingKey, setPreviewingKey] = useState<string | null>(null);
+  const [browserNotificationPermission, setBrowserNotificationPermission] = useState<NotificationPermission | "unsupported">("unsupported");
+
+  useEffect(() => {
+    setBrowserNotificationPermission(getBrowserNotificationPermission());
+  }, []);
 
   const settingsQuery = useQuery({
     queryKey: ["auth", "account-settings"],
@@ -240,6 +246,18 @@ export function AccountSettingsPanel() {
     uploadMutation.mutate({ category, file });
   };
 
+  const enableBrowserNotifications = async () => {
+    const permission = await requestBrowserNotificationPermission();
+    setBrowserNotificationPermission(permission);
+    if (permission === "granted") {
+      toast.push("Notifikasi browser aktif.", "success");
+    } else if (permission === "denied") {
+      toast.push("Izin notifikasi diblokir. Aktifkan kembali lewat pengaturan browser.", "error");
+    } else if (permission === "unsupported") {
+      toast.push("Browser ini tidak mendukung notifikasi browser.", "error");
+    }
+  };
+
   return (
     <Card id="notification-preferences" className="p-6">
       <input
@@ -272,6 +290,22 @@ export function AccountSettingsPanel() {
         </div>
         <Button type="button" size="sm" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
           {saveMutation.isPending ? "Menyimpan..." : "Simpan"}
+        </Button>
+      </div>
+
+      <div className="mb-5 flex flex-col gap-3 rounded-lg border border-ink-600 bg-ink-800/60 p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-sm font-medium text-zinc-100">Notifikasi browser</p>
+          <p className="mt-1 text-sm text-zinc-400">Tampilkan pemberitahuan saat dashboard berada di tab lain atau diminimalkan.</p>
+        </div>
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          onClick={() => void enableBrowserNotifications()}
+          disabled={browserNotificationPermission === "granted" || browserNotificationPermission === "unsupported"}
+        >
+          {browserNotificationPermission === "granted" ? "Sudah aktif" : browserNotificationPermission === "unsupported" ? "Tidak didukung" : "Aktifkan"}
         </Button>
       </div>
 
