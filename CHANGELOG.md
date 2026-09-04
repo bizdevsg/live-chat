@@ -3,7 +3,8 @@
 Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
-- Belum ada perubahan terdeteksi.
+### Changed
+- Memperbarui `.github/workflows/auto-version-release.yml`.
 
 ## [0.4.1] - 2026-09-04
 ### Added
