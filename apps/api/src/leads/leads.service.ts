@@ -40,6 +40,21 @@ export class LeadsService {
     return { status: ConversationStatus.AI_ACTIVE, handlerType: HandlerType.AI };
   }
 
+  private static readonly ENDED_STATUSES: string[] = [ConversationStatus.RESOLVED, ConversationStatus.CLOSED];
+
+  /** Fields that lift a RESOLVED/CLOSED conversation back into an active handler state. */
+  private reactivationFields(conversation: { assignedTeamId: string | null }) {
+    const next = this.getResumeState(conversation);
+    return {
+      assignedAgentId: null,
+      status: next.status,
+      handlerType: next.handlerType,
+      assignedAt: null,
+      resolvedAt: null,
+      closedAt: null,
+    };
+  }
+
   async createFromWidget(siteId: string, conversationId: string | undefined, dto: CreateLeadDto) {
     const normalized = this.normalizeLeadInput(dto);
 
@@ -119,37 +134,35 @@ export class LeadsService {
 
       if (resumableConversation && conversation?.visitorId) {
         targetConversationId = resumableConversation.id;
-        const resumeState =
-          resumableConversation.status === ConversationStatus.RESOLVED
-            ? this.getResumeState(resumableConversation)
-            : null;
+        const reactivate = LeadsService.ENDED_STATUSES.includes(resumableConversation.status);
 
         await tx.conversation.update({
           where: { id: resumableConversation.id },
           data: {
             visitorId: conversation.visitorId,
             customerId: customer.id,
-            ...(resumeState
-              ? {
-                  assignedAgentId: null,
-                  status: resumeState.status,
-                  handlerType: resumeState.handlerType,
-                  assignedAt: null,
-                  resolvedAt: null,
-                  closedAt: null,
-                }
-              : {}),
+            ...(reactivate ? this.reactivationFields(resumableConversation) : {}),
           },
         });
 
         if (!conversation.firstMessageAt) {
           await tx.conversation.delete({ where: { id: conversation.id } });
         }
-      } else if (conversation && conversation.customerId !== customer.id) {
-        await tx.conversation.update({
-          where: { id: conversation.id },
-          data: { customerId: customer.id },
-        });
+      } else if (conversation) {
+        // A returning visitor can land back on a stale conversation id whose chat already ended
+        // (they closed it, or an agent resolved it). Submitting the pre-chat form means they want
+        // to talk now — bring that conversation back to life instead of attaching the lead to a
+        // dead thread the widget would then render as "conversation ended".
+        const reactivate = LeadsService.ENDED_STATUSES.includes(conversation.status);
+        if (reactivate || conversation.customerId !== customer.id) {
+          await tx.conversation.update({
+            where: { id: conversation.id },
+            data: {
+              customerId: customer.id,
+              ...(reactivate ? this.reactivationFields(conversation) : {}),
+            },
+          });
+        }
       }
 
       const createdLead = await tx.lead.create({

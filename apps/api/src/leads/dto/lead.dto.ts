@@ -27,6 +27,13 @@ export class CreateLeadDto {
   @MaxLength(120)
   productInterest?: string;
 
+  // Accepted but unused: older widget builds still POST a department picker value.
+  // Whitelisting it here stops those clients from failing the forbidNonWhitelisted check.
+  @IsOptional()
+  @IsString()
+  @MaxLength(60)
+  departmentId?: string;
+
   @IsBoolean()
   consentGiven!: boolean;
 }
