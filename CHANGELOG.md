@@ -3,6 +3,9 @@
 Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
+- Belum ada perubahan terdeteksi.
+
+## [0.4.2] - 2026-09-04
 ### Added
 - Menambahkan `.pnpm-store/v11/index.db-shm`.
 - Menambahkan `.pnpm-store/v11/index.db-wal`.
@@ -39,6 +42,9 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 - Memperbarui `apps/worker/src/cleanup/cleanup.processor.spec.ts`.
 - Memperbarui `apps/worker/src/cleanup/cleanup.processor.ts`.
 - Memperbarui `apps/worker/src/scheduler.service.ts`.
+
+### Fixed
+- Tab closed.
 
 ## [0.4.1] - 2026-09-04
 ### Added
@@ -115,7 +121,8 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 - Memperbarui `apps/dashboard/src/app/(dashboard)/knowledge/page.tsx`.
 - Memperbarui `package.json`.
 
-[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.4.1...HEAD
+[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.4.2...HEAD
+[0.4.2]: https://github.com/bizdevsg/live-chat/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/bizdevsg/live-chat/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/bizdevsg/live-chat/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/bizdevsg/live-chat/compare/v0.3.0...v0.3.1
