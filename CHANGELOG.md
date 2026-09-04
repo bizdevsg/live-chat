@@ -3,9 +3,15 @@
 Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
+- Belum ada perubahan terdeteksi.
+
+## [0.4.3] - 2026-09-04
 ### Changed
 - Memperbarui `.dockerignore`.
 - Memperbarui `.gitignore`.
+
+### Fixed
+- Remove tmp folder.
 
 ### Removed
 - Menghapus `tmp/pdf-qa-live/page-1.png`.
@@ -160,7 +166,8 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 - Memperbarui `apps/dashboard/src/app/(dashboard)/knowledge/page.tsx`.
 - Memperbarui `package.json`.
 
-[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.4.2...HEAD
+[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.4.3...HEAD
+[0.4.3]: https://github.com/bizdevsg/live-chat/compare/v0.4.2...v0.4.3
 [0.4.2]: https://github.com/bizdevsg/live-chat/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/bizdevsg/live-chat/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/bizdevsg/live-chat/compare/v0.3.1...v0.4.0
