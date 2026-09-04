@@ -187,7 +187,7 @@ describe("ConversationsService.autoReturnToAiOnAgentTimeout", () => {
   });
 });
 
-describe("ConversationsService.requestAgent (single active chat per agent)", () => {
+describe("ConversationsService.requestAgent (agents handle up to 5 concurrent chats)", () => {
   function createService(opts?: {
     onlineAgents?: Array<{ userId: string; activeChatCount: number; maxConcurrentChats: number }>;
     reserveCount?: number;
@@ -229,7 +229,7 @@ describe("ConversationsService.requestAgent (single active chat per agent)", () 
         updateMany: jest.fn().mockResolvedValue({ count: opts?.reserveCount ?? 1 }),
         update: jest.fn().mockResolvedValue({}),
         upsert: jest.fn().mockResolvedValue({}),
-        findUnique: jest.fn().mockResolvedValue({ maxConcurrentChats: 1 }),
+        findUnique: jest.fn().mockResolvedValue({ maxConcurrentChats: 5 }),
       },
       conversationAssignment: { create: jest.fn().mockResolvedValue({}) },
       conversationParticipant: { create: jest.fn().mockResolvedValue({}) },
@@ -261,14 +261,14 @@ describe("ConversationsService.requestAgent (single active chat per agent)", () 
 
   it("assigns to a free ONLINE agent and atomically claims the slot", async () => {
     const { service, prisma } = createService({
-      onlineAgents: [{ userId: "agent-1", activeChatCount: 0, maxConcurrentChats: 1 }],
+      onlineAgents: [{ userId: "agent-1", activeChatCount: 0, maxConcurrentChats: 5 }],
       reserveCount: 1,
     });
 
     await service.requestAgent("conv-1", "CUSTOMER_REQUESTED_HUMAN");
 
     expect(prisma.agentProfile.updateMany).toHaveBeenCalledWith({
-      where: { userId: "agent-1", activeChatCount: { lt: 1 } },
+      where: { userId: "agent-1", activeChatCount: { lt: 5 } },
       data: { activeChatCount: { increment: 1 } },
     });
     expect(service.logEvent).toHaveBeenCalledWith("conv-1", "handoff.requested", "SYSTEM", null, {
@@ -280,7 +280,7 @@ describe("ConversationsService.requestAgent (single active chat per agent)", () 
 
   it("queues the visitor for first-come-first-served pickup when every agent is at capacity", async () => {
     const { service, prisma, notifications } = createService({
-      onlineAgents: [{ userId: "agent-1", activeChatCount: 1, maxConcurrentChats: 1 }],
+      onlineAgents: [{ userId: "agent-1", activeChatCount: 5, maxConcurrentChats: 5 }],
     });
 
     await service.requestAgent("conv-1", "CUSTOMER_REQUESTED_HUMAN");
@@ -306,7 +306,7 @@ describe("ConversationsService.requestAgent (single active chat per agent)", () 
   it("rejects a manual accept when the agent is already at capacity", async () => {
     const { service } = createService({ reserveCount: 0 });
 
-    await expect(service.accept("conv-1", "agent-1")).rejects.toThrow("Anda sedang menangani chat lain");
+    await expect(service.accept("conv-1", "agent-1")).rejects.toThrow("jumlah chat maksimum");
   });
 
   it("claims the conversation atomically on a single accept", async () => {

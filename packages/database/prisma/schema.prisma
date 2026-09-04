@@ -298,7 +298,7 @@ model TeamMember {
 model AgentProfile {
   userId              String    @id @map("user_id")
   availability        String    @default("OFFLINE") // AgentAvailability
-  maxConcurrentChats  Int       @default(1) @map("max_concurrent_chats")
+  maxConcurrentChats  Int       @default(5) @map("max_concurrent_chats")
   activeChatCount     Int       @default(0) @map("active_chat_count")
   lastStatusChangeAt  DateTime? @map("last_status_change_at")
 

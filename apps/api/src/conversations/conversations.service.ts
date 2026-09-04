@@ -19,6 +19,13 @@ import {
   getAgentReplyTimeoutJobId,
 } from "./conversation-timeout.constants";
 
+/**
+ * Concurrency ceiling assumed when an agent has no profile row yet (the row is normally created on
+ * first status change / assignment). Mirrors AgentProfile.maxConcurrentChats' schema default so the
+ * fallback never routes more aggressively than a freshly-seeded agent would allow.
+ */
+const DEFAULT_MAX_CONCURRENT_CHATS = 5;
+
 export interface PostMessageInput {
   conversationId: string;
   senderType: (typeof SenderType)[keyof typeof SenderType];
@@ -793,11 +800,11 @@ export class ConversationsService {
     }
 
     const profile = await this.prisma.agentProfile.findUnique({ where: { userId: agentId }, select: { maxConcurrentChats: true } });
-    const reserved = await this.reserveAgentSlot(agentId, profile?.maxConcurrentChats ?? 1);
+    const reserved = await this.reserveAgentSlot(agentId, profile?.maxConcurrentChats ?? DEFAULT_MAX_CONCURRENT_CHATS);
     if (!reserved) {
       throw new ApiException(
         ErrorCode.CONFLICT,
-        "Anda sedang menangani chat lain. Selesaikan dulu sebelum mengambil chat baru.",
+        "Anda sudah menangani jumlah chat maksimum. Selesaikan salah satu sebelum mengambil chat baru.",
         HttpStatus.CONFLICT,
       );
     }
@@ -961,7 +968,7 @@ export class ConversationsService {
     if (target.toAgentId) {
       if (target.toAgentId !== conversation.assignedAgentId) {
         const profile = await this.prisma.agentProfile.findUnique({ where: { userId: target.toAgentId }, select: { maxConcurrentChats: true } });
-        const reserved = await this.reserveAgentSlot(target.toAgentId, profile?.maxConcurrentChats ?? 1);
+        const reserved = await this.reserveAgentSlot(target.toAgentId, profile?.maxConcurrentChats ?? DEFAULT_MAX_CONCURRENT_CHATS);
         if (!reserved) {
           throw new ApiException(
             ErrorCode.CONFLICT,

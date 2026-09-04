@@ -330,7 +330,7 @@ async function main() {
     create: {
       userId: agent.id,
       availability: "OFFLINE",
-      maxConcurrentChats: 1,
+      maxConcurrentChats: 5,
     },
   });
   await prisma.teamMember.upsert({
