@@ -641,11 +641,21 @@ export class ConversationsService {
       .sort((a, b) => (a.user.agentProfile?.activeChatCount ?? 0) - (b.user.agentProfile?.activeChatCount ?? 0));
 
     for (const candidate of available) {
-      // Claim a slot atomically: the conditional UPDATE means two conversations racing for the
-      // same free agent can't both win — the loser falls through to the next candidate (§26).
+      // Claim a concurrency slot atomically: two conversations racing for the same free agent
+      // can't both win — the loser falls through to the next candidate (§26).
       const reserved = await this.reserveAgentSlot(candidate.userId, candidate.user.agentProfile!.maxConcurrentChats);
       if (!reserved) continue;
-      await this.assignToAgent(conversationId, candidate.userId, "LEAST_ACTIVE", { slotAlreadyReserved: true });
+      // Claim the conversation just as atomically — if an agent Accepted it manually a moment ago,
+      // give the slot back and stop; it already has a handler.
+      const claimed = await this.claimConversation(conversationId, candidate.userId);
+      if (!claimed) {
+        await this.releaseAgentSlot(candidate.userId);
+        return false;
+      }
+      await this.assignToAgent(conversationId, candidate.userId, "LEAST_ACTIVE", {
+        slotAlreadyReserved: true,
+        conversationAlreadyClaimed: true,
+      });
       return true;
     }
     return false; // everyone is at capacity — the caller keeps the conversation with the AI
@@ -664,9 +674,41 @@ export class ConversationsService {
     return res.count === 1;
   }
 
-  async assignToAgent(conversationId: string, agentId: string, strategy = "MANUAL", opts: { slotAlreadyReserved?: boolean } = {}) {
+  /** Hands a concurrency slot back when the assignment reserveAgentSlot was for did not go through. */
+  private async releaseAgentSlot(agentId: string): Promise<void> {
+    await this.prisma.agentProfile.updateMany({
+      where: { userId: agentId, activeChatCount: { gt: 0 } },
+      data: { activeChatCount: { decrement: 1 } },
+    });
+  }
+
+  /**
+   * Atomically pins a still-unassigned conversation to an agent. The `assignedAgentId: null` guard
+   * means that when two agents click Accept on the same conversation at once, exactly one UPDATE
+   * matches — the other caller sees count 0 and tells its agent the chat is already taken.
+   */
+  private async claimConversation(conversationId: string, agentId: string): Promise<boolean> {
+    const res = await this.prisma.conversation.updateMany({
+      where: { id: conversationId, assignedAgentId: null },
+      data: {
+        assignedAgentId: agentId,
+        handlerType: HandlerType.HUMAN,
+        status: ConversationStatus.AGENT_ACTIVE,
+        assignedAt: new Date(),
+      },
+    });
+    return res.count === 1;
+  }
+
+  async assignToAgent(
+    conversationId: string,
+    agentId: string,
+    strategy = "MANUAL",
+    opts: { slotAlreadyReserved?: boolean; conversationAlreadyClaimed?: boolean } = {},
+  ) {
     const conversation = await this.getConversationOrThrow(conversationId);
     if (
+      !opts.conversationAlreadyClaimed &&
       conversation.assignedAgentId === agentId &&
       conversation.handlerType === HandlerType.HUMAN &&
       conversation.status === ConversationStatus.AGENT_ACTIVE
@@ -675,18 +717,24 @@ export class ConversationsService {
     }
 
     await this.prisma.$transaction([
-      ...(conversation.assignedAgentId && conversation.assignedAgentId !== agentId
-        ? [this.prisma.agentProfile.update({ where: { userId: conversation.assignedAgentId }, data: { activeChatCount: { decrement: 1 } } })]
-        : []),
-      this.prisma.conversation.update({
-        where: { id: conversationId },
-        data: {
-          assignedAgentId: agentId,
-          handlerType: HandlerType.HUMAN,
-          status: ConversationStatus.AGENT_ACTIVE,
-          assignedAt: new Date(),
-        },
-      }),
+      // The racing paths (accept / auto-assign) already flipped assignedAgentId + status
+      // atomically via claimConversation, so here we only add the assignment bookkeeping.
+      ...(opts.conversationAlreadyClaimed
+        ? []
+        : [
+            ...(conversation.assignedAgentId && conversation.assignedAgentId !== agentId
+              ? [this.prisma.agentProfile.update({ where: { userId: conversation.assignedAgentId }, data: { activeChatCount: { decrement: 1 } } })]
+              : []),
+            this.prisma.conversation.update({
+              where: { id: conversationId },
+              data: {
+                assignedAgentId: agentId,
+                handlerType: HandlerType.HUMAN,
+                status: ConversationStatus.AGENT_ACTIVE,
+                assignedAt: new Date(),
+              },
+            }),
+          ]),
       this.prisma.conversationAssignment.create({
         data: { conversationId, agentId, teamId: conversation.assignedTeamId, strategy },
       }),
@@ -714,23 +762,35 @@ export class ConversationsService {
 
   async accept(conversationId: string, agentId: string) {
     const conversation = await this.getConversationOrThrow(conversationId);
-    if (conversation.assignedAgentId && conversation.assignedAgentId !== agentId) {
-      throw new ForbiddenApiException("Conversation sudah ditangani agent lain.");
-    }
-    if (conversation.assignedAgentId !== agentId) {
-      const profile = await this.prisma.agentProfile.findUnique({ where: { userId: agentId }, select: { maxConcurrentChats: true } });
-      const reserved = await this.reserveAgentSlot(agentId, profile?.maxConcurrentChats ?? 1);
-      if (!reserved) {
-        throw new ApiException(
-          ErrorCode.CONFLICT,
-          "Anda sedang menangani chat lain. Selesaikan dulu sebelum mengambil chat baru.",
-          HttpStatus.CONFLICT,
-        );
+
+    // Already assigned: to another agent it's a lost race, to this agent it's a harmless retry.
+    if (conversation.assignedAgentId) {
+      if (conversation.assignedAgentId !== agentId) {
+        throw new ForbiddenApiException("Percakapan sudah diambil oleh agent lain.");
       }
-      await this.assignToAgent(conversationId, agentId, "MANUAL", { slotAlreadyReserved: true });
+      await this.assignToAgent(conversationId, agentId, "MANUAL");
       return this.getConversationOrThrow(conversationId);
     }
-    await this.assignToAgent(conversationId, agentId, "MANUAL");
+
+    const profile = await this.prisma.agentProfile.findUnique({ where: { userId: agentId }, select: { maxConcurrentChats: true } });
+    const reserved = await this.reserveAgentSlot(agentId, profile?.maxConcurrentChats ?? 1);
+    if (!reserved) {
+      throw new ApiException(
+        ErrorCode.CONFLICT,
+        "Anda sedang menangani chat lain. Selesaikan dulu sebelum mengambil chat baru.",
+        HttpStatus.CONFLICT,
+      );
+    }
+
+    // Atomic claim — when two agents Accept the same conversation at the same moment, exactly one
+    // wins the conditional UPDATE; the other gets its slot back and the "already taken" notice.
+    const claimed = await this.claimConversation(conversationId, agentId);
+    if (!claimed) {
+      await this.releaseAgentSlot(agentId);
+      throw new ForbiddenApiException("Percakapan sudah diambil oleh agent lain.");
+    }
+
+    await this.assignToAgent(conversationId, agentId, "MANUAL", { slotAlreadyReserved: true, conversationAlreadyClaimed: true });
     return this.getConversationOrThrow(conversationId);
   }
 

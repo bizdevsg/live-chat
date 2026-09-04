@@ -191,6 +191,7 @@ describe("ConversationsService.requestAgent (single active chat per agent)", () 
   function createService(opts?: {
     onlineAgents?: Array<{ userId: string; activeChatCount: number; maxConcurrentChats: number }>;
     reserveCount?: number;
+    claimCount?: number;
   }) {
     const conversation = {
       id: "conv-1",
@@ -207,6 +208,7 @@ describe("ConversationsService.requestAgent (single active chat per agent)", () 
       conversation: {
         findUnique: jest.fn().mockResolvedValue(conversation),
         update: jest.fn().mockResolvedValue(conversation),
+        updateMany: jest.fn().mockResolvedValue({ count: opts?.claimCount ?? 1 }),
       },
       handoffRule: { findFirst: jest.fn().mockResolvedValue(null) },
       routingRule: { findMany: jest.fn().mockResolvedValue([]) },
@@ -305,5 +307,29 @@ describe("ConversationsService.requestAgent (single active chat per agent)", () 
     const { service } = createService({ reserveCount: 0 });
 
     await expect(service.accept("conv-1", "agent-1")).rejects.toThrow("Anda sedang menangani chat lain");
+  });
+
+  it("claims the conversation atomically on a single accept", async () => {
+    const { service, prisma } = createService();
+
+    await service.accept("conv-1", "agent-9");
+
+    expect(prisma.conversation.updateMany).toHaveBeenCalledWith({
+      where: { id: "conv-1", assignedAgentId: null },
+      data: expect.objectContaining({ assignedAgentId: "agent-9", status: ConversationStatus.AGENT_ACTIVE }),
+    });
+    expect(prisma.conversationAssignment.create).toHaveBeenCalled();
+  });
+
+  it("tells the losing agent the chat is already taken when two accepts race", async () => {
+    // The other agent's conditional UPDATE already flipped assignedAgentId, so this one matches 0 rows.
+    const { service, prisma } = createService({ claimCount: 0 });
+
+    await expect(service.accept("conv-1", "agent-2")).rejects.toThrow("Percakapan sudah diambil oleh agent lain");
+    // Slot reserved for the losing attempt is handed back.
+    expect(prisma.agentProfile.updateMany).toHaveBeenCalledWith({
+      where: { userId: "agent-2", activeChatCount: { gt: 0 } },
+      data: { activeChatCount: { decrement: 1 } },
+    });
   });
 });
