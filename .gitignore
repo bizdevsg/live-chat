@@ -19,3 +19,4 @@ packages/database/generated
 minio-data
 mysql-data
 redis-data
+tmp

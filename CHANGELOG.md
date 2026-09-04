@@ -3,7 +3,28 @@
 Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
-- Belum ada perubahan terdeteksi.
+### Changed
+- Memperbarui `.dockerignore`.
+- Memperbarui `.gitignore`.
+
+### Removed
+- Menghapus `tmp/pdf-qa-live/page-1.png`.
+- Menghapus `tmp/pdf-qa-live/page-2.png`.
+- Menghapus `tmp/pdf-qa-live/page-3.png`.
+- Menghapus `tmp/pdf-qa-live/page-4.png`.
+- Menghapus `tmp/pdf-qa-live/page-5.png`.
+- Menghapus `tmp/pdf-qa-live/page-6.png`.
+- Menghapus `tmp/pdf-qa-new/page-1.png`.
+- Menghapus `tmp/pdf-qa-new/page-2.png`.
+- Menghapus `tmp/pdf-qa-new/page-3.png`.
+- Menghapus `tmp/pdf-qa-new/page-4.png`.
+- Menghapus `tmp/pdf-qa-new/page-5.png`.
+- Menghapus `tmp/pdf-qa/page-1.png`.
+- Menghapus `tmp/pdf-qa/page-2.png`.
+- Menghapus `tmp/pdf-qa/page-3.png`.
+- Menghapus `tmp/pdf-qa/page-4.png`.
+- Menghapus `tmp/pdf-qa/page-5.png`.
+- Menghapus `tmp/pdf-qa/page-6.png`.
 
 ## [0.4.2] - 2026-09-04
 ### Added
@@ -33,7 +54,9 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 - Menambahkan `tmp/pdf-qa/page-6.png`.
 
 ### Changed
+- Memperbarui `.dockerignore`.
 - Memperbarui `.github/workflows/auto-version-release.yml`.
+- Memperbarui `.gitignore`.
 - Memperbarui `apps/api/src/agent/agent.controller.ts`.
 - Memperbarui `apps/api/src/agent/agent.service.ts`.
 - Memperbarui `apps/api/src/conversations/conversations.service.spec.ts`.
@@ -43,8 +66,24 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 - Memperbarui `apps/worker/src/cleanup/cleanup.processor.ts`.
 - Memperbarui `apps/worker/src/scheduler.service.ts`.
 
-### Fixed
-- Tab closed.
+### Removed
+- Menghapus `tmp/pdf-qa-live/page-1.png`.
+- Menghapus `tmp/pdf-qa-live/page-2.png`.
+- Menghapus `tmp/pdf-qa-live/page-3.png`.
+- Menghapus `tmp/pdf-qa-live/page-4.png`.
+- Menghapus `tmp/pdf-qa-live/page-5.png`.
+- Menghapus `tmp/pdf-qa-live/page-6.png`.
+- Menghapus `tmp/pdf-qa-new/page-1.png`.
+- Menghapus `tmp/pdf-qa-new/page-2.png`.
+- Menghapus `tmp/pdf-qa-new/page-3.png`.
+- Menghapus `tmp/pdf-qa-new/page-4.png`.
+- Menghapus `tmp/pdf-qa-new/page-5.png`.
+- Menghapus `tmp/pdf-qa/page-1.png`.
+- Menghapus `tmp/pdf-qa/page-2.png`.
+- Menghapus `tmp/pdf-qa/page-3.png`.
+- Menghapus `tmp/pdf-qa/page-4.png`.
+- Menghapus `tmp/pdf-qa/page-5.png`.
+- Menghapus `tmp/pdf-qa/page-6.png`.
 
 ## [0.4.1] - 2026-09-04
 ### Added

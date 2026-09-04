@@ -11,3 +11,4 @@ node_modules
 mysql-data
 redis-data
 minio-data
+tmp
