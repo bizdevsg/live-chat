@@ -3,6 +3,9 @@
 Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
+- Belum ada perubahan terdeteksi.
+
+## [0.4.1] - 2026-09-04
 ### Added
 - Menambahkan `apps/dashboard/public/notification/new-massages/universfield-new-notification-022-370046.mp3`.
 - Menambahkan `apps/dashboard/public/notification/on-conversesion/universfield-new-notification-012-363675.mp3`.
@@ -22,6 +25,7 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 - Memastikan notifikasi browser kompatibel dengan definisi API yang digunakan saat build dashboard.
 - Memetakan notifikasi conversation inbox dan pesan customer ke kategori suara yang sesuai.
 - Memperbaiki pemutaran suara notifikasi agar tetap dapat di-unlock setelah pengaturan akun dimuat.
+- Notifikasi dashboard.
 
 ## [0.4.0] - 2026-09-04
 ### Added
@@ -76,7 +80,8 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 - Memperbarui `apps/dashboard/src/app/(dashboard)/knowledge/page.tsx`.
 - Memperbarui `package.json`.
 
-[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.4.1...HEAD
+[0.4.1]: https://github.com/bizdevsg/live-chat/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/bizdevsg/live-chat/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/bizdevsg/live-chat/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/bizdevsg/live-chat/compare/v0.2.0...v0.3.0
