@@ -8,6 +8,7 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 - Menambahkan `apps/dashboard/public/notification/on-conversesion/universfield-new-notification-012-363675.mp3`.
 
 ### Changed
+- Memperbarui `.github/workflows/auto-version-release.yml`.
 - Memperbarui `package.json`.
 
 ## [0.4.0] - 2026-09-04
