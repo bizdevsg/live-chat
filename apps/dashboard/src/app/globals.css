@@ -62,6 +62,151 @@ body {
   background-color: rgb(24 24 27 / 1) !important;
 }
 
+.ai-tester-markdown .wmde-markdown,
+.ai-tester-markdown .wmde-markdown-var {
+  background-color: transparent !important;
+  color: rgb(244 244 245 / 1) !important;
+  padding: 0 !important;
+  font-size: 0.875rem !important;
+  line-height: 1.75 !important;
+}
+
+.ai-tester-markdown .wmde-markdown > :first-child {
+  margin-top: 0 !important;
+}
+
+.ai-tester-markdown .wmde-markdown > :last-child {
+  margin-bottom: 0 !important;
+}
+
+.ai-tester-markdown .wmde-markdown h1,
+.ai-tester-markdown .wmde-markdown h2,
+.ai-tester-markdown .wmde-markdown h3,
+.ai-tester-markdown .wmde-markdown h4,
+.ai-tester-markdown .wmde-markdown h5,
+.ai-tester-markdown .wmde-markdown h6 {
+  color: rgb(250 250 250 / 1) !important;
+  font-weight: 700 !important;
+  line-height: 1.35 !important;
+  margin-top: 1.1rem !important;
+  margin-bottom: 0.65rem !important;
+  border-bottom: 0 !important;
+}
+
+.ai-tester-markdown .wmde-markdown h1 {
+  font-size: 1.25rem !important;
+}
+
+.ai-tester-markdown .wmde-markdown h2 {
+  font-size: 1.125rem !important;
+}
+
+.ai-tester-markdown .wmde-markdown h3 {
+  font-size: 1rem !important;
+}
+
+.ai-tester-markdown .wmde-markdown p,
+.ai-tester-markdown .wmde-markdown ul,
+.ai-tester-markdown .wmde-markdown ol,
+.ai-tester-markdown .wmde-markdown blockquote,
+.ai-tester-markdown .wmde-markdown pre,
+.ai-tester-markdown .wmde-markdown table,
+.ai-tester-markdown .wmde-markdown hr {
+  margin-top: 0.85rem !important;
+  margin-bottom: 0.85rem !important;
+}
+
+.ai-tester-markdown .wmde-markdown ul,
+.ai-tester-markdown .wmde-markdown ol {
+  padding-left: 1.35rem !important;
+}
+
+.ai-tester-markdown .wmde-markdown ul {
+  list-style: disc !important;
+}
+
+.ai-tester-markdown .wmde-markdown ol {
+  list-style: decimal !important;
+}
+
+.ai-tester-markdown .wmde-markdown li {
+  margin: 0.35rem 0 !important;
+}
+
+.ai-tester-markdown .wmde-markdown li > p {
+  margin: 0.2rem 0 !important;
+}
+
+.ai-tester-markdown .wmde-markdown a {
+  color: rgb(245 200 77 / 1) !important;
+  text-decoration: underline !important;
+  text-underline-offset: 3px !important;
+}
+
+.ai-tester-markdown .wmde-markdown strong {
+  color: rgb(255 255 255 / 1) !important;
+  font-weight: 700 !important;
+}
+
+.ai-tester-markdown .wmde-markdown em {
+  color: rgb(228 228 231 / 1) !important;
+}
+
+.ai-tester-markdown .wmde-markdown blockquote {
+  border-left: 3px solid rgb(245 200 77 / 1) !important;
+  color: rgb(212 212 216 / 1) !important;
+  padding: 0.2rem 0 0.2rem 0.95rem !important;
+  background: rgb(24 24 27 / 0.45) !important;
+  border-radius: 0 0.85rem 0.85rem 0 !important;
+}
+
+.ai-tester-markdown .wmde-markdown code {
+  background: rgb(9 9 11 / 1) !important;
+  color: rgb(250 250 250 / 1) !important;
+  border: 1px solid rgb(63 63 70 / 1) !important;
+  border-radius: 0.45rem !important;
+  padding: 0.15rem 0.4rem !important;
+  font-size: 0.82em !important;
+}
+
+.ai-tester-markdown .wmde-markdown pre {
+  background: rgb(9 9 11 / 1) !important;
+  color: rgb(244 244 245 / 1) !important;
+  border: 1px solid rgb(63 63 70 / 1) !important;
+  border-radius: 0.95rem !important;
+  padding: 0.9rem 1rem !important;
+  overflow-x: auto !important;
+}
+
+.ai-tester-markdown .wmde-markdown pre code {
+  background: transparent !important;
+  border: 0 !important;
+  padding: 0 !important;
+}
+
+.ai-tester-markdown .wmde-markdown table {
+  display: block !important;
+  width: 100% !important;
+  overflow-x: auto !important;
+  border-collapse: separate !important;
+  border-spacing: 0 !important;
+}
+
+.ai-tester-markdown .wmde-markdown thead {
+  background: rgb(39 39 42 / 1) !important;
+}
+
+.ai-tester-markdown .wmde-markdown th,
+.ai-tester-markdown .wmde-markdown td {
+  border: 1px solid rgb(63 63 70 / 1) !important;
+  padding: 0.6rem 0.75rem !important;
+  white-space: nowrap;
+}
+
+.ai-tester-markdown .wmde-markdown hr {
+  border-color: rgb(63 63 70 / 1) !important;
+}
+
 ::selection {
   @apply bg-gold-500/30;
 }

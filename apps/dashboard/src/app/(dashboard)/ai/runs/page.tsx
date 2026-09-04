@@ -49,7 +49,8 @@ export default function AiRunsPage() {
             ]}
           />
           <DashboardTablePanel title="Execution timeline" detail={`${runs.length} run AI tersedia untuk ditinjau.`}>
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="min-w-[880px] w-full text-sm">
             <thead className="text-left text-[11px] uppercase tracking-[0.28em] text-zinc-500">
               <tr>
                 <th className="px-5 py-4">Waktu</th>
@@ -85,6 +86,7 @@ export default function AiRunsPage() {
               ) : null}
             </tbody>
           </table>
+          </div>
         </DashboardTablePanel>
         </div>
       </DashboardPage>

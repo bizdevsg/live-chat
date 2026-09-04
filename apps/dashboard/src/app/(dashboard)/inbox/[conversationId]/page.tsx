@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -47,6 +48,15 @@ interface ResponseTemplate {
   language: string;
 }
 
+function formatMessageTime(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return new Intl.DateTimeFormat("id-ID", {
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+}
+
 function appendRealtimeMessage(detail: ConversationDetail | undefined, message: MessageItem) {
   if (!detail) return detail;
   if (detail.messages.some((item) => item.id === message.id)) return detail;
@@ -92,8 +102,10 @@ function applyRealtimeReceipt(
 function MessageBubble({ message, showSeen }: { message: MessageItem; showSeen?: boolean }) {
   const mine = message.senderType === "AGENT";
   const isAi = message.senderType === "AI";
+  const isSystem = message.senderType === "SYSTEM" || message.messageType === "SYSTEM";
   const isSuggestion = message.messageType === "AI_SUGGESTION";
   const isNote = message.messageType === "INTERNAL_NOTE";
+  const messageTime = formatMessageTime(message.createdAt);
 
   if (isNote) {
     return (
@@ -109,6 +121,14 @@ function MessageBubble({ message, showSeen }: { message: MessageItem; showSeen?:
       </div>
     );
   }
+  if (isSystem) {
+    return (
+      <div className="mx-auto max-w-md rounded-2xl bg-ink-700 px-4 py-2 text-center">
+        <div className="text-xs text-zinc-300">{message.content}</div>
+        {messageTime ? <div className="mt-1 text-[10px] text-zinc-500">{messageTime}</div> : null}
+      </div>
+    );
+  }
 
   return (
     <div className={`flex ${mine ? "justify-end" : "justify-start"}`}>
@@ -121,7 +141,10 @@ function MessageBubble({ message, showSeen }: { message: MessageItem; showSeen?:
           <div className="mb-0.5 text-[10px] uppercase tracking-wide opacity-60">{message.senderType}</div>
           <div className="whitespace-pre-wrap">{message.content}</div>
         </div>
-        {mine && showSeen && <div className="mt-1 text-right text-[11px] text-zinc-500">Seen</div>}
+        <div className={`mt-1 flex items-center gap-2 text-[11px] text-zinc-500 ${mine ? "justify-end" : "justify-start"}`}>
+          {messageTime ? <span>{messageTime}</span> : null}
+          {mine && showSeen ? <span>Seen</span> : null}
+        </div>
       </div>
     </div>
   );
@@ -351,6 +374,7 @@ export default function ConversationDetailPage() {
   const isClosed = conversation.status === "CLOSED";
   const isInactive = isResolved || isClosed;
   const canReply = isMine && conversation.handlerType === "HUMAN" && !isInactive;
+  const canResolve = isMine && conversation.handlerType === "HUMAN" && conversation.status === "AGENT_ACTIVE";
   const replyHint = isQueued && !conversation.assignedAgentId
     ? "Accept chat ini dulu sebelum membalas."
     : !isMine && conversation.assignedAgentId
@@ -387,14 +411,20 @@ export default function ConversationDetailPage() {
 
   return (
     <>
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <div className="flex items-center justify-between border-b border-ink-600 px-6 py-3">
-          <div className="flex items-center gap-2">
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-ink-600 px-4 py-3 sm:px-6">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <Link
+              href="/inbox"
+              className="inline-flex rounded-lg border border-ink-600 bg-ink-700/70 px-3 py-1.5 text-xs font-medium text-zinc-200 transition-colors hover:bg-ink-600 md:hidden"
+            >
+              Daftar chat
+            </Link>
             <Badge tone="gold">{conversation.status}</Badge>
             <Badge tone={conversation.handlerType === "AI" ? "blue" : "green"}>{conversation.handlerType}</Badge>
             {conversation.intent && <Badge>{conversation.intent}</Badge>}
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap justify-end gap-2">
             {isHydrated && isQueued && !conversation.assignedAgentId && (
               <Button size="sm" onClick={() => accept.mutate(undefined)}>
                 Accept
@@ -419,7 +449,12 @@ export default function ConversationDetailPage() {
               Buat Ticket
             </Button>
             {!isInactive ? (
-              <Button size="sm" variant="danger" onClick={() => resolve.mutate(undefined)}>
+              <Button
+                size="sm"
+                variant="danger"
+                disabled={!canResolve || resolve.isPending}
+                onClick={() => resolve.mutate(undefined)}
+              >
                 Resolve
               </Button>
             ) : isResolved ? (
@@ -430,7 +465,7 @@ export default function ConversationDetailPage() {
           </div>
         </div>
 
-        <div className="scrollbar-thin flex-1 space-y-3 overflow-y-auto p-6">
+        <div className="scrollbar-thin flex-1 space-y-3 overflow-y-auto p-4 sm:p-6">
           {visibleMessages.map((m) => (
             <MessageBubble key={m.id} message={m} showSeen={m.id === lastSeenAgentMessageId} />
           ))}
@@ -444,7 +479,7 @@ export default function ConversationDetailPage() {
 
         <div className="border-t border-ink-600 p-4">
           {!canReply && <div className="mb-3 rounded-xl border border-amber-700/40 bg-amber-900/20 px-3 py-2 text-xs text-amber-200">{replyHint}</div>}
-          <div className="mb-2 flex gap-2">
+          <div className="mb-2 flex flex-wrap gap-2">
             <Button size="sm" variant="ghost" onClick={() => suggestedReply.mutate()} disabled={!canReply || suggestedReply.isPending}>
               {suggestedReply.isPending ? "Menyusun..." : "Suggested Reply"}
             </Button>
@@ -465,7 +500,7 @@ export default function ConversationDetailPage() {
               )}
             </div>
           ) : null}
-          <div className="flex gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row">
             <Textarea
               value={draft}
               onChange={(e) => handleDraftChange(e.target.value)}
@@ -490,6 +525,7 @@ export default function ConversationDetailPage() {
               }}
             />
             <Button
+              className="sm:self-end"
               disabled={!canReply}
               onClick={() => {
                 if (!canReply || !draft.trim()) return;
@@ -501,7 +537,7 @@ export default function ConversationDetailPage() {
               Kirim
             </Button>
           </div>
-          <div className="mt-2 flex gap-2">
+          <div className="mt-2 flex flex-col gap-2 sm:flex-row">
             <Input
               value={note}
               onChange={(e) => setNote(e.target.value)}
@@ -510,6 +546,7 @@ export default function ConversationDetailPage() {
             />
             <Button
               variant="secondary"
+              className="sm:self-end"
               disabled={!canReply}
               onClick={() => {
                 if (!canReply || !note.trim()) return;
@@ -523,54 +560,66 @@ export default function ConversationDetailPage() {
         </div>
       </div>
 
-      <aside className="w-80 shrink-0 overflow-y-auto border-l border-ink-600 bg-ink-800/40 p-4">
-        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">Customer</h3>
-        <p className="mb-1 text-sm text-zinc-300">{customerDisplayName}</p>
-        <p className="mb-4 text-xs text-zinc-500">{conversation.customer?.email ?? conversation.leads?.[0]?.email ?? "-"}</p>
+      <aside className="w-full overflow-y-auto border-t border-ink-600 bg-ink-800/40 p-4 xl:w-80 xl:shrink-0 xl:border-l xl:border-t-0">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
+          <section>
+            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">Customer</h3>
+            <p className="mb-1 text-sm text-zinc-300">{customerDisplayName}</p>
+            <p className="text-xs text-zinc-500">{conversation.customer?.email ?? conversation.leads?.[0]?.email ?? "-"}</p>
+          </section>
 
-        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">Halaman Sumber</h3>
-        <p className="mb-4 truncate text-xs text-zinc-500">{conversation.context?.pageUrl ?? "-"}</p>
+          <section>
+            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">Halaman Sumber</h3>
+            <p className="truncate text-xs text-zinc-500">{conversation.context?.pageUrl ?? "-"}</p>
+          </section>
 
-        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">Alasan Handoff</h3>
-        <p className="mb-4 text-xs text-zinc-400">{conversation.handoffReason ?? "-"}</p>
+          <section>
+            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">Alasan Handoff</h3>
+            <p className="text-xs text-zinc-400">{conversation.handoffReason ?? "-"}</p>
+          </section>
 
-        <div className="mb-2 flex items-center justify-between">
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Ringkasan AI</h3>
-          <button className="text-[10px] text-gold-500 hover:underline" onClick={() => refreshSummary.mutate(undefined)}>
-            Refresh
-          </button>
-        </div>
-        {summary ? (
-          <div className="mb-4 space-y-2 text-xs text-zinc-400">
-            <p>{summary.customerGoal}</p>
-            {summary.openIssues.length > 0 && (
-              <ul className="list-disc pl-4">
-                {summary.openIssues.map((i, idx) => (
-                  <li key={idx}>{i}</li>
-                ))}
-              </ul>
-            )}
-          </div>
-        ) : (
-          <p className="mb-4 text-xs text-zinc-600">Belum ada ringkasan.</p>
-        )}
-
-        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">AI Runs Terakhir</h3>
-        <div className="space-y-1 text-xs text-zinc-500">
-          {recentAiRuns.map((run) => (
-            <div key={run.id} className="flex justify-between">
-              <span>{run.purpose}</span>
-              <span>{run.confidence != null ? `${Math.round(run.confidence * 100)}%` : "-"}</span>
+          <section className="sm:col-span-2 xl:col-span-1">
+            <div className="mb-2 flex items-center justify-between">
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Ringkasan AI</h3>
+              <button className="text-[10px] text-gold-500 hover:underline" onClick={() => refreshSummary.mutate(undefined)}>
+                Refresh
+              </button>
             </div>
-          ))}
-        </div>
+            {summary ? (
+              <div className="space-y-2 text-xs text-zinc-400">
+                <p>{summary.customerGoal}</p>
+                {summary.openIssues.length > 0 && (
+                  <ul className="list-disc pl-4">
+                    {summary.openIssues.map((i, idx) => (
+                      <li key={idx}>{i}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            ) : (
+              <p className="text-xs text-zinc-600">Belum ada ringkasan.</p>
+            )}
+          </section>
 
-        {conversation.ratingScore && (
-          <>
-            <h3 className="mb-2 mt-4 text-xs font-semibold uppercase tracking-wide text-zinc-500">Rating Customer</h3>
-            <p className="text-sm text-gold-500">{"*".repeat(conversation.ratingScore)}</p>
-          </>
-        )}
+          <section>
+            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">AI Runs Terakhir</h3>
+            <div className="space-y-1 text-xs text-zinc-500">
+              {recentAiRuns.map((run) => (
+                <div key={run.id} className="flex justify-between gap-3">
+                  <span className="truncate">{run.purpose}</span>
+                  <span>{run.confidence != null ? `${Math.round(run.confidence * 100)}%` : "-"}</span>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {conversation.ratingScore && (
+            <section>
+              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">Rating Customer</h3>
+              <p className="text-sm text-gold-500">{"*".repeat(conversation.ratingScore)}</p>
+            </section>
+          )}
+        </div>
       </aside>
 
       <TransferModal

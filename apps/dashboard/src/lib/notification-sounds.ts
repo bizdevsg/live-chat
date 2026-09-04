@@ -115,7 +115,8 @@ export function prepareNotificationSounds(settings?: UserAccountSettings | null)
     onRetryInteraction();
   };
 
-  if (document.visibilityState === "visible") {
+  const handleVisible = () => {
+    if (document.visibilityState !== "visible") return;
     for (const audio of audioCache.values()) {
       try {
         audio.load();
@@ -123,14 +124,21 @@ export function prepareNotificationSounds(settings?: UserAccountSettings | null)
         // Ignore load errors until playback is attempted.
       }
     }
+    unlockAudio();
+  };
+
+  if (document.visibilityState === "visible") {
+    handleVisible();
   }
 
   window.addEventListener("pointerdown", handleInteraction, { passive: true });
   window.addEventListener("keydown", handleInteraction);
+  document.addEventListener("visibilitychange", handleVisible);
 
   return () => {
     window.removeEventListener("pointerdown", handleInteraction);
     window.removeEventListener("keydown", handleInteraction);
+    document.removeEventListener("visibilitychange", handleVisible);
   };
 }
 
@@ -148,8 +156,7 @@ export function playNotificationSound(category: NotificationSoundCategory, sound
 }
 
 export function resolveNotificationSoundCategory(type: string | undefined): NotificationSoundCategory | null {
-  if (type === "NEW_INBOX_CONVERSATION" || type === "NEW_WAITING_CONVERSATION") return "newMessages";
-  if (type === "NEW_CUSTOMER_MESSAGE") return "onConversation";
+  if (type === "NEW_WAITING_CONVERSATION") return "newMessages";
   return null;
 }
 

@@ -63,7 +63,11 @@ export class WidgetController {
   @UseGuards(VisitorAuthGuard)
   @Get("conversations/:id")
   async getConversation(@Param("id") id: string, @Req() req: VisitorRequest) {
-    const conversation = await this.widgetService.assertOwnership(id, req.visitor.visitorId);
+    await this.widgetService.assertOwnership(id, req.visitor.visitorId);
+    // Reopening the widget on a conversation whose agent wait has already elapsed hands it back
+    // to the AI here, so the visitor doesn't land on a dead "connecting to an agent" screen.
+    await this.conversations.autoReturnToAiIfAgentReplyTimedOut(id).catch(() => undefined);
+    const conversation = await this.conversations.getConversationOrThrow(id);
     const messages = await this.conversations.getHistory(id, 100);
     return { success: true, data: { conversation, messages: messages.filter((m) => !m.isInternal) } };
   }
@@ -78,6 +82,10 @@ export class WidgetController {
       message: "Terlalu banyak pesan. Tunggu sebentar sebelum mengirim lagi.",
     });
     await this.widgetService.assertOwnership(id, req.visitor.visitorId);
+    // If the visitor is stuck in a "waiting for an agent" queue whose wait has already elapsed,
+    // hand the conversation back to the AI first — otherwise this message would sit unseen in a
+    // queue nobody is watching. Safe no-op while the wait is still running or an agent is active.
+    await this.conversations.autoReturnToAiIfAgentReplyTimedOut(id).catch(() => undefined);
     const result = await this.conversations.postMessage({
       conversationId: id,
       senderType: SenderType.VISITOR,
@@ -104,6 +112,18 @@ export class WidgetController {
     const data = await this.conversations.requestAgent(id, reason);
     this.aiOrchestrator.summarize(id, "HANDOFF").catch(() => undefined);
     return { success: true, data };
+  }
+
+  @UseGuards(VisitorAuthGuard)
+  @Post("conversations/:id/agent-timeout")
+  async agentTimeout(@Param("id") id: string, @Req() req: VisitorRequest) {
+    await this.widgetService.assertOwnership(id, req.visitor.visitorId);
+    const restored = await this.conversations.autoReturnToAiIfAgentReplyTimedOut(id);
+    if (restored && (await this.conversations.hasPendingVisitorMessageSince(id, new Date(0)))) {
+      await this.aiOrchestrator.processVisitorTurn(id).catch(() => undefined);
+    }
+    const conversation = await this.conversations.getConversationOrThrow(id);
+    return { success: true, data: { restored, conversation } };
   }
 
   @UseGuards(VisitorAuthGuard)

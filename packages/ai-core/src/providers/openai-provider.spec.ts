@@ -105,7 +105,7 @@ describe("OpenAiProvider", () => {
     respondSpy
       .mockResolvedValueOnce('{"answer":"Minimal deposit Rp100 juta dan prosesnya instan.","confidence":0.86,"handoffRequired":false}')
       .mockResolvedValueOnce(
-        '{"grounded":false,"revisedAnswer":"Informasi detail minimal deposit belum tersedia secara jelas. Saya akan menghubungkan Anda dengan petugas kami.","confidence":0.2,"handoffRequired":true}',
+        '{"fabricatedClaims":["Minimal deposit Rp100 juta","prosesnya instan"],"grounded":false,"revisedAnswer":"Informasi detail minimal deposit belum tersedia secara jelas. Saya akan menghubungkan Anda dengan petugas kami.","confidence":0.2,"handoffRequired":true}',
       );
 
     const result = await provider.generateAnswer({
@@ -128,6 +128,40 @@ describe("OpenAiProvider", () => {
     expect(result.handoffReason).toBe("KNOWLEDGE_INSUFFICIENT");
     expect(result.answer).toContain("petugas");
     expect(respondSpy).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps the draft when the grounding review says grounded=false but names no fabricated claim", async () => {
+    // The reviewer over-rejects when the KB itself is full of "don't state exact figures without
+    // validation" policy notes. A false verdict with no cited fabrication must not discard a
+    // correct, KB-sourced answer.
+    const provider = createProvider();
+    const respondSpy = jest.spyOn(provider as any, "respond");
+    respondSpy
+      .mockResolvedValueOnce(
+        '{"answer":"Minimal deposit awal akun Mini adalah USD 500 atau setara IDR 5.000.000.","confidence":0.9,"handoffRequired":false}',
+      )
+      .mockResolvedValueOnce(
+        '{"fabricatedClaims":[],"grounded":false,"revisedAnswer":"Maaf, informasinya belum tersedia. Saya hubungkan ke petugas ya.","confidence":0.3,"handoffRequired":true}',
+      );
+
+    const result = await provider.generateAnswer({
+      ...baseInput,
+      message: "minimal deposit akun mini berapa?",
+      intent: AiIntent.DEPOSIT,
+      evidence: [
+        {
+          chunkId: "chunk_1",
+          documentId: "doc_1",
+          title: "Biaya Akun Mini",
+          version: 1,
+          content: "| Margin Akun Baru (Mini) | IDR 5.000.000 / USD 500 | ☑ VALID |",
+          audience: "PUBLIC",
+        },
+      ],
+    });
+
+    expect(result.answer).toContain("USD 500");
+    expect(result.handoffRequired).toBe(false);
   });
 
   it("keeps a grounded answer exactly as drafted", async () => {
@@ -155,6 +189,68 @@ describe("OpenAiProvider", () => {
 
     expect(result.handoffRequired).toBe(false);
     expect(result.answer).toContain("IDR 5.000.000");
+  });
+
+  it("corrects P/L answers when the calculation review finds an omitted lot factor", async () => {
+    const provider = createProvider();
+    const respondSpy = jest.spyOn(provider as any, "respond");
+    respondSpy
+      .mockResolvedValueOnce('{"answer":"P/L dihitung dari Contract Size 100 x selisih harga 10, jadi hasilnya 1000.","confidence":0.88,"handoffRequired":false}')
+      .mockResolvedValueOnce('{"fabricatedClaims":[],"grounded":true,"revisedAnswer":"","confidence":0.88,"handoffRequired":false}')
+      .mockResolvedValueOnce(
+        '{"calculationNeeded":true,"calculationValid":false,"assumptionsDetected":false,"missingInputs":[],"omittedFactors":["n Lot"],"expression":"100 * 2 * 10","statedResult":"1000","verifiedResult":"2000","revisedAnswer":"Perhitungannya mengikuti rumus pada KB: Contract Size 100 x 2 lot x selisih harga 10 = 2000. Jadi estimasi P/L-nya 2000."}',
+      );
+
+    const result = await provider.generateAnswer({
+      ...baseInput,
+      message: "Jika Contract Size 100, n Lot 2, dan selisih harga 10, berapa P/L saya?",
+      intent: AiIntent.GENERAL_INQUIRY,
+      evidence: [
+        {
+          chunkId: "chunk_1",
+          documentId: "doc_1",
+          title: "Rumus P/L",
+          version: 1,
+          content: "Rumus P/L mengikuti data pada input customer dan wajib menghitung Contract Size x n Lot x selisih harga.",
+          audience: "PUBLIC",
+        },
+      ],
+    });
+
+    expect(result.handoffRequired).toBe(false);
+    expect(result.answer).toContain("2000");
+    expect(respondSpy).toHaveBeenCalledTimes(3);
+  });
+
+  it("refuses to return a numeric P/L result when required inputs are missing", async () => {
+    const provider = createProvider();
+    jest
+      .spyOn(provider as any, "respond")
+      .mockResolvedValueOnce('{"answer":"P/L Anda kemungkinan sekitar 1000.","confidence":0.82,"handoffRequired":false}')
+      .mockResolvedValueOnce('{"fabricatedClaims":[],"grounded":true,"revisedAnswer":"","confidence":0.82,"handoffRequired":false}')
+      .mockResolvedValueOnce(
+        '{"calculationNeeded":true,"calculationValid":false,"assumptionsDetected":true,"missingInputs":["n Lot"],"omittedFactors":[],"expression":"","statedResult":"1000","verifiedResult":"","revisedAnswer":"Untuk menghitung P/L secara akurat, saya masih memerlukan nilai n Lot. Tanpa nilai itu saya tidak bisa memberikan hasil akhir numerik."}',
+      );
+
+    const result = await provider.generateAnswer({
+      ...baseInput,
+      message: "Jika Contract Size 100 dan selisih harga 10, berapa P/L saya?",
+      intent: AiIntent.GENERAL_INQUIRY,
+      evidence: [
+        {
+          chunkId: "chunk_1",
+          documentId: "doc_1",
+          title: "Rumus P/L",
+          version: 1,
+          content: "Rumus P/L mengikuti data pada input customer dan wajib menghitung Contract Size x n Lot x selisih harga.",
+          audience: "PUBLIC",
+        },
+      ],
+    });
+
+    expect(result.handoffRequired).toBe(false);
+    expect(result.answer).toContain("n Lot");
+    expect(result.answer).not.toContain("kemungkinan sekitar 1000");
   });
 
   it("never leaks unresolved {{placeholders}} from a site-configured system prompt", async () => {

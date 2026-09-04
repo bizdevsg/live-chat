@@ -50,7 +50,8 @@ export default function AuditLogsPage() {
             ]}
           />
           <DashboardTablePanel title="Aktivitas sistem" detail={`${logs.length} aktivitas tercatat untuk pemantauan dan kebutuhan penelusuran.`}>
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="min-w-[760px] w-full text-sm">
             <thead className="text-left text-[11px] uppercase tracking-[0.28em] text-zinc-500">
               <tr>
                 <th className="px-5 py-4">Waktu</th>
@@ -83,6 +84,7 @@ export default function AuditLogsPage() {
               )}
             </tbody>
           </table>
+          </div>
         </DashboardTablePanel>
         </div>
       </DashboardPage>

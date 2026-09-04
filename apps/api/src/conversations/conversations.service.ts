@@ -1,6 +1,8 @@
+import { InjectQueue } from "@nestjs/bullmq";
 import { Injectable, Logger } from "@nestjs/common";
-import { ConversationStatus, HandlerType, MessageType, SenderType, type HandoffReason } from "@solidchat/shared";
+import { ConversationStatus, ErrorCode, HandlerType, MessageType, QUEUE_NAMES, SenderType, type ConversationTimeoutJobData, type HandoffReason } from "@solidchat/shared";
 import { Prisma } from "@solidchat/database";
+import type { Queue } from "bullmq";
 import { PrismaService } from "../prisma/prisma.service";
 import { RealtimeEmitterService } from "../realtime/realtime-emitter.service";
 import { AuditLogService } from "../common/audit/audit-log.service";
@@ -9,8 +11,13 @@ import { NotificationsService } from "../notifications/notifications.service";
 import { sanitizePlainText } from "../common/utils/sanitize";
 import { scanContent } from "../common/utils/content-guard";
 import { ApiException, ForbiddenApiException, NotFoundApiException } from "../common/errors/api.exception";
-import { ErrorCode } from "@solidchat/shared";
 import { HttpStatus } from "@nestjs/common";
+import {
+  AGENT_REPLY_TIMEOUT_JOB_NAME,
+  DEFAULT_AGENT_REPLY_TIMEOUT_SECONDS,
+  MIN_AGENT_REPLY_TIMEOUT_SECONDS,
+  getAgentReplyTimeoutJobId,
+} from "./conversation-timeout.constants";
 
 export interface PostMessageInput {
   conversationId: string;
@@ -34,7 +41,132 @@ export class ConversationsService {
     private readonly auditLog: AuditLogService,
     private readonly securityEvents: SecurityEventService,
     private readonly notifications: NotificationsService,
+    @InjectQueue(QUEUE_NAMES.CONVERSATION_TIMEOUT)
+    private readonly conversationTimeoutQueue: Queue<ConversationTimeoutJobData>,
   ) {}
+
+  private isAwaitingAgentReply(status: string, handlerType: string) {
+    return (
+      (status === ConversationStatus.QUEUED || status === ConversationStatus.WAITING_AGENT || status === ConversationStatus.AGENT_ACTIVE) &&
+      handlerType !== HandlerType.AI
+    );
+  }
+
+  private normalizeAgentReplyTimeoutSeconds(value?: number | null) {
+    if (!value || !Number.isFinite(value)) return DEFAULT_AGENT_REPLY_TIMEOUT_SECONDS;
+    return Math.max(MIN_AGENT_REPLY_TIMEOUT_SECONDS, Math.floor(value));
+  }
+
+  private async resolveAgentReplyTimeoutSecondsBySiteId(siteId: string) {
+    const settings = await this.prisma.siteSettings.findUnique({
+      where: { siteId },
+      select: { agentReplyTimeoutSeconds: true },
+    });
+    return this.normalizeAgentReplyTimeoutSeconds(settings?.agentReplyTimeoutSeconds);
+  }
+
+  async resolveAgentReplyTimeoutMs(conversationId: string) {
+    const conversation = await this.prisma.conversation.findUnique({
+      where: { id: conversationId },
+      select: { siteId: true },
+    });
+    if (!conversation) return DEFAULT_AGENT_REPLY_TIMEOUT_SECONDS * 1000;
+    const seconds = await this.resolveAgentReplyTimeoutSecondsBySiteId(conversation.siteId);
+    return seconds * 1000;
+  }
+
+  private async scheduleAgentReplyTimeout(conversationId: string, timeoutStartedAt = new Date()) {
+    const delay = await this.resolveAgentReplyTimeoutMs(conversationId);
+    const jobId = getAgentReplyTimeoutJobId(conversationId);
+    const existing = await this.conversationTimeoutQueue.getJob(jobId);
+    await existing?.remove().catch(() => undefined);
+    await this.conversationTimeoutQueue.add(
+      AGENT_REPLY_TIMEOUT_JOB_NAME,
+      { conversationId, timeoutStartedAt: timeoutStartedAt.toISOString() },
+      {
+        jobId,
+        delay,
+        removeOnComplete: true,
+        removeOnFail: 1000,
+      },
+    );
+  }
+
+  private async getExistingAgentReplyTimeoutStart(conversationId: string) {
+    const existing = await this.conversationTimeoutQueue.getJob(getAgentReplyTimeoutJobId(conversationId));
+    const startedAt = existing?.data?.timeoutStartedAt;
+    if (!startedAt) return null;
+    const parsed = new Date(startedAt);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  async resolveAgentReplyTimeoutStart(conversationId: string) {
+    const queueStartedAt = await this.getExistingAgentReplyTimeoutStart(conversationId).catch(() => null);
+    if (queueStartedAt) return queueStartedAt;
+
+    const conversation = await this.prisma.conversation.findUnique({
+      where: { id: conversationId },
+      select: { assignedAt: true },
+    });
+    const handoffEvent = await this.prisma.conversationEvent.findFirst({
+      where: {
+        conversationId,
+        type: { in: ["handoff.requested", "conversation.assigned"] },
+      },
+      orderBy: { createdAt: "desc" },
+      select: { createdAt: true },
+    });
+
+    return handoffEvent?.createdAt ?? conversation?.assignedAt ?? null;
+  }
+
+  private async cancelAgentReplyTimeout(conversationId: string) {
+    const jobId = getAgentReplyTimeoutJobId(conversationId);
+    const existing = await this.conversationTimeoutQueue.getJob(jobId);
+    await existing?.remove().catch(() => undefined);
+  }
+
+  private async refreshAgentReplyTimeout(conversationId: string, timeoutStartedAt = new Date()) {
+    const conversation = await this.prisma.conversation.findUnique({
+      where: { id: conversationId },
+      select: { status: true, handlerType: true },
+    });
+    if (!conversation || !this.isAwaitingAgentReply(conversation.status, conversation.handlerType)) {
+      await this.cancelAgentReplyTimeout(conversationId);
+      return;
+    }
+    const existingStartedAt = await this.getExistingAgentReplyTimeoutStart(conversationId);
+    await this.scheduleAgentReplyTimeout(conversationId, existingStartedAt ?? timeoutStartedAt);
+  }
+
+  private async safelyRefreshAgentReplyTimeout(conversationId: string, timeoutStartedAt = new Date()) {
+    await this.refreshAgentReplyTimeout(conversationId, timeoutStartedAt).catch((error: unknown) => {
+      this.logger.warn(
+        `Gagal menjadwalkan timeout balasan agent untuk conversation ${conversationId}: ${
+          error instanceof Error ? error.message : "unknown error"
+        }`,
+      );
+    });
+  }
+
+  private async safelyCancelAgentReplyTimeout(conversationId: string) {
+    await this.cancelAgentReplyTimeout(conversationId).catch((error: unknown) => {
+      this.logger.warn(
+        `Gagal membatalkan timeout balasan agent untuk conversation ${conversationId}: ${
+          error instanceof Error ? error.message : "unknown error"
+        }`,
+      );
+    });
+  }
+
+  private async postSystemMessage(conversationId: string, content: string) {
+    await this.postMessage({
+      conversationId,
+      senderType: SenderType.SYSTEM,
+      content,
+      messageType: MessageType.SYSTEM,
+    });
+  }
 
   private shouldReleaseAgent(conversation: { assignedAgentId: string | null; status: string; handlerType: string }) {
     return (
@@ -53,6 +185,17 @@ export class ConversationsService {
       conversation.status === ConversationStatus.CLOSED
     ) {
       throw new ForbiddenApiException("Ambil chat ini dulu sebelum membalas.");
+    }
+  }
+
+  private assertAgentCanResolve(conversation: { assignedAgentId: string | null; status: string; handlerType: string }, agentId?: string | null) {
+    if (
+      !agentId ||
+      conversation.assignedAgentId !== agentId ||
+      conversation.handlerType !== HandlerType.HUMAN ||
+      conversation.status !== ConversationStatus.AGENT_ACTIVE
+    ) {
+      throw new ForbiddenApiException("Chat harus di-takeover agent terlebih dahulu sebelum bisa diselesaikan.");
     }
   }
 
@@ -130,6 +273,8 @@ export class ConversationsService {
     siteId: string;
     visitorId?: string;
     customerId?: string;
+    assignedTeamId?: string | null;
+    skipRouting?: boolean;
     context?: {
       pageUrl?: string;
       pageTitle?: string;
@@ -140,7 +285,14 @@ export class ConversationsService {
       language?: string;
     };
   }) {
-    const routedTeam = await this.resolveRoutingTeam(params.siteId, null);
+    const routedTeam =
+      typeof params.assignedTeamId !== "undefined"
+        ? params.assignedTeamId
+          ? await this.prisma.team.findFirst({ where: { id: params.assignedTeamId, organizationId: params.organizationId, isActive: true } })
+          : null
+        : params.skipRouting
+          ? null
+          : await this.resolveRoutingTeam(params.siteId, null);
     const conversation = await this.prisma.conversation.create({
       data: {
         organizationId: params.organizationId,
@@ -169,6 +321,25 @@ export class ConversationsService {
     }
 
     await this.logEvent(conversation.id, "conversation.created", "SYSTEM", null, {});
+    this.realtime.toSite(conversation.siteId, "queue:updated", { conversationId: conversation.id, siteId: conversation.siteId });
+    if (conversation.assignedTeamId) {
+      this.realtime.toTeam(conversation.assignedTeamId, "queue:updated", { conversationId: conversation.id, siteId: conversation.siteId });
+      this.notifications.notifyTeam(
+        conversation.assignedTeamId,
+        "NEW_INBOX_CONVERSATION",
+        "Conversation baru masuk",
+        "Session visitor baru telah masuk ke inbox tim Anda.",
+        { conversationId: conversation.id, siteId: conversation.siteId },
+      );
+    } else {
+      this.notifications.notifyOrganization(
+        conversation.organizationId,
+        "NEW_INBOX_CONVERSATION",
+        "Conversation baru masuk",
+        "Session visitor baru telah masuk ke inbox.",
+        { conversationId: conversation.id, siteId: conversation.siteId },
+      );
+    }
     return conversation;
   }
 
@@ -268,6 +439,9 @@ export class ConversationsService {
     }
 
     const enrichedMessage = await this.enrichSenderName(message);
+    if (input.senderType === SenderType.AGENT && !(input.isInternal ?? false)) {
+      await this.safelyCancelAgentReplyTimeout(input.conversationId);
+    }
     this.broadcastMessage(input.conversationId, enrichedMessage);
     if (isCustomerFacingSender) {
       if (conversation.assignedAgentId) {
@@ -318,31 +492,76 @@ export class ConversationsService {
     this.realtime.toConversation(conversationId, "conversation:updated", { conversationId, event: type });
   }
 
-  async requestAgent(conversationId: string, reason: HandoffReason = "CUSTOMER_REQUESTED_HUMAN") {
-    const conversation = await this.getConversationOrThrow(conversationId);
-    const targetTeam = await this.resolveTeamForHandoff(conversation.siteId, reason, conversation.intent);
-
-    const updated = await this.prisma.conversation.update({
-      where: { id: conversationId },
-      data: {
-        status: ConversationStatus.QUEUED,
-        handlerType: HandlerType.NONE,
-        handoffReason: reason,
-        assignedTeamId: targetTeam?.id,
+  async hasPendingVisitorMessageSince(conversationId: string, since: Date) {
+    const messages = await this.prisma.message.findMany({
+      where: {
+        conversationId,
+        deletedAt: null,
+        isInternal: false,
+        createdAt: { gte: since },
+        senderType: { in: [SenderType.VISITOR, SenderType.CUSTOMER, SenderType.AI, SenderType.AGENT] },
       },
+      orderBy: { createdAt: "asc" },
+      select: { senderType: true, createdAt: true },
     });
 
-    await this.logEvent(conversationId, "handoff.requested", "SYSTEM", null, { reason, teamId: targetTeam?.id });
-    await this.tryAutoAssign(updated.id);
-    const latestConversation = await this.getConversationOrThrow(conversationId);
+    const lastVisitorMessage = [...messages].reverse().find((message) => message.senderType === SenderType.VISITOR || message.senderType === SenderType.CUSTOMER);
+    if (!lastVisitorMessage) return false;
 
-    if (targetTeam && !latestConversation.assignedAgentId && latestConversation.handlerType === HandlerType.NONE) {
+    return !messages.some(
+      (message) =>
+        message.createdAt > lastVisitorMessage.createdAt &&
+        (message.senderType === SenderType.AI || message.senderType === SenderType.AGENT),
+    );
+  }
+
+  async requestAgent(conversationId: string, reason: HandoffReason = "CUSTOMER_REQUESTED_HUMAN") {
+    const conversation = await this.getConversationOrThrow(conversationId);
+    const targetTeam = await this.resolveTeamForHandoff(conversation.siteId, reason, conversation.intent, conversation.assignedTeamId);
+
+    // Record the resolved team + reason, but do NOT queue yet. The visitor only ever sees a
+    // "connecting you to an agent" state when an agent can actually take the chat right now.
+    await this.prisma.conversation.update({
+      where: { id: conversationId },
+      data: { handoffReason: reason, assignedTeamId: targetTeam?.id },
+    });
+
+    const assigned = targetTeam ? await this.tryAutoAssign(conversationId) : false;
+
+    if (assigned) {
+      // assignToAgent already broadcast AGENT_ACTIVE + posted the "agent bergabung" notice.
+      await this.logEvent(conversationId, "handoff.requested", "SYSTEM", null, { reason, teamId: targetTeam?.id, outcome: "assigned" });
+      this.realtime.toSite(conversation.siteId, "queue:updated", { conversationId });
+      return this.getConversationOrThrow(conversationId);
+    }
+
+    // Every agent on the target team is at capacity (or there is no team) — keep the visitor with
+    // the AI rather than a queue nobody is watching (§26). The conversation still carries its
+    // assignedTeamId + handoffReason, so it shows up in the dashboard queue for an agent to
+    // pick up manually the moment one is free.
+    await this.prisma.conversation.update({
+      where: { id: conversationId },
+      data: { status: ConversationStatus.AI_ACTIVE, handlerType: HandlerType.AI, assignedAgentId: null },
+    });
+    await this.safelyCancelAgentReplyTimeout(conversationId);
+    await this.logEvent(conversationId, "handoff.deferred_no_agent", "SYSTEM", null, { reason, teamId: targetTeam?.id });
+    await this.postSystemMessage(
+      conversationId,
+      "Semua agent kami sedang melayani pelanggan lain. Asisten AI akan tetap membantu Anda, dan Anda bisa mencoba menghubungi agent lagi nanti.",
+    );
+    this.realtime.toConversation(conversationId, "conversation:updated", {
+      conversationId,
+      status: ConversationStatus.AI_ACTIVE,
+      handlerType: HandlerType.AI,
+      assignedAgentId: null,
+    });
+    if (targetTeam) {
       this.realtime.toTeam(targetTeam.id, "queue:updated", { conversationId, siteId: conversation.siteId });
       this.notifications.notifyTeam(
         targetTeam.id,
         "NEW_WAITING_CONVERSATION",
-        "Conversation baru menunggu",
-        `Conversation memerlukan agent (alasan: ${reason}).`,
+        "Conversation menunggu agent",
+        `Visitor meminta agent tapi semua sedang sibuk (alasan: ${reason}). AI menahan sementara.`,
         { conversationId },
       );
     }
@@ -351,10 +570,32 @@ export class ConversationsService {
     return this.getConversationOrThrow(conversationId);
   }
 
-  private async resolveTeamForHandoff(siteId: string, reason: HandoffReason, intent: string | null) {
+  private async resolveTeamForHandoff(siteId: string, reason: HandoffReason, intent: string | null, preferredTeamId?: string | null) {
     const handoffRule = await this.prisma.handoffRule.findFirst({ where: { siteId, reason, isActive: true } });
+    const preferredTeam = preferredTeamId
+      ? await this.prisma.team.findFirst({ where: { id: preferredTeamId, isActive: true } })
+      : null;
+
+    // A team the conversation is already pinned to (e.g. an agent transferred it there before it
+    // bounced back to the AI) wins over a NORMAL-priority handoff rule — otherwise the generic
+    // "customer requested human" rule silently drags it to another team. Only a HIGH-priority rule
+    // (e.g. SERIOUS_COMPLAINT → specialist team) may override that.
+    if (preferredTeam && handoffRule?.priority !== "HIGH") return preferredTeam;
+
     if (handoffRule?.targetTeamId) return this.prisma.team.findUnique({ where: { id: handoffRule.targetTeamId } });
-    return this.resolveRoutingTeam(siteId, intent);
+    if (preferredTeam) return preferredTeam;
+
+    const routed = await this.resolveRoutingTeam(siteId, intent);
+    if (routed) return routed;
+
+    // Nothing matched — fall back to any active team that has at least one member, so an
+    // escalation is never left teamless (which would hide it from every dashboard queue).
+    const site = await this.prisma.site.findUnique({ where: { id: siteId }, select: { organizationId: true } });
+    if (!site) return null;
+    return this.prisma.team.findFirst({
+      where: { organizationId: site.organizationId, isActive: true, members: { some: {} } },
+      orderBy: [{ routingPriority: "desc" }, { createdAt: "asc" }],
+    });
   }
 
   private async resolveRoutingTeam(siteId: string, intent: string | null) {
@@ -371,9 +612,9 @@ export class ConversationsService {
     return null;
   }
 
-  async tryAutoAssign(conversationId: string) {
+  async tryAutoAssign(conversationId: string): Promise<boolean> {
     const conversation = await this.getConversationOrThrow(conversationId);
-    if (!conversation.assignedTeamId || conversation.assignedAgentId) return;
+    if (!conversation.assignedTeamId || conversation.assignedAgentId) return false;
 
     const candidates = await this.prisma.teamMember.findMany({
       where: {
@@ -387,13 +628,31 @@ export class ConversationsService {
       .filter((c) => c.user.agentProfile && c.user.agentProfile.activeChatCount < c.user.agentProfile.maxConcurrentChats)
       .sort((a, b) => (a.user.agentProfile?.activeChatCount ?? 0) - (b.user.agentProfile?.activeChatCount ?? 0));
 
-    const chosen = available[0];
-    if (!chosen) return; // stays in queue — no fake ETA is fabricated (§26)
-
-    await this.assignToAgent(conversationId, chosen.userId, "LEAST_ACTIVE");
+    for (const candidate of available) {
+      // Claim a slot atomically: the conditional UPDATE means two conversations racing for the
+      // same free agent can't both win — the loser falls through to the next candidate (§26).
+      const reserved = await this.reserveAgentSlot(candidate.userId, candidate.user.agentProfile!.maxConcurrentChats);
+      if (!reserved) continue;
+      await this.assignToAgent(conversationId, candidate.userId, "LEAST_ACTIVE", { slotAlreadyReserved: true });
+      return true;
+    }
+    return false; // everyone is at capacity — the caller keeps the conversation with the AI
   }
 
-  async assignToAgent(conversationId: string, agentId: string, strategy = "MANUAL") {
+  /**
+   * Atomically bumps an agent's active-chat count only if they are still below their limit.
+   * Returns true when the slot was claimed. Used by every auto-assign / manual-accept path so a
+   * single MySQL UPDATE — not a read-then-write — decides who wins a contended agent.
+   */
+  private async reserveAgentSlot(agentId: string, maxConcurrentChats: number): Promise<boolean> {
+    const res = await this.prisma.agentProfile.updateMany({
+      where: { userId: agentId, activeChatCount: { lt: maxConcurrentChats } },
+      data: { activeChatCount: { increment: 1 } },
+    });
+    return res.count === 1;
+  }
+
+  async assignToAgent(conversationId: string, agentId: string, strategy = "MANUAL", opts: { slotAlreadyReserved?: boolean } = {}) {
     const conversation = await this.getConversationOrThrow(conversationId);
     if (
       conversation.assignedAgentId === agentId &&
@@ -422,19 +681,42 @@ export class ConversationsService {
       this.prisma.conversationParticipant.create({
         data: { conversationId, participantType: "AGENT", userId: agentId },
       }),
-      this.incrementAgentLoad(agentId),
+      // Auto-assign / accept already claimed the slot atomically via reserveAgentSlot; only
+      // takeover (opts default) still counts the load here — it is allowed to exceed the limit.
+      ...(opts.slotAlreadyReserved ? [] : [this.incrementAgentLoad(agentId)]),
     ]);
 
     await this.logEvent(conversationId, "conversation.assigned", "SYSTEM", agentId, { agentId, strategy });
+    const agent = await this.prisma.user.findUnique({ where: { id: agentId }, select: { name: true } });
+    await this.postSystemMessage(conversationId, `${agent?.name?.trim() || "Agent"} bergabung ke percakapan.`);
     this.realtime.toAgent(agentId, "conversation:assigned", { conversationId });
-    this.realtime.toConversation(conversationId, "conversation:updated", { conversationId, status: ConversationStatus.AGENT_ACTIVE });
+    this.realtime.toConversation(conversationId, "conversation:updated", {
+      conversationId,
+      assignedAgentId: agentId,
+      status: ConversationStatus.AGENT_ACTIVE,
+      handlerType: HandlerType.HUMAN,
+    });
     if (conversation.assignedTeamId) this.realtime.toTeam(conversation.assignedTeamId, "queue:updated", { conversationId });
+    await this.safelyRefreshAgentReplyTimeout(conversationId);
   }
 
   async accept(conversationId: string, agentId: string) {
     const conversation = await this.getConversationOrThrow(conversationId);
     if (conversation.assignedAgentId && conversation.assignedAgentId !== agentId) {
       throw new ForbiddenApiException("Conversation sudah ditangani agent lain.");
+    }
+    if (conversation.assignedAgentId !== agentId) {
+      const profile = await this.prisma.agentProfile.findUnique({ where: { userId: agentId }, select: { maxConcurrentChats: true } });
+      const reserved = await this.reserveAgentSlot(agentId, profile?.maxConcurrentChats ?? 1);
+      if (!reserved) {
+        throw new ApiException(
+          ErrorCode.CONFLICT,
+          "Anda sedang menangani chat lain. Selesaikan dulu sebelum mengambil chat baru.",
+          HttpStatus.CONFLICT,
+        );
+      }
+      await this.assignToAgent(conversationId, agentId, "MANUAL", { slotAlreadyReserved: true });
+      return this.getConversationOrThrow(conversationId);
     }
     await this.assignToAgent(conversationId, agentId, "MANUAL");
     return this.getConversationOrThrow(conversationId);
@@ -458,6 +740,7 @@ export class ConversationsService {
 
   async returnToAi(conversationId: string, agentId: string) {
     const conversation = await this.getConversationOrThrow(conversationId);
+    await this.safelyCancelAgentReplyTimeout(conversationId);
     await this.prisma.conversation.update({
       where: { id: conversationId },
       data: { assignedAgentId: null, handlerType: HandlerType.AI, status: ConversationStatus.AI_ACTIVE },
@@ -468,6 +751,7 @@ export class ConversationsService {
         .catch(() => undefined);
     }
     await this.logEvent(conversationId, "conversation.returned_to_ai", "USER", agentId, {});
+    await this.postSystemMessage(conversationId, "Percakapan dikembalikan ke AI untuk membantu Anda kembali.");
     this.realtime.toConversation(conversationId, "conversation:updated", {
       conversationId,
       assignedAgentId: null,
@@ -480,6 +764,102 @@ export class ConversationsService {
     return conversation;
   }
 
+  async autoReturnToAiOnAgentTimeout(conversationId: string, timeoutStartedAt: Date) {
+    const conversation = await this.prisma.conversation.findUnique({
+      where: { id: conversationId },
+      select: {
+        id: true,
+        organizationId: true,
+        siteId: true,
+        assignedAgentId: true,
+        assignedTeamId: true,
+        status: true,
+        handlerType: true,
+      },
+    });
+    if (!conversation) return false;
+
+    if (!this.isAwaitingAgentReply(conversation.status, conversation.handlerType)) {
+      await this.safelyCancelAgentReplyTimeout(conversationId);
+      return false;
+    }
+
+    const agentReply = await this.prisma.message.findFirst({
+      where: {
+        conversationId,
+        deletedAt: null,
+        isInternal: false,
+        senderType: SenderType.AGENT,
+        createdAt: { gt: timeoutStartedAt },
+      },
+      select: { id: true },
+    });
+    if (agentReply) {
+      await this.safelyCancelAgentReplyTimeout(conversationId);
+      return false;
+    }
+
+    await this.safelyCancelAgentReplyTimeout(conversationId);
+    const timeoutMs = await this.resolveAgentReplyTimeoutMs(conversationId);
+
+    // Flip back to AI atomically. The BullMQ timeout job, the widget's /agent-timeout fallback
+    // and the lazy check on the next visitor message can all fire for the same conversation —
+    // only the caller that actually changes a row goes on to post the "AI kembali membantu"
+    // notice, so it never stacks up.
+    const flipped = await this.prisma.conversation.updateMany({
+      where: {
+        id: conversationId,
+        handlerType: { not: HandlerType.AI },
+        status: { in: [ConversationStatus.QUEUED, ConversationStatus.WAITING_AGENT, ConversationStatus.AGENT_ACTIVE] },
+      },
+      data: { assignedAgentId: null, handlerType: HandlerType.AI, status: ConversationStatus.AI_ACTIVE },
+    });
+    if (flipped.count === 0) return false;
+
+    if (this.shouldReleaseAgent(conversation)) {
+      await this.prisma.agentProfile
+        .update({ where: { userId: conversation.assignedAgentId! }, data: { activeChatCount: { decrement: 1 } } })
+        .catch(() => undefined);
+    }
+    await this.logEvent(conversationId, "conversation.auto_returned_to_ai", "SYSTEM", null, { timeoutMs });
+    await this.postSystemMessage(conversationId, "Agent sedang sibuk, AI kembali membantu percakapan ini.");
+    this.realtime.toConversation(conversationId, "conversation:updated", {
+      conversationId,
+      assignedAgentId: null,
+      handlerType: HandlerType.AI,
+      status: ConversationStatus.AI_ACTIVE,
+    });
+    if (conversation.assignedTeamId) {
+      this.realtime.toTeam(conversation.assignedTeamId, "queue:updated", { conversationId, siteId: conversation.siteId });
+    }
+    return true;
+  }
+
+  async autoReturnToAiIfAgentReplyTimedOut(conversationId: string) {
+    const conversation = await this.prisma.conversation.findUnique({
+      where: { id: conversationId },
+      select: {
+        id: true,
+        assignedAt: true,
+        status: true,
+        handlerType: true,
+      },
+    });
+    if (!conversation || !this.isAwaitingAgentReply(conversation.status, conversation.handlerType)) {
+      return false;
+    }
+
+    const timeoutStartedAt = await this.resolveAgentReplyTimeoutStart(conversationId);
+    if (!timeoutStartedAt) return false;
+
+    const timeoutMs = await this.resolveAgentReplyTimeoutMs(conversationId);
+    if (Date.now() - timeoutStartedAt.getTime() < timeoutMs) {
+      return false;
+    }
+
+    return this.autoReturnToAiOnAgentTimeout(conversationId, timeoutStartedAt);
+  }
+
   async transfer(conversationId: string, actorId: string, target: { toAgentId?: string; toTeamId?: string }) {
     const conversation = await this.getConversationOrThrow(conversationId);
     if (conversation.assignedAgentId && !target.toAgentId && this.shouldReleaseAgent(conversation)) {
@@ -487,7 +867,20 @@ export class ConversationsService {
     }
 
     if (target.toAgentId) {
-      await this.assignToAgent(conversationId, target.toAgentId, "MANUAL");
+      if (target.toAgentId !== conversation.assignedAgentId) {
+        const profile = await this.prisma.agentProfile.findUnique({ where: { userId: target.toAgentId }, select: { maxConcurrentChats: true } });
+        const reserved = await this.reserveAgentSlot(target.toAgentId, profile?.maxConcurrentChats ?? 1);
+        if (!reserved) {
+          throw new ApiException(
+            ErrorCode.CONFLICT,
+            "Agent tujuan sedang menangani chat lain dan belum bisa menerima transfer.",
+            HttpStatus.CONFLICT,
+          );
+        }
+        await this.assignToAgent(conversationId, target.toAgentId, "MANUAL", { slotAlreadyReserved: true });
+      } else {
+        await this.assignToAgent(conversationId, target.toAgentId, "MANUAL");
+      }
     } else if (target.toTeamId) {
       await this.prisma.conversation.update({
         where: { id: conversationId },
@@ -495,6 +888,7 @@ export class ConversationsService {
       });
       await this.tryAutoAssign(conversationId);
       this.realtime.toTeam(target.toTeamId, "queue:updated", { conversationId });
+      await this.safelyRefreshAgentReplyTimeout(conversationId);
     }
 
     await this.logEvent(conversationId, "conversation.transferred", "USER", actorId, target);
@@ -503,6 +897,8 @@ export class ConversationsService {
 
   async resolve(conversationId: string, actorId: string) {
     const conversation = await this.getConversationOrThrow(conversationId);
+    this.assertAgentCanResolve(conversation, actorId);
+    await this.safelyCancelAgentReplyTimeout(conversationId);
     if (this.shouldReleaseAgent(conversation)) {
       const assignedAgentId = conversation.assignedAgentId!;
       await this.prisma.agentProfile.update({ where: { userId: assignedAgentId }, data: { activeChatCount: { decrement: 1 } } }).catch(() => undefined);
@@ -538,11 +934,13 @@ export class ConversationsService {
       this.realtime.toTeam(conversation.assignedTeamId, "queue:updated", { conversationId, siteId: conversation.siteId });
     }
     await this.logEvent(conversationId, "conversation.reopened", "USER", actorId, {});
+    await this.safelyRefreshAgentReplyTimeout(conversationId);
     return updated;
   }
 
   async close(conversationId: string, actorType: "VISITOR" | "SYSTEM" | "USER" = "VISITOR", actorId?: string) {
     const conversation = await this.getConversationOrThrow(conversationId);
+    await this.safelyCancelAgentReplyTimeout(conversationId);
     if (this.shouldReleaseAgent(conversation)) {
       const assignedAgentId = conversation.assignedAgentId!;
       await this.prisma.agentProfile.update({ where: { userId: assignedAgentId }, data: { activeChatCount: { decrement: 1 } } }).catch(() => undefined);

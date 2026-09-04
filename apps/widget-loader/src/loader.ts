@@ -28,6 +28,8 @@ declare global {
 
 const FLOATING_BOTTOM_OFFSET = 40;
 const PANEL_BOTTOM_OFFSET = FLOATING_BOTTOM_OFFSET;
+// Below Tailwind's `md` breakpoint (768px) the panel goes full-screen instead of floating.
+const MOBILE_MEDIA_QUERY = "(max-width: 767.98px)";
 
 function supportsRequiredFeatures(): boolean {
   return (
@@ -106,8 +108,12 @@ function init() {
       width: 370px; height: 560px; max-height: calc(100vh - 120px); border: none; border-radius: 16px;
       box-shadow: 0 10px 40px rgba(0,0,0,.45); display: none; background: #0b0b0c; }
     .panel.open { display: block; }
-    @media (max-width: 480px) {
-      .panel { width: 100vw; height: 100vh; max-height: 100vh; bottom: 0; right: 0; left: 0; border-radius: 0; }
+    @media ${MOBILE_MEDIA_QUERY} {
+      .panel {
+        top: 0; left: 0; right: 0; bottom: auto;
+        width: auto; height: 100vh; height: 100dvh;
+        max-height: none; border-radius: 0; box-shadow: none;
+      }
     }
   `;
   shadow.appendChild(style);
@@ -134,6 +140,11 @@ function init() {
   let isOpen = false;
   let pendingContext: SolidChatContext | null = null;
   let pendingIdentity: string | null = null;
+  // The iframe's contentWindow stays on the parent origin until it has navigated to
+  // widgetOrigin, so posting to it before then throws a targetOrigin mismatch. Queue
+  // messages until the child announces `solidchat:ready`, then flush.
+  let iframeReady = false;
+  let queuedMessages: unknown[] = [];
 
   function setUnreadBadge(count: number) {
     if (isOpen || count <= 0) {
@@ -164,8 +175,45 @@ function init() {
     return iframe;
   }
 
+  function isMobileViewport(): boolean {
+    return window.matchMedia(MOBILE_MEDIA_QUERY).matches;
+  }
+
+  // On a phone the panel is full-screen. iOS Safari keeps `100dvh` spanning *behind* the
+  // on-screen keyboard, so while the widget is open we pin the iframe to the visual viewport —
+  // that keeps the composer above the keyboard. On desktop the CSS rules win and any inline
+  // sizing left over from a resize message / a previous mobile session is cleared.
+  function syncMobilePanelSize() {
+    if (!iframe) return;
+    const vv = window.visualViewport;
+    if (!isOpen || !isMobileViewport() || !vv) {
+      iframe.style.width = "";
+      iframe.style.height = "";
+      iframe.style.top = "";
+      iframe.style.left = "";
+      return;
+    }
+    iframe.style.width = `${vv.width}px`;
+    iframe.style.height = `${vv.height}px`;
+    iframe.style.top = `${vv.offsetTop}px`;
+    iframe.style.left = `${vv.offsetLeft}px`;
+  }
+
   function postToIframe(message: unknown) {
-    iframe?.contentWindow?.postMessage(message, widgetOrigin);
+    if (!iframe) return;
+    if (!iframeReady) {
+      queuedMessages.push(message);
+      return;
+    }
+    iframe.contentWindow?.postMessage(message, widgetOrigin);
+  }
+
+  function flushIframeQueue() {
+    iframeReady = true;
+    if (!iframe) return;
+    const queue = queuedMessages;
+    queuedMessages = [];
+    for (const message of queue) iframe.contentWindow?.postMessage(message, widgetOrigin);
   }
 
   function open() {
@@ -173,6 +221,7 @@ function init() {
     frame.classList.add("open");
     isOpen = true;
     bubble.classList.add("open");
+    syncMobilePanelSize();
     setUnreadBadge(0);
     postToIframe({ type: "solidchat:open" });
     if (pendingContext)
@@ -188,6 +237,7 @@ function init() {
     iframe?.classList.remove("open");
     isOpen = false;
     bubble.classList.remove("open");
+    syncMobilePanelSize();
     postToIframe({ type: "solidchat:close" });
   }
 
@@ -200,11 +250,13 @@ function init() {
       { type?: string; height?: number; count?: number } | undefined;
     if (!data || typeof data.type !== "string") return;
 
+    if (data.type === "solidchat:ready") flushIframeQueue();
     if (data.type === "solidchat:request-close") close();
     if (
       data.type === "solidchat:resize" &&
       typeof data.height === "number" &&
-      iframe
+      iframe &&
+      !isMobileViewport()
     ) {
       iframe.style.height = `${Math.min(data.height, window.innerHeight - 120)}px`;
     }
@@ -213,6 +265,12 @@ function init() {
     }
   }
   window.addEventListener("message", onMessage);
+
+  const onViewportChange = () => syncMobilePanelSize();
+  window.visualViewport?.addEventListener("resize", onViewportChange);
+  window.visualViewport?.addEventListener("scroll", onViewportChange);
+  window.addEventListener("resize", onViewportChange);
+  window.addEventListener("orientationchange", onViewportChange);
 
   window.SolidChat = {
     open,
@@ -233,6 +291,8 @@ function init() {
         iframe.remove();
         iframe = null;
       }
+      iframeReady = false;
+      queuedMessages = [];
       close();
       setUnreadBadge(0);
     },
@@ -242,6 +302,10 @@ function init() {
     "pagehide",
     () => {
       window.removeEventListener("message", onMessage);
+      window.visualViewport?.removeEventListener("resize", onViewportChange);
+      window.visualViewport?.removeEventListener("scroll", onViewportChange);
+      window.removeEventListener("resize", onViewportChange);
+      window.removeEventListener("orientationchange", onViewportChange);
     },
     { once: true },
   );

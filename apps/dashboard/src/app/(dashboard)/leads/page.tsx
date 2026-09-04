@@ -63,7 +63,8 @@ export default function LeadsPage() {
             ]}
           />
           <DashboardTablePanel title="Lead pipeline" detail={`${leads.length} lead tercatat dengan status sinkronisasi paling baru.`}>
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto">
+            <table className="min-w-[820px] w-full text-sm">
               <thead className="text-left text-[11px] uppercase tracking-[0.28em] text-zinc-500">
                 <tr>
                   <th className="px-5 py-4">Nama</th>
@@ -105,6 +106,7 @@ export default function LeadsPage() {
                 ) : null}
               </tbody>
             </table>
+            </div>
           </DashboardTablePanel>
         </div>
       </DashboardPage>

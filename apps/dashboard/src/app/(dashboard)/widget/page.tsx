@@ -14,8 +14,10 @@ type WidgetSettingsForm = {
   aiEnabled: boolean;
   humanChatEnabled: boolean;
   showAgentButton: boolean;
+  agentButtonLabel: string;
   allowAttachments: boolean;
   ratingFormEnabled: boolean;
+  agentReplyTimeoutSeconds: number;
 };
 
 type WidgetSettingsResponse = WidgetSettingsForm & {
@@ -41,8 +43,10 @@ function toWidgetSettingsForm(settings: WidgetSettingsResponse): WidgetSettingsF
     aiEnabled: settings.aiEnabled,
     humanChatEnabled: settings.humanChatEnabled,
     showAgentButton: settings.showAgentButton,
+    agentButtonLabel: settings.agentButtonLabel,
     allowAttachments: settings.allowAttachments,
     ratingFormEnabled: settings.ratingFormEnabled,
+    agentReplyTimeoutSeconds: settings.agentReplyTimeoutSeconds,
   };
 }
 
@@ -105,6 +109,7 @@ export default function WidgetSettingsPage() {
               { label: "Domain", value: String(site.domains.length), detail: "Jumlah domain yang diizinkan memuat widget." },
               { label: "Widget", value: settings.widgetEnabled ? "Aktif" : "Off", detail: "Status master untuk tampilan widget." },
               { label: "Attachment", value: settings.allowAttachments ? "On" : "Off", detail: "Izin upload file dari percakapan pelanggan." },
+              { label: "Timeout Agent", value: `${settings.agentReplyTimeoutSeconds} detik`, detail: "Batas waktu agent membalas sebelum AI takeover lagi." },
             ]}
           />
           <div className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
@@ -145,7 +150,7 @@ export default function WidgetSettingsPage() {
                 ["widgetEnabled", "Widget aktif"],
                 ["aiEnabled", "AI aktif"],
                 ["humanChatEnabled", "Human chat aktif"],
-                ["showAgentButton", "Tampilkan tombol \"Bicara dengan CS\""],
+                ["showAgentButton", "Tampilkan tombol hubungi agent"],
                 ["allowAttachments", "Izinkan lampiran file"],
                 ["ratingFormEnabled", "Tampilkan form rating"],
               ] as const
@@ -160,6 +165,40 @@ export default function WidgetSettingsPage() {
                 {label}
               </label>
             ))}
+          </div>
+          <div className="mt-4 rounded-2xl border border-ink-600 bg-ink-800/70 px-4 py-4">
+            <label className="block text-sm text-zinc-300">
+              <span className="mb-2 block">Label tombol hubungi agent</span>
+              <Input
+                value={settings.agentButtonLabel}
+                onChange={(e) =>
+                  setSettings({
+                    ...settings,
+                    agentButtonLabel: e.target.value,
+                  })
+                }
+                placeholder="Hubungi Agent Kami"
+              />
+            </label>
+            <p className="mt-2 text-xs text-zinc-500">Teks ini dipakai langsung oleh widget untuk tombol permintaan agent.</p>
+          </div>
+          <div className="mt-4 rounded-2xl border border-ink-600 bg-ink-800/70 px-4 py-4">
+            <label className="block text-sm text-zinc-300">
+              <span className="mb-2 block">Waktu tunggu balasan agent (detik)</span>
+              <Input
+                type="number"
+                min={10}
+                step={1}
+                value={settings.agentReplyTimeoutSeconds}
+                onChange={(e) =>
+                  setSettings({
+                    ...settings,
+                    agentReplyTimeoutSeconds: Math.max(10, Number.parseInt(e.target.value || "60", 10) || 60),
+                  })
+                }
+              />
+            </label>
+            <p className="mt-2 text-xs text-zinc-500">Setelah waktu ini habis tanpa balasan agent, AI akan takeover kembali otomatis.</p>
           </div>
           <div className="mt-4 flex justify-end">
             <Button onClick={() => saveSettings.mutate()} disabled={saveSettings.isPending}>

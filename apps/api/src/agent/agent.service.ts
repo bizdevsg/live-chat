@@ -51,7 +51,7 @@ export class AgentService {
       where: {
         organizationId: user.organizationId,
         assignedAgentId: null,
-        status: { in: [ConversationStatus.AI_ACTIVE, ConversationStatus.QUEUED, ConversationStatus.WAITING_AGENT] },
+        status: { in: [ConversationStatus.AI_ACTIVE, ConversationStatus.QUEUED, ConversationStatus.WAITING_AGENT, ConversationStatus.RESOLVED, ConversationStatus.CLOSED] },
         OR: [{ firstMessageAt: { not: null } }, { leads: { some: {} } }],
         ...(teamIds ? { assignedTeamId: { in: teamIds } } : {}),
       },

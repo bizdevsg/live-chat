@@ -19,8 +19,10 @@ export interface SiteConfig {
     humanChatEnabled: boolean;
     preChatFormEnabled: boolean;
     showAgentButton: boolean;
+    agentButtonLabel: string;
     allowAttachments: boolean;
     ratingFormEnabled: boolean;
+    agentReplyTimeoutSeconds: number;
   } | null;
 }
 

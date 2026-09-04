@@ -197,5 +197,6 @@ export const ErrorCode = {
   TOKEN_INVALID: "TOKEN_INVALID",
   ACCOUNT_LOCKED: "ACCOUNT_LOCKED",
   ACCOUNT_DISABLED: "ACCOUNT_DISABLED",
+  INVALID_CURSOR: "INVALID_CURSOR",
 } as const;
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];

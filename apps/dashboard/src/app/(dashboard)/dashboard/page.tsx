@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Activity,
   ArrowRightLeft,
@@ -10,6 +10,7 @@ import {
   Clock3,
   Hourglass,
   Inbox,
+  LoaderCircle,
   MessagesSquare,
   Radio,
   ShieldCheck,
@@ -19,7 +20,11 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { apiClient } from "@/lib/api-client";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/components/ui/toast";
+import { apiClient, ApiError } from "@/lib/api-client";
+import { useAuthStore } from "@/lib/auth-store";
+import { Permission } from "@/lib/permissions";
 import { Topbar } from "@/components/layout/topbar";
 import { cn } from "@/components/ui/cn";
 
@@ -39,6 +44,12 @@ interface OverviewData {
 interface VolumePoint {
   date: string;
   count: number;
+}
+
+interface CleanupResult {
+  jobId: string | number;
+  queuedAt: string;
+  message: string;
 }
 
 function MetricCard({
@@ -89,8 +100,22 @@ function CompactRow({ icon: Icon, label, value, href, tone = "gold" }: { icon: L
 }
 
 export default function OverviewPage() {
+  const toast = useToast();
+  const queryClient = useQueryClient();
+  const hasPermission = useAuthStore((state) => state.hasPermission);
+  const canRunCleanup = hasPermission(Permission.SECURITY_MANAGE);
   const overview = useQuery({ queryKey: ["admin", "overview"], queryFn: () => apiClient.get<OverviewData>("/api/v1/admin/overview") });
   const volume = useQuery({ queryKey: ["analytics", "conversations"], queryFn: () => apiClient.get<VolumePoint[]>("/api/v1/analytics/conversations") });
+  const cleanup = useMutation({
+    mutationFn: () => apiClient.post<CleanupResult>("/api/v1/admin/maintenance/cleanup"),
+    onSuccess: async (result) => {
+      toast.push(result.message, "success");
+      await queryClient.invalidateQueries({ queryKey: ["admin", "overview"] });
+    },
+    onError: (error) => {
+      toast.push(error instanceof ApiError ? error.message : "Gagal menjalankan cleanup.", "error");
+    },
+  });
   const data = overview.data;
 
   return (
@@ -103,13 +128,26 @@ export default function OverviewPage() {
               <h2 className="text-3xl font-semibold tracking-tight text-zinc-50 md:text-4xl">Overview</h2>
               <p className="mt-2 text-sm text-zinc-500">Ringkasan performa chat dan operasi layanan hari ini.</p>
             </div>
-            <Link
-              href="/inbox"
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-gold-500 px-4 py-2.5 text-sm font-semibold text-ink-950 transition-transform hover:-translate-y-0.5 hover:bg-gold-400"
-            >
-              <Inbox className="h-4 w-4" aria-hidden="true" />
-              Buka Inbox
-            </Link>
+            <div className="flex flex-wrap items-center gap-3">
+              {canRunCleanup ? (
+                <Button
+                  variant="secondary"
+                  className="h-11 rounded-xl px-4"
+                  disabled={cleanup.isPending}
+                  onClick={() => cleanup.mutate()}
+                >
+                  {cleanup.isPending ? <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Activity className="h-4 w-4" aria-hidden="true" />}
+                  {cleanup.isPending ? "Menjalankan Cleanup..." : "Run Cleanup"}
+                </Button>
+              ) : null}
+              <Link
+                href="/inbox"
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-gold-500 px-4 py-2.5 text-sm font-semibold text-ink-950 transition-transform hover:-translate-y-0.5 hover:bg-gold-400"
+              >
+                <Inbox className="h-4 w-4" aria-hidden="true" />
+                Buka Inbox
+              </Link>
+            </div>
           </div>
 
           {overview.isLoading ? (

@@ -1,6 +1,8 @@
+import { InjectQueue } from "@nestjs/bullmq";
 import { Body, Controller, Delete, Get, Param, Post, Put, Query, UseGuards } from "@nestjs/common";
 import { ApiTags } from "@nestjs/swagger";
-import { ConversationStatus, Permission, type JwtAccessPayload } from "@solidchat/shared";
+import type { Queue } from "bullmq";
+import { ConversationStatus, Permission, QUEUE_NAMES, type JwtAccessPayload } from "@solidchat/shared";
 import { PermissionsGuard } from "../common/guards/permissions.guard";
 import { RequirePermissions } from "../common/decorators/permissions.decorator";
 import { CurrentUser } from "../common/decorators/current-user.decorator";
@@ -15,6 +17,7 @@ export class OverviewController {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditLog: AuditLogService,
+    @InjectQueue(QUEUE_NAMES.CLEANUP) private readonly cleanupQueue: Queue,
   ) {}
 
   @Get("overview")
@@ -150,5 +153,35 @@ export class OverviewController {
       this.prisma.securityEvent.count({ where }),
     ]);
     return { success: true, data: { items, total, page: pageNum, pageSize } };
+  }
+
+  @Post("maintenance/cleanup")
+  @RequirePermissions(Permission.SECURITY_MANAGE)
+  async runCleanup(@CurrentUser() user: JwtAccessPayload) {
+    const queuedAt = new Date().toISOString();
+    const job = await this.cleanupQueue.add(
+      "cleanup",
+      { requestedByUserId: user.sub, requestedAt: queuedAt },
+      { removeOnComplete: true, removeOnFail: 1000 },
+    );
+
+    await this.auditLog.record({
+      organizationId: user.organizationId,
+      actorType: "USER",
+      actorId: user.sub,
+      action: "maintenance.cleanup_requested",
+      resourceType: "system",
+      resourceId: "cleanup-queue",
+      afterData: { jobId: job.id, queuedAt },
+    });
+
+    return {
+      success: true,
+      data: {
+        jobId: job.id,
+        queuedAt,
+        message: "Cleanup berhasil dimasukkan ke queue dan akan diproses worker.",
+      },
+    };
   }
 }

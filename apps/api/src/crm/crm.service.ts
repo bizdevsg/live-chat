@@ -1,14 +1,22 @@
-import { Injectable } from "@nestjs/common";
-import { MessageType, SenderType, ErrorCode } from "@solidchat/shared";
+import { HttpStatus, Injectable } from "@nestjs/common";
+import { ErrorCode, MessageType, SenderType } from "@solidchat/shared";
 import { PrismaService } from "../prisma/prisma.service";
-import { NotFoundApiException } from "../common/errors/api.exception";
+import { ApiException, ForbiddenApiException, NotFoundApiException } from "../common/errors/api.exception";
+import type { CrmRequestScope } from "./crm-api-key.guard";
+import type { ListCrmConversationsQueryDto } from "./dto/crm.dto";
 
+/**
+ * CRM-facing conversation lookup by the handling agent's email. Scoped to the site(s) the
+ * presented API key is allowed to read (CrmApiKeyGuard / §4.1-style least privilege).
+ */
 @Injectable()
 export class CrmService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async listConversationsByEmail(email: string) {
-    const normalizedEmail = email.trim().toLowerCase();
+  async listConversationsByEmail(scope: CrmRequestScope, query: ListCrmConversationsQueryDto) {
+    const normalizedEmail = query.email.trim().toLowerCase();
+    const siteFilter = await this.resolveSiteFilter(scope, query.site_id);
+
     const matchingAgents = await this.prisma.user.findMany({
       where: { email: normalizedEmail },
       select: { id: true, name: true },
@@ -21,6 +29,7 @@ export class CrmService {
 
     const conversations = await this.prisma.conversation.findMany({
       where: {
+        ...(siteFilter ? { siteId: siteFilter } : {}),
         OR: [
           { assignedAgentId: { in: agentIds } },
           { participants: { some: { participantType: "AGENT", userId: { in: agentIds } } } },
@@ -119,7 +128,7 @@ export class CrmService {
     });
   }
 
-  async getConversationDetail(conversationId: string) {
+  async getConversationDetail(scope: CrmRequestScope, conversationId: string) {
     const conversation = await this.prisma.conversation.findUnique({
       where: { id: conversationId },
       select: {
@@ -217,12 +226,19 @@ export class CrmService {
       throw new NotFoundApiException(ErrorCode.CONVERSATION_NOT_FOUND, "Conversation tidak ditemukan.");
     }
 
-    const agentNames = await this.resolveUserNames(
-      [
-        ...(conversation.assignedAgentId ? [conversation.assignedAgentId] : []),
-        ...conversation.messages.flatMap((message) => (message.senderType === SenderType.AGENT && message.senderId ? [message.senderId] : [])),
-      ],
-    );
+    if (!scope.hasFullAccess) {
+      const allowedSiteKeys = scope.credential.siteIds ?? [];
+      if (!allowedSiteKeys.includes(conversation.site.siteKey)) {
+        throw new ForbiddenApiException("Kredensial ini tidak memiliki akses ke site dari conversation ini.");
+      }
+    }
+
+    const agentNames = await this.resolveUserNames([
+      ...(conversation.assignedAgentId ? [conversation.assignedAgentId] : []),
+      ...conversation.messages.flatMap((message) =>
+        message.senderType === SenderType.AGENT && message.senderId ? [message.senderId] : [],
+      ),
+    ]);
 
     return {
       id: conversation.id,
@@ -267,6 +283,34 @@ export class CrmService {
         attachments: message.attachments,
       })),
     };
+  }
+
+  // ── Site scoping ─────────────────────────────────────────────────────
+
+  /** Resolves which internal `Site.id`s a request may read. `undefined` = no restriction (legacy full-access key, no site_id given). */
+  private async resolveSiteFilter(scope: CrmRequestScope, siteIdParam?: string): Promise<{ in: string[] } | undefined> {
+    if (siteIdParam) {
+      if (!scope.hasFullAccess && !(scope.credential.siteIds ?? []).includes(siteIdParam)) {
+        throw new ApiException(
+          ErrorCode.FORBIDDEN,
+          "Kredensial ini tidak memiliki akses ke site_id yang diminta.",
+          HttpStatus.FORBIDDEN,
+        );
+      }
+      const site = await this.prisma.site.findUnique({ where: { siteKey: siteIdParam }, select: { id: true } });
+      if (!site) {
+        throw new ApiException(ErrorCode.VALIDATION_ERROR, `site_id "${siteIdParam}" tidak ditemukan.`, HttpStatus.BAD_REQUEST);
+      }
+      return { in: [site.id] };
+    }
+
+    if (scope.hasFullAccess) return undefined;
+
+    const siteKeys = scope.credential.siteIds ?? [];
+    if (siteKeys.length === 0) return undefined;
+
+    const sites = await this.prisma.site.findMany({ where: { siteKey: { in: siteKeys } }, select: { id: true } });
+    return { in: sites.map((site) => site.id) };
   }
 
   private async resolveUserNames(userIds: string[]) {

@@ -44,7 +44,8 @@ export default function SecurityPage() {
             ]}
           />
           <DashboardTablePanel title="Security events" detail={`${events.length} event tersedia untuk ditinjau oleh tim keamanan dan operasional.`}>
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="min-w-[720px] w-full text-sm">
             <thead className="text-left text-[11px] uppercase tracking-[0.28em] text-zinc-500">
               <tr>
                 <th className="px-5 py-4">Waktu</th>
@@ -73,6 +74,7 @@ export default function SecurityPage() {
               )}
             </tbody>
           </table>
+          </div>
         </DashboardTablePanel>
         </div>
       </DashboardPage>

@@ -1,0 +1,20 @@
+meta {
+  name: (Removed) List Conversations - cursor page
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}{{basePath}}/conversations
+  body: none
+  auth: none
+}
+
+docs {
+  This request is obsolete and intentionally left disabled — do not run it.
+
+  The endpoint no longer supports updated_after/cursor sync — it is now a lookup by agent
+  email (see "List Conversations" and "Get Conversation Detail" in this folder, and
+  docs/crm-integration.md). This file is kept only as a pointer for anyone who bookmarked the
+  old request; ask a maintainer to delete it next time the collection is cleaned up.
+}

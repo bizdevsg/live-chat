@@ -31,6 +31,7 @@ export function Composer({
   const [value, setValue] = useState("");
   const typingTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const agentButtonLabel = config.settings?.agentButtonLabel?.trim() || "Hubungi Agent Kami";
 
   const resizeTextarea = useCallback((textarea: HTMLTextAreaElement | null) => {
     if (!textarea) return;
@@ -74,7 +75,7 @@ export function Composer({
           className="mb-2 flex items-center gap-1.5 text-xs text-zinc-400 underline decoration-dotted underline-offset-2 hover:text-white"
         >
           <Headset className="h-3.5 w-3.5" />
-          Bicara dengan petugas kami
+          {agentButtonLabel}
         </button>
       )}
       <div className="flex items-end gap-2">

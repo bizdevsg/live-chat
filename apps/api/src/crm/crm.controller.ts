@@ -1,27 +1,30 @@
-import { Controller, Get, Param, Query, UseGuards } from "@nestjs/common";
+import { Controller, Get, Param, Query, Req, UseGuards } from "@nestjs/common";
 import { ApiTags } from "@nestjs/swagger";
+import type { Request } from "express";
 import { Public } from "../common/decorators/public.decorator";
-import { CrmApiKeyGuard } from "./crm-api-key.guard";
+import { CrmApiKeyGuard, type CrmRequestScope } from "./crm-api-key.guard";
 import { CrmService } from "./crm.service";
-import { ListCrmConversationsDto } from "./dto/crm.dto";
+import { ListCrmConversationsQueryDto } from "./dto/crm.dto";
 
+/** Server-to-server conversation lookup for CRM, by handling agent's email. GET-only. */
 @ApiTags("crm")
 @Public()
 @UseGuards(CrmApiKeyGuard)
-@Controller("api/crm")
+@Controller("api/v1")
 export class CrmController {
   constructor(private readonly crmService: CrmService) {}
 
-  @Get(["conversessions", "conversations"])
-  async listConversations(@Query() query: ListCrmConversationsDto) {
-    const data = await this.crmService.listConversationsByEmail(query.email);
+  @Get("conversations")
+  async listConversations(@Req() request: Request, @Query() query: ListCrmConversationsQueryDto) {
+    const scope = (request as Request & { crmScope: CrmRequestScope }).crmScope;
+    const data = await this.crmService.listConversationsByEmail(scope, query);
     return { success: true, data };
   }
 
-  @Get(["conversessions/detail/:conversationId", "conversations/detail/:conversationId"])
-  async getConversationDetail(@Param("conversationId") conversationId: string) {
-    const data = await this.crmService.getConversationDetail(conversationId);
+  @Get("conversations/:conversationId")
+  async getConversationDetail(@Req() request: Request, @Param("conversationId") conversationId: string) {
+    const scope = (request as Request & { crmScope: CrmRequestScope }).crmScope;
+    const data = await this.crmService.getConversationDetail(scope, conversationId);
     return { success: true, data };
   }
 }
-

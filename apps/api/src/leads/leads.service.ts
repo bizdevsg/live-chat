@@ -8,6 +8,7 @@ import { CrmProviderFactory } from "./crm-provider.factory";
 import { ApiException, NotFoundApiException } from "../common/errors/api.exception";
 import type { CreateLeadDto } from "./dto/lead.dto";
 import { NotificationsService } from "../notifications/notifications.service";
+import { RealtimeEmitterService } from "../realtime/realtime-emitter.service";
 
 @Injectable()
 export class LeadsService {
@@ -16,6 +17,7 @@ export class LeadsService {
     private readonly auditLog: AuditLogService,
     private readonly crmProviderFactory: CrmProviderFactory,
     private readonly notifications: NotificationsService,
+    private readonly realtime: RealtimeEmitterService,
     @InjectQueue(QUEUE_NAMES.CRM_SYNC) private readonly crmSyncQueue: Queue<CrmSyncJobData>,
   ) {}
 
@@ -33,18 +35,17 @@ export class LeadsService {
     };
   }
 
-  private getResumeState(conversation: { assignedTeamId: string | null }) {
-    if (conversation.assignedTeamId) {
-      return { status: ConversationStatus.QUEUED, handlerType: HandlerType.NONE };
-    }
+  private getResumeState() {
+    // A resumed conversation always comes back on the AI. If the visitor wants a human they press
+    // "Hubungi Agent" again, and it is routed to whoever is free at that moment (§26).
     return { status: ConversationStatus.AI_ACTIVE, handlerType: HandlerType.AI };
   }
 
   private static readonly ENDED_STATUSES: string[] = [ConversationStatus.RESOLVED, ConversationStatus.CLOSED];
 
   /** Fields that lift a RESOLVED/CLOSED conversation back into an active handler state. */
-  private reactivationFields(conversation: { assignedTeamId: string | null }) {
-    const next = this.getResumeState(conversation);
+  private reactivationFields() {
+    const next = this.getResumeState();
     return {
       assignedAgentId: null,
       status: next.status,
@@ -141,7 +142,7 @@ export class LeadsService {
           data: {
             visitorId: conversation.visitorId,
             customerId: customer.id,
-            ...(reactivate ? this.reactivationFields(resumableConversation) : {}),
+            ...(reactivate ? this.reactivationFields() : {}),
           },
         });
 
@@ -159,7 +160,7 @@ export class LeadsService {
             where: { id: conversation.id },
             data: {
               customerId: customer.id,
-              ...(reactivate ? this.reactivationFields(conversation) : {}),
+              ...(reactivate ? this.reactivationFields() : {}),
             },
           });
         }
@@ -184,26 +185,32 @@ export class LeadsService {
       });
 
       await tx.leadEvent.create({ data: { leadId: createdLead.id, type: "lead.created" } });
-      return { lead: createdLead, conversationId: targetConversationId, resumedConversation: targetConversationId !== conversation?.id };
+      return {
+        lead: createdLead,
+        conversationId: targetConversationId,
+        resumedConversation: targetConversationId !== conversation?.id,
+      };
     });
 
     const { lead, conversationId: finalConversationId, resumedConversation } = result;
     await this.crmSyncQueue.add("sync", { leadId: lead.id }, { attempts: 5, backoff: { type: "exponential", delay: 5000 } });
     if (finalConversationId) {
-      const notificationConversation =
-        conversation?.id === finalConversationId
-          ? conversation
-          : await this.prisma.conversation.findUnique({
-              where: { id: finalConversationId },
-              select: { id: true, organizationId: true, siteId: true, assignedTeamId: true, assignedAgentId: true, handlerType: true, status: true },
-            });
+      const notificationConversation = await this.prisma.conversation.findUnique({
+        where: { id: finalConversationId },
+        select: { id: true, organizationId: true, siteId: true, assignedTeamId: true, assignedAgentId: true, handlerType: true, status: true },
+      });
 
       const isStillNewInboxConversation =
         !!notificationConversation &&
         !notificationConversation.assignedAgentId &&
         (notificationConversation.handlerType === HandlerType.NONE || notificationConversation.handlerType === HandlerType.AI);
 
+      this.realtime.toSite(siteId, "queue:updated", { conversationId: finalConversationId, siteId });
       if (notificationConversation?.assignedTeamId && isStillNewInboxConversation) {
+        this.realtime.toTeam(notificationConversation.assignedTeamId, "queue:updated", {
+          conversationId: notificationConversation.id,
+          siteId: notificationConversation.siteId,
+        });
         this.notifications.notifyTeam(
           notificationConversation.assignedTeamId,
           "NEW_INBOX_CONVERSATION",

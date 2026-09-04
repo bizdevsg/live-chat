@@ -5,17 +5,18 @@ meta {
 }
 
 get {
-  url: {{baseUrl}}{{basePath}}/conversessions
+  url: {{baseUrl}}{{basePath}}/conversations
   body: none
   auth: none
 }
 
 params:query {
   email: {{email}}
+  site_id: {{siteId}}
 }
 
 headers {
-  x-api-key: {{crmApiKey}}
+  Authorization: Bearer {{crmApiKey}}
   Accept: application/json
 }
 
@@ -28,6 +29,8 @@ assert {
 }
 
 docs {
-  Lists conversations by agent email. On success, the first returned conversation id is stored
-  into the request variable `conversationId` for quick chaining into the detail request.
+  Lists conversations assigned to/handled by the agent with this email. On success, the first
+  returned conversation id is stored into the request variable `conversationId` for chaining
+  into the detail request. `site_id` is only required when the API key can read more than one
+  site.
 }

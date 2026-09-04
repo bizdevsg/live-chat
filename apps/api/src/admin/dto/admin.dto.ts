@@ -118,12 +118,14 @@ export class UpdateWidgetSettingsDto {
   @IsOptional() @IsObject() quickReplies?: object;
   @IsOptional() @IsObject() suggestedQuestions?: object;
   @IsOptional() @IsBoolean() showAgentButton?: boolean;
+  @IsOptional() @IsString() agentButtonLabel?: string;
   @IsOptional() @IsBoolean() allowAttachments?: boolean;
   @IsOptional() @IsArray() allowedFileTypes?: string[];
   @IsOptional() @IsInt() maxFileSizeBytes?: number;
   @IsOptional() @IsString() privacyNoticeUrl?: string;
   @IsOptional() @IsString() termsUrl?: string;
   @IsOptional() @IsBoolean() ratingFormEnabled?: boolean;
+  @IsOptional() @IsInt() @Min(10) agentReplyTimeoutSeconds?: number;
   @IsOptional() @IsBoolean() showAiSourcesToCustomer?: boolean;
 }
 
