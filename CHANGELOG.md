@@ -3,7 +3,24 @@
 Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
-- Belum ada perubahan terdeteksi.
+### Added
+- Menambahkan `apps/dashboard/public/notification/new-massages/universfield-new-notification-022-370046.mp3`.
+- Menambahkan `apps/dashboard/public/notification/on-conversesion/universfield-new-notification-012-363675.mp3`.
+
+### Changed
+- Memperbarui `package.json`.
+
+## [0.4.0] - 2026-09-04
+### Added
+- Timer hitung mundur "Kembali ke AI dalam MM:SS" di sisi agent.
+- Agent bisa menangani hingga 5 percakapan sekaligus.
+
+### Fixed
+- Accept percakapan oleh agent kini race-safe lewat klaim atomik.
+- Handoff ke agent masuk antrean FCFS, tidak lagi dipantulkan ke AI saat semua agent sibuk.
+- Percakapan yang sudah berakhir diaktifkan lagi saat pre-chat dikirim; `departmentId` dari widget lama diterima dan diabaikan.
+- Job id timeout agent-reply diperbaiki (BullMQ menolak karakter ":") sehingga auto-return ke AI kembali berjalan.
+- Sinkronisasi changelog otomatis.
 
 ## [0.3.1] - 2026-08-31
 ### Fixed
@@ -46,7 +63,8 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 - Memperbarui `apps/dashboard/src/app/(dashboard)/knowledge/page.tsx`.
 - Memperbarui `package.json`.
 
-[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.3.1...HEAD
+[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/bizdevsg/live-chat/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/bizdevsg/live-chat/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/bizdevsg/live-chat/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/bizdevsg/live-chat/compare/v0.1.0...v0.2.0
