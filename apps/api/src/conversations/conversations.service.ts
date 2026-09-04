@@ -694,11 +694,41 @@ export class ConversationsService {
    * single MySQL UPDATE — not a read-then-write — decides who wins a contended agent.
    */
   private async reserveAgentSlot(agentId: string, maxConcurrentChats: number): Promise<boolean> {
-    const res = await this.prisma.agentProfile.updateMany({
-      where: { userId: agentId, activeChatCount: { lt: maxConcurrentChats } },
-      data: { activeChatCount: { increment: 1 } },
+    // A user with the handling permission may not have changed their availability yet, so their
+    // profile row might not exist. Treat a first manual Accept as profile creation, not as a full
+    // workload. Without this row, updateMany matches zero records and incorrectly reports that
+    // the agent has reached their chat limit.
+    await this.prisma.agentProfile.upsert({
+      where: { userId: agentId },
+      update: {},
+      create: { userId: agentId },
     });
-    return res.count === 1;
+
+    const reserve = () =>
+      this.prisma.agentProfile.updateMany({
+        where: { userId: agentId, activeChatCount: { lt: maxConcurrentChats } },
+        data: { activeChatCount: { increment: 1 } },
+      });
+
+    const res = await reserve();
+    if (res.count === 1) return true;
+
+    // The counter is a denormalized value. If an earlier failed/partial operation left it stale,
+    // repair it from the source of truth and make one more atomic reservation attempt. The
+    // conditional retry still preserves the concurrency ceiling when two agents accept at once.
+    const actualActiveChatCount = await this.prisma.conversation.count({
+      where: {
+        assignedAgentId: agentId,
+        status: ConversationStatus.AGENT_ACTIVE,
+        handlerType: HandlerType.HUMAN,
+      },
+    });
+    await this.prisma.agentProfile.updateMany({
+      where: { userId: agentId, activeChatCount: { gte: maxConcurrentChats } },
+      data: { activeChatCount: actualActiveChatCount },
+    });
+
+    return (await reserve()).count === 1;
   }
 
   /** Hands a concurrency slot back when the assignment reserveAgentSlot was for did not go through. */

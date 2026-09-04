@@ -209,6 +209,7 @@ describe("ConversationsService.requestAgent (agents handle up to 5 concurrent ch
         findUnique: jest.fn().mockResolvedValue(conversation),
         update: jest.fn().mockResolvedValue(conversation),
         updateMany: jest.fn().mockResolvedValue({ count: opts?.claimCount ?? 1 }),
+        count: jest.fn().mockResolvedValue(5),
       },
       handoffRule: { findFirst: jest.fn().mockResolvedValue(null) },
       routingRule: { findMany: jest.fn().mockResolvedValue([]) },
@@ -307,6 +308,23 @@ describe("ConversationsService.requestAgent (agents handle up to 5 concurrent ch
     const { service } = createService({ reserveCount: 0 });
 
     await expect(service.accept("conv-1", "agent-1")).rejects.toThrow("jumlah chat maksimum");
+  });
+
+  it("repairs a stale workload counter before rejecting a manual accept", async () => {
+    const { service, prisma } = createService();
+    prisma.conversation.count.mockResolvedValue(0);
+    let reservationAttempts = 0;
+    prisma.agentProfile.updateMany.mockImplementation((input: { data: { activeChatCount: number | { increment: number } } }) => {
+      if (input.data.activeChatCount === 0) return Promise.resolve({ count: 1 });
+      return Promise.resolve({ count: reservationAttempts++ === 0 ? 0 : 1 });
+    });
+
+    await expect(service.accept("conv-1", "agent-1")).resolves.toBeDefined();
+
+    expect(prisma.agentProfile.updateMany).toHaveBeenCalledWith({
+      where: { userId: "agent-1", activeChatCount: { gte: 5 } },
+      data: { activeChatCount: 0 },
+    });
   });
 
   it("claims the conversation atomically on a single accept", async () => {

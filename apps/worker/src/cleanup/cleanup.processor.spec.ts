@@ -38,7 +38,7 @@ describe("CleanupProcessor.autoCloseInactiveConversations", () => {
     };
   }
 
-  it("closes conversations inactive for 12 hours and releases active human agents", async () => {
+  it("closes conversations inactive for 1 hour and releases active human agents", async () => {
     const { processor, prisma, conversationFindMany, conversationUpdateMany, conversationEventCreateMany, agentProfileUpdateMany } =
       buildProcessor();
     const now = new Date("2026-09-02T12:00:00.000Z");
@@ -59,7 +59,7 @@ describe("CleanupProcessor.autoCloseInactiveConversations", () => {
         status: {
           notIn: [ConversationStatus.RESOLVED, ConversationStatus.CLOSED, ConversationStatus.SPAM, ConversationStatus.BLOCKED],
         },
-        OR: [{ lastMessageAt: { lt: new Date("2026-09-02T00:00:00.000Z") } }, { lastMessageAt: null, createdAt: { lt: new Date("2026-09-02T00:00:00.000Z") } }],
+        OR: [{ lastMessageAt: { lt: new Date("2026-09-02T11:00:00.000Z") } }, { lastMessageAt: null, createdAt: { lt: new Date("2026-09-02T11:00:00.000Z") } }],
       },
       select: { id: true },
     });
@@ -75,14 +75,14 @@ describe("CleanupProcessor.autoCloseInactiveConversations", () => {
           type: "conversation.auto_closed_inactive",
           actorType: "SYSTEM",
           actorId: null,
-          payload: { inactivityHours: 12 },
+          payload: { inactivityHours: 1 },
         },
         {
           conversationId: "conv-agent",
           type: "conversation.auto_closed_inactive",
           actorType: "SYSTEM",
           actorId: null,
-          payload: { inactivityHours: 12 },
+          payload: { inactivityHours: 1 },
         },
       ],
     });

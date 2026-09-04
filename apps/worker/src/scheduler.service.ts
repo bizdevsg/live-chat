@@ -15,7 +15,7 @@ export class SchedulerService implements OnModuleInit {
 
   async onModuleInit() {
     await this.analyticsQueue.upsertJobScheduler("daily-analytics-aggregation", { pattern: "10 0 * * *" }, { name: "aggregate" });
-    await this.cleanupQueue.upsertJobScheduler("hourly-cleanup", { pattern: "0 * * * *" }, { name: "cleanup" });
-    this.logger.log("Scheduled recurring jobs: daily analytics aggregation (00:10), hourly cleanup.");
+    await this.cleanupQueue.upsertJobScheduler("hourly-cleanup", { pattern: "*/5 * * * *" }, { name: "cleanup" });
+    this.logger.log("Scheduled recurring jobs: daily analytics aggregation (00:10), cleanup every 5 minutes.");
   }
 }

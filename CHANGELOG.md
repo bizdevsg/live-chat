@@ -3,8 +3,42 @@
 Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
+### Added
+- Menambahkan `.pnpm-store/v11/index.db-shm`.
+- Menambahkan `.pnpm-store/v11/index.db-wal`.
+- Menambahkan `.pnpm-store/v11/index.db`.
+- Menambahkan `output/pdf/panduan-agent-solidchat.pdf`.
+- Menambahkan `output/pdf/panduan-operasional-agent-solidchat.pdf`.
+- Menambahkan `scripts/create_agent_tutorial_pdf.py`.
+- Menambahkan `scripts/create_live_agent_guide.py`.
+- Menambahkan `tmp/pdf-qa-live/page-1.png`.
+- Menambahkan `tmp/pdf-qa-live/page-2.png`.
+- Menambahkan `tmp/pdf-qa-live/page-3.png`.
+- Menambahkan `tmp/pdf-qa-live/page-4.png`.
+- Menambahkan `tmp/pdf-qa-live/page-5.png`.
+- Menambahkan `tmp/pdf-qa-live/page-6.png`.
+- Menambahkan `tmp/pdf-qa-new/page-1.png`.
+- Menambahkan `tmp/pdf-qa-new/page-2.png`.
+- Menambahkan `tmp/pdf-qa-new/page-3.png`.
+- Menambahkan `tmp/pdf-qa-new/page-4.png`.
+- Menambahkan `tmp/pdf-qa-new/page-5.png`.
+- Menambahkan `tmp/pdf-qa/page-1.png`.
+- Menambahkan `tmp/pdf-qa/page-2.png`.
+- Menambahkan `tmp/pdf-qa/page-3.png`.
+- Menambahkan `tmp/pdf-qa/page-4.png`.
+- Menambahkan `tmp/pdf-qa/page-5.png`.
+- Menambahkan `tmp/pdf-qa/page-6.png`.
+
 ### Changed
 - Memperbarui `.github/workflows/auto-version-release.yml`.
+- Memperbarui `apps/api/src/agent/agent.controller.ts`.
+- Memperbarui `apps/api/src/agent/agent.service.ts`.
+- Memperbarui `apps/api/src/conversations/conversations.service.spec.ts`.
+- Memperbarui `apps/api/src/conversations/conversations.service.ts`.
+- Memperbarui `apps/dashboard/src/app/(dashboard)/inbox/layout.tsx`.
+- Memperbarui `apps/worker/src/cleanup/cleanup.processor.spec.ts`.
+- Memperbarui `apps/worker/src/cleanup/cleanup.processor.ts`.
+- Memperbarui `apps/worker/src/scheduler.service.ts`.
 
 ## [0.4.1] - 2026-09-04
 ### Added

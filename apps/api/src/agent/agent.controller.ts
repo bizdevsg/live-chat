@@ -41,6 +41,12 @@ export class AgentController {
     return { success: true, data };
   }
 
+  @Get("closed")
+  async closedByVisitorWithoutAgentReply(@CurrentUser() user: JwtAccessPayload) {
+    const data = await this.agentService.closedByVisitorWithoutAgentReply(user);
+    return { success: true, data };
+  }
+
   @Get("conversations/:id")
   async getConversation(@Param("id") id: string, @CurrentUser() user: JwtAccessPayload) {
     const data = await this.agentService.getConversationDetail(user, id);

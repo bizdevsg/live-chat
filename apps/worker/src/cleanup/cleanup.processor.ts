@@ -6,7 +6,7 @@ import { PrismaService } from "../prisma.service";
 /** Retention housekeeping (§31, §37): expired sessions/reset tokens are pruned, not audit/financial data. */
 @Processor(QUEUE_NAMES.CLEANUP)
 export class CleanupProcessor extends WorkerHost {
-  private static readonly AUTO_CLOSE_INACTIVITY_HOURS = 12;
+  private static readonly AUTO_CLOSE_INACTIVITY_HOURS = 1;
   private static readonly FINAL_CONVERSATION_STATUSES = [
     ConversationStatus.RESOLVED,
     ConversationStatus.CLOSED,

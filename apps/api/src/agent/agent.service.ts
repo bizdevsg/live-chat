@@ -51,7 +51,7 @@ export class AgentService {
       where: {
         organizationId: user.organizationId,
         assignedAgentId: null,
-        status: { in: [ConversationStatus.AI_ACTIVE, ConversationStatus.QUEUED, ConversationStatus.WAITING_AGENT, ConversationStatus.RESOLVED, ConversationStatus.CLOSED] },
+        status: { in: [ConversationStatus.AI_ACTIVE, ConversationStatus.QUEUED, ConversationStatus.WAITING_AGENT, ConversationStatus.RESOLVED] },
         OR: [{ firstMessageAt: { not: null } }, { leads: { some: {} } }],
         ...(teamIds ? { assignedTeamId: { in: teamIds } } : {}),
       },
@@ -90,6 +90,27 @@ export class AgentService {
         status: status || undefined,
       },
       orderBy: { lastMessageAt: "desc" },
+      include: this.conversationListInclude(user.sub),
+    });
+  }
+
+  /**
+   * Conversations abandoned by a visitor before any human agent replied. Keep these separate
+   * from the live queue so agents can review missed opportunities without mixing them into work
+   * that can still be accepted.
+   */
+  async closedByVisitorWithoutAgentReply(user: JwtAccessPayload) {
+    const canViewAll = user.permissions.includes(Permission.CONVERSATION_VIEW_ALL);
+    const teamIds = canViewAll ? undefined : await this.myTeamIds(user.sub);
+    return this.prisma.conversation.findMany({
+      where: {
+        organizationId: user.organizationId,
+        status: ConversationStatus.CLOSED,
+        events: { some: { type: "conversation.closed", actorType: "VISITOR" } },
+        messages: { none: { deletedAt: null, isInternal: false, senderType: "AGENT" } },
+        ...(teamIds ? { assignedTeamId: { in: teamIds } } : {}),
+      },
+      orderBy: [{ closedAt: "desc" }, { lastMessageAt: "desc" }, { createdAt: "desc" }],
       include: this.conversationListInclude(user.sub),
     });
   }
