@@ -535,36 +535,48 @@ export class ConversationsService {
       return this.getConversationOrThrow(conversationId);
     }
 
-    // Every agent on the target team is at capacity (or there is no team) — keep the visitor with
-    // the AI rather than a queue nobody is watching (§26). The conversation still carries its
-    // assignedTeamId + handoffReason, so it shows up in the dashboard queue for an agent to
-    // pick up manually the moment one is free.
+    // No team resolved at all — nothing to queue against, so keep the AI on the conversation
+    // rather than stranding the visitor.
+    if (!targetTeam) {
+      await this.prisma.conversation.update({
+        where: { id: conversationId },
+        data: { status: ConversationStatus.AI_ACTIVE, handlerType: HandlerType.AI, assignedAgentId: null },
+      });
+      await this.safelyCancelAgentReplyTimeout(conversationId);
+      await this.logEvent(conversationId, "handoff.deferred_no_team", "SYSTEM", null, { reason });
+      this.realtime.toConversation(conversationId, "conversation:updated", {
+        conversationId,
+        status: ConversationStatus.AI_ACTIVE,
+        handlerType: HandlerType.AI,
+        assignedAgentId: null,
+      });
+      this.realtime.toSite(conversation.siteId, "queue:updated", { conversationId });
+      return this.getConversationOrThrow(conversationId);
+    }
+
+    // No agent is free right now. Hold the visitor in the queue with a "connecting you to an agent"
+    // state (QUEUED) so whichever agent frees up first can pick the conversation up — plain
+    // first-come-first-served. It stays in every dashboard queue for the target team.
     await this.prisma.conversation.update({
       where: { id: conversationId },
-      data: { status: ConversationStatus.AI_ACTIVE, handlerType: HandlerType.AI, assignedAgentId: null },
+      data: { status: ConversationStatus.QUEUED, handlerType: HandlerType.NONE, assignedAgentId: null },
     });
     await this.safelyCancelAgentReplyTimeout(conversationId);
-    await this.logEvent(conversationId, "handoff.deferred_no_agent", "SYSTEM", null, { reason, teamId: targetTeam?.id });
-    await this.postSystemMessage(
-      conversationId,
-      "Semua agent kami sedang melayani pelanggan lain. Asisten AI akan tetap membantu Anda, dan Anda bisa mencoba menghubungi agent lagi nanti.",
-    );
+    await this.logEvent(conversationId, "handoff.requested", "SYSTEM", null, { reason, teamId: targetTeam.id, outcome: "queued" });
     this.realtime.toConversation(conversationId, "conversation:updated", {
       conversationId,
-      status: ConversationStatus.AI_ACTIVE,
-      handlerType: HandlerType.AI,
+      status: ConversationStatus.QUEUED,
+      handlerType: HandlerType.NONE,
       assignedAgentId: null,
     });
-    if (targetTeam) {
-      this.realtime.toTeam(targetTeam.id, "queue:updated", { conversationId, siteId: conversation.siteId });
-      this.notifications.notifyTeam(
-        targetTeam.id,
-        "NEW_WAITING_CONVERSATION",
-        "Conversation menunggu agent",
-        `Visitor meminta agent tapi semua sedang sibuk (alasan: ${reason}). AI menahan sementara.`,
-        { conversationId },
-      );
-    }
+    this.realtime.toTeam(targetTeam.id, "queue:updated", { conversationId, siteId: conversation.siteId });
+    this.notifications.notifyTeam(
+      targetTeam.id,
+      "NEW_WAITING_CONVERSATION",
+      "Conversation menunggu agent",
+      `Visitor meminta agent (alasan: ${reason}).`,
+      { conversationId },
+    );
     this.realtime.toSite(conversation.siteId, "queue:updated", { conversationId });
 
     return this.getConversationOrThrow(conversationId);

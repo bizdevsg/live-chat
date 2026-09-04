@@ -276,8 +276,8 @@ describe("ConversationsService.requestAgent (single active chat per agent)", () 
     });
   });
 
-  it("keeps the visitor with the AI when every agent is at capacity", async () => {
-    const { service, prisma } = createService({
+  it("queues the visitor for first-come-first-served pickup when every agent is at capacity", async () => {
+    const { service, prisma, notifications } = createService({
       onlineAgents: [{ userId: "agent-1", activeChatCount: 1, maxConcurrentChats: 1 }],
     });
 
@@ -285,14 +285,19 @@ describe("ConversationsService.requestAgent (single active chat per agent)", () 
 
     expect(prisma.conversation.update).toHaveBeenCalledWith({
       where: { id: "conv-1" },
-      data: { status: ConversationStatus.AI_ACTIVE, handlerType: HandlerType.AI, assignedAgentId: null },
+      data: { status: ConversationStatus.QUEUED, handlerType: HandlerType.NONE, assignedAgentId: null },
     });
-    expect(service.logEvent).toHaveBeenCalledWith("conv-1", "handoff.deferred_no_agent", "SYSTEM", null, {
+    expect(service.logEvent).toHaveBeenCalledWith("conv-1", "handoff.requested", "SYSTEM", null, {
       reason: "CUSTOMER_REQUESTED_HUMAN",
       teamId: "team-1",
+      outcome: "queued",
     });
-    expect(service.postMessage).toHaveBeenCalledWith(
-      expect.objectContaining({ content: expect.stringContaining("Semua agent kami sedang melayani") }),
+    expect(notifications.notifyTeam).toHaveBeenCalledWith(
+      "team-1",
+      "NEW_WAITING_CONVERSATION",
+      expect.any(String),
+      expect.any(String),
+      { conversationId: "conv-1" },
     );
   });
 
