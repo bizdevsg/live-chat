@@ -9,6 +9,10 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 ### Changed
 - Memperbarui `.dockerignore`.
 - Memperbarui `.gitignore`.
+- Memperbarui `package.json`.
+
+### Fixed
+- Remove tmp folder.
 
 ### Removed
 - Menghapus `tmp/pdf-qa-live/page-1.png`.
