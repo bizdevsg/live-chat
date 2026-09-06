@@ -3,6 +3,9 @@
 Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
+- Belum ada perubahan terdeteksi.
+
+## [0.4.4] - 2026-09-06
 ### Added
 - Menambahkan `db/db-live-chat.sql`.
 
@@ -10,8 +13,10 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 - Memperbarui `.dockerignore`.
 - Memperbarui `.gitignore`.
 - Memperbarui `package.json`.
+- Sync dev with remote v0.4.3.
 
 ### Fixed
+- Db.
 - Remove tmp folder.
 
 ### Removed
@@ -167,7 +172,8 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 - Memperbarui `apps/dashboard/src/app/(dashboard)/knowledge/page.tsx`.
 - Memperbarui `package.json`.
 
-[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.4.2...HEAD
+[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.4.4...HEAD
+[0.4.4]: https://github.com/bizdevsg/live-chat/compare/v0.4.2...v0.4.4
 [0.4.2]: https://github.com/bizdevsg/live-chat/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/bizdevsg/live-chat/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/bizdevsg/live-chat/compare/v0.3.1...v0.4.0
