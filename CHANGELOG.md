@@ -3,6 +3,9 @@
 Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
+### Added
+- Menambahkan `db/db-live-chat.sql`.
+
 ### Changed
 - Memperbarui `.dockerignore`.
 - Memperbarui `.gitignore`.
