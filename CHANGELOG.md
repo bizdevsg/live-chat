@@ -21,6 +21,13 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 - .github.
 - Role access.
 
+## [0.4.5] - 2026-09-08
+### Changed
+- Memperbarui `package.json`.
+
+### Fixed
+- .github.
+
 ## [0.4.4] - 2026-09-06
 ### Added
 - Menambahkan `apps/api/src/auth/auth-cookies.util.ts`.
@@ -210,7 +217,8 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 - Memperbarui `package.json`.
 
 [Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.4.6...HEAD
-[0.4.6]: https://github.com/bizdevsg/live-chat/compare/v0.4.4...v0.4.6
+[0.4.6]: https://github.com/bizdevsg/live-chat/compare/v0.4.5...v0.4.6
+[0.4.5]: https://github.com/bizdevsg/live-chat/compare/v0.4.4...v0.4.5
 [0.4.4]: https://github.com/bizdevsg/live-chat/compare/v0.4.2...v0.4.4
 [0.4.2]: https://github.com/bizdevsg/live-chat/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/bizdevsg/live-chat/compare/v0.4.0...v0.4.1
