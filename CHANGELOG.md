@@ -3,6 +3,10 @@
 Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
+### Changed
+- Memperbarui `package.json`.
+
+## [0.4.4] - 2026-09-06
 ### Added
 - Menambahkan `apps/api/src/auth/auth-cookies.util.ts`.
 - Menambahkan `apps/api/src/auth/clara-sso/clara-id-token.util.ts`.
@@ -34,6 +38,7 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 - Memperbarui `scripts/resolve-version-bump.mjs`.
 
 ### Fixed
+- Db.
 - Remove tmp folder.
 
 ### Removed
@@ -189,7 +194,8 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 - Memperbarui `apps/dashboard/src/app/(dashboard)/knowledge/page.tsx`.
 - Memperbarui `package.json`.
 
-[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.4.2...HEAD
+[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.4.4...HEAD
+[0.4.4]: https://github.com/bizdevsg/live-chat/compare/v0.4.2...v0.4.4
 [0.4.2]: https://github.com/bizdevsg/live-chat/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/bizdevsg/live-chat/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/bizdevsg/live-chat/compare/v0.3.1...v0.4.0
