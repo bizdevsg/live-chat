@@ -27,7 +27,8 @@ declare global {
 }
 
 const FLOATING_BOTTOM_OFFSET = 40;
-const PANEL_BOTTOM_OFFSET = FLOATING_BOTTOM_OFFSET;
+// The open chat panel sits closer to the bottom edge than the bubble does.
+const PANEL_BOTTOM_OFFSET = 16;
 // Below Tailwind's `md` breakpoint (768px) the panel goes full-screen instead of floating.
 const MOBILE_MEDIA_QUERY = "(max-width: 767.98px)";
 
@@ -105,7 +106,7 @@ function init() {
       100% { box-shadow: 0 0 0 0 rgba(229,72,77,0); }
     }
     .panel { position: fixed; bottom: ${PANEL_BOTTOM_OFFSET}px; ${config.position === "bottom-left" ? "left: 20px;" : "right: 20px;"}
-      width: 370px; height: 560px; max-height: calc(100vh - 120px); border: none; border-radius: 16px;
+      width: 440px; max-width: calc(100vw - 40px); height: 720px; max-height: calc(100vh - 120px); border: none; border-radius: 16px;
       box-shadow: 0 10px 40px rgba(0,0,0,.45); display: none; background: #0b0b0c; }
     .panel.open { display: block; }
     @media ${MOBILE_MEDIA_QUERY} {

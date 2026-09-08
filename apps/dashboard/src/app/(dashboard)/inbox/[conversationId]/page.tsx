@@ -16,6 +16,20 @@ import { Modal } from "@/components/ui/modal";
 import { AutoReturnCountdown } from "@/components/inbox/auto-return-countdown";
 import { Permission } from "@/lib/permissions";
 import type { ConversationDetail, MessageItem, MessageReceiptItem } from "@/lib/types";
+import { ImagePlus, Send, X } from "lucide-react";
+
+const ALLOWED_IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp"];
+const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+
+function ImageAttachment({ conversationId, attachment }: { conversationId: string; attachment: NonNullable<MessageItem["attachments"]>[number] }) {
+  const image = useQuery({
+    queryKey: ["agent", "attachment", attachment.id],
+    queryFn: () => apiClient.get<{ url: string }>(`/api/v1/agent/conversations/${conversationId}/attachments/${attachment.id}/url`),
+  });
+
+  if (!image.data?.url) return <div className="mt-2 h-36 w-56 animate-pulse rounded-xl bg-black/10" />;
+  return <img src={image.data.url} alt="Lampiran gambar" className="block max-h-80 max-w-full rounded-xl object-contain" />;
+}
 
 function hasReceipt(message: Pick<MessageItem, "receipts">, readerType: string, readerId?: string | null) {
   return (
@@ -106,6 +120,7 @@ function MessageBubble({ message, showSeen }: { message: MessageItem; showSeen?:
   const isSystem = message.senderType === "SYSTEM" || message.messageType === "SYSTEM";
   const isSuggestion = message.messageType === "AI_SUGGESTION";
   const isNote = message.messageType === "INTERNAL_NOTE";
+  const hasImage = message.messageType === "IMAGE" && (message.attachments?.length ?? 0) > 0;
   const messageTime = formatMessageTime(message.createdAt);
 
   if (isNote) {
@@ -134,13 +149,15 @@ function MessageBubble({ message, showSeen }: { message: MessageItem; showSeen?:
   return (
     <div className={`flex ${mine ? "justify-end" : "justify-start"}`}>
       <div className="max-w-md">
+        <div className={`mb-0.5 px-1 text-[10px] uppercase tracking-wide opacity-60 ${mine ? "text-right" : "text-left"}`}>{message.senderType}</div>
         <div
-          className={`rounded-2xl px-4 py-2 text-sm ${
-            mine ? "bg-gold-500 text-ink-900" : isAi ? "border border-blue-800 bg-blue-950 text-blue-100" : "bg-ink-700 text-zinc-100"
-          }`}
+          className={`rounded-2xl text-sm ${hasImage ? "p-1.5" : "px-4 py-2"} ${mine ? "rounded-br-sm bg-gold-500 text-ink-900" : isAi ? "rounded-bl-sm border border-blue-800 bg-blue-950 text-blue-100" : "rounded-bl-sm bg-ink-700 text-zinc-100"
+            }`}
         >
-          <div className="mb-0.5 text-[10px] uppercase tracking-wide opacity-60">{message.senderType}</div>
-          <div className="whitespace-pre-wrap">{message.content}</div>
+          {hasImage ? <div className="grid gap-1">{message.attachments?.map((attachment) => (
+            <ImageAttachment key={attachment.id} conversationId={message.conversationId} attachment={attachment} />
+          ))}</div> : null}
+          {message.content?.trim() ? <div className={`whitespace-pre-wrap ${hasImage ? "px-1.5 pb-0.5 pt-1" : ""}`}>{message.content}</div> : null}
         </div>
         <div className={`mt-1 flex items-center gap-2 text-[11px] text-zinc-500 ${mine ? "justify-end" : "justify-start"}`}>
           {messageTime ? <span>{messageTime}</span> : null}
@@ -167,9 +184,16 @@ export default function ConversationDetailPage() {
   const [ticketOpen, setTicketOpen] = useState(false);
   const [visitorTyping, setVisitorTyping] = useState(false);
   const [aiTyping, setAiTyping] = useState(false);
+  const [pendingImage, setPendingImage] = useState<{ file: File; previewUrl: string } | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
   const typingStopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const agentReadMessageIdsRef = useRef(new Set<string>());
+
+  useEffect(() => {
+    if (!pendingImage) return;
+    return () => URL.revokeObjectURL(pendingImage.previewUrl);
+  }, [pendingImage]);
 
   const detailQuery = useQuery({
     queryKey: ["agent", "conversation", conversationId],
@@ -333,6 +357,23 @@ export default function ConversationDetailPage() {
   }
 
   const sendMessage = useActionMutation(`/api/v1/agent/conversations/${conversationId}/messages`);
+  const uploadImage = useMutation({
+    mutationFn: ({ file, content }: { file: File; content: string }) => {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("content", content);
+      formData.append("clientMessageId", crypto.randomUUID());
+      return apiClient.upload(`/api/v1/agent/conversations/${conversationId}/images`, formData);
+    },
+    onSuccess: () => {
+      setPendingImage(null);
+      setDraft("");
+      if (imageInputRef.current) imageInputRef.current.value = "";
+      queryClient.invalidateQueries({ queryKey: ["agent", "conversation", conversationId] });
+      toast.push("Gambar berhasil dikirim.", "success");
+    },
+    onError: (err) => toast.push(err instanceof ApiError ? err.message : "Gagal mengunggah gambar.", "error"),
+  });
   const sendNote = useActionMutation(`/api/v1/agent/conversations/${conversationId}/internal-notes`);
   const accept = useActionMutation(`/api/v1/agent/conversations/${conversationId}/accept`);
   const takeover = useActionMutation(`/api/v1/agent/conversations/${conversationId}/takeover`);
@@ -384,7 +425,7 @@ export default function ConversationDetailPage() {
         ? "Conversation ini sudah ditutup. Reopen dulu kalau mau membalas lagi."
         : isClosed
           ? "Conversation ini sudah di-close dan tidak bisa dibuka lagi."
-        : "Chat ini harus diambil dulu sebelum bisa dibalas.";
+          : "Chat ini harus diambil dulu sebelum bisa dibalas.";
 
   function stopAgentTyping() {
     if (typingStopTimerRef.current) clearTimeout(typingStopTimerRef.current);
@@ -505,16 +546,43 @@ export default function ConversationDetailPage() {
             </div>
           ) : null}
           <div className="flex flex-col gap-2 sm:flex-row">
+            <input
+              ref={imageInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              className="hidden"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (!file) return;
+                if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+                  toast.push("Format gambar harus PNG, JPEG, atau WEBP.", "error");
+                  event.target.value = "";
+                  return;
+                }
+                if (file.size > MAX_IMAGE_BYTES) {
+                  toast.push("Ukuran gambar maksimal 10 MB.", "error");
+                  event.target.value = "";
+                  return;
+                }
+                setPendingImage({ file, previewUrl: URL.createObjectURL(file) });
+                event.target.value = "";
+              }}
+            />
+
             <Textarea
               value={draft}
               onChange={(e) => handleDraftChange(e.target.value)}
-              placeholder={canReply ? "Tulis balasan..." : "Accept chat dulu sebelum membalas..."}
+              placeholder={pendingImage ? "Tambahkan pesan (opsional)..." : canReply ? "Tulis balasan..." : "Accept chat dulu sebelum membalas..."}
               className="min-h-[60px]"
-              disabled={!canReply}
+              disabled={!canReply || uploadImage.isPending}
               onKeyDown={(e) => {
                 if (!canReply) return;
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
+                  if (pendingImage) {
+                    uploadImage.mutate({ file: pendingImage.file, content: draft.trim() });
+                    return;
+                  }
                   const exactTemplate = matchingTemplates.find((template) => template.shortcut.toLowerCase() === shortcutQuery);
                   if (exactTemplate) {
                     insertResponseTemplate(exactTemplate);
@@ -528,19 +596,47 @@ export default function ConversationDetailPage() {
                 }
               }}
             />
-            <Button
-              className="sm:self-end"
-              disabled={!canReply}
-              onClick={() => {
-                if (!canReply || !draft.trim()) return;
-                sendMessage.mutate({ content: draft, clientMessageId: crypto.randomUUID() });
-                setDraft("");
-                stopAgentTyping();
-              }}
-            >
-              Kirim
-            </Button>
+
+            <div className="flex flex-col items-center justify-between gap-1.5">
+              <Button
+                className="sm:self-end"
+                disabled={!canReply || uploadImage.isPending || (!draft.trim() && !pendingImage)}
+                onClick={() => {
+                  if (!canReply || uploadImage.isPending) return;
+                  if (pendingImage) {
+                    uploadImage.mutate({ file: pendingImage.file, content: draft.trim() });
+                    return;
+                  }
+                  if (!draft.trim()) return;
+                  sendMessage.mutate({ content: draft, clientMessageId: crypto.randomUUID() });
+                  setDraft("");
+                  stopAgentTyping();
+                }}
+              >
+                <Send />
+              </Button>
+
+              <Button variant="secondary" className="sm:self-end" disabled={!canReply || uploadImage.isPending || !!pendingImage} onClick={() => imageInputRef.current?.click()}>
+                <ImagePlus />
+              </Button>
+            </div>
           </div>
+
+          {pendingImage ? (
+            <div className="mt-2 flex items-center justify-between gap-3 rounded-xl border border-ink-600 bg-ink-800 px-3 py-2 text-xs text-zinc-300">
+              <img src={pendingImage.previewUrl} alt="" className="h-14 w-14 shrink-0 rounded-lg object-cover" />
+              <span className="min-w-0 flex-1 truncate">Gambar akan dikirim bersama pesan</span>
+              <Button
+                variant="ghost"
+                className="h-8 w-8 px-0"
+                aria-label="Hapus gambar"
+                disabled={uploadImage.isPending}
+                onClick={() => setPendingImage(null)}
+              >
+                <X />
+              </Button>
+            </div>
+          ) : null}
           <div className="mt-2 flex flex-col gap-2 sm:flex-row">
             <Input
               value={note}

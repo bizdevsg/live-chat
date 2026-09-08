@@ -1,8 +1,9 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post, Req, UseGuards } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Get, HttpCode, HttpStatus, Param, Post, Req, UploadedFile, UseGuards, UseInterceptors } from "@nestjs/common";
 import { Throttle } from "@nestjs/throttler";
 import { ApiTags } from "@nestjs/swagger";
 import type { Request } from "express";
-import { HandoffReason, MessageType, SenderType } from "@solidchat/shared";
+import { HandoffReason, HandlerType, MAX_ATTACHMENT_SIZE_BYTES, MessageType, SenderType } from "@solidchat/shared";
+import { FileInterceptor } from "@nestjs/platform-express";
 import { Public } from "../common/decorators/public.decorator";
 import { WidgetService } from "./widget.service";
 import { ConversationsService } from "../conversations/conversations.service";
@@ -20,6 +21,8 @@ import {
 } from "./dto/widget.dto";
 import { CreateLeadDto } from "../leads/dto/lead.dto";
 import { WidgetRateLimitService } from "./widget-rate-limit.service";
+import { StorageService } from "../storage/storage.service";
+import { assertValidImageUpload, imageExtension } from "../common/utils/image-upload";
 
 @ApiTags("widget")
 @Public()
@@ -32,6 +35,7 @@ export class WidgetController {
     private readonly leadsService: LeadsService,
     private readonly ticketsService: TicketsService,
     private readonly widgetRateLimit: WidgetRateLimitService,
+    private readonly storage: StorageService,
   ) {}
 
   @Get("config/:siteId")
@@ -97,6 +101,39 @@ export class WidgetController {
     // never break the visitor-facing send acknowledgement.
     this.aiOrchestrator.scheduleVisitorTurn(id).catch(() => undefined);
     return { success: true, data: result.message };
+  }
+
+  @UseGuards(VisitorAuthGuard)
+  @Post("conversations/:id/images")
+  @UseInterceptors(FileInterceptor("file", { limits: { fileSize: MAX_ATTACHMENT_SIZE_BYTES } }))
+  async uploadImage(@Param("id") id: string, @UploadedFile() file: Express.Multer.File, @Body() dto: SendWidgetMessageDto, @Req() req: VisitorRequest) {
+    await this.widgetRateLimit.consume("image", req.visitor.siteId, req.visitor.visitorId, { limit: 6, windowMs: 60 * 60_000, message: "Terlalu banyak upload gambar. Coba lagi nanti." });
+    const conversation = await this.widgetService.assertOwnership(id, req.visitor.visitorId);
+    if (conversation.handlerType !== HandlerType.HUMAN || !conversation.assignedAgentId) {
+      throw new BadRequestException("Gambar hanya dapat dikirim saat conversation sedang ditangani agent.");
+    }
+    assertValidImageUpload(file);
+    const storageKey = this.storage.buildStorageKey(`conversations/${id}`, `image${imageExtension(file.mimetype)}`);
+    await this.storage.upload(storageKey, file.buffer, file.mimetype);
+    try {
+      const result = await this.conversations.postMessage({
+        conversationId: id, senderType: SenderType.VISITOR, content: dto.content?.trim() || "", messageType: MessageType.IMAGE,
+        clientMessageId: dto.clientMessageId, attachments: [{ storageKey, fileName: file.originalname, mimeType: file.mimetype, sizeBytes: file.size }],
+      });
+      if (!result.created) await this.storage.remove(storageKey).catch(() => undefined);
+      return { success: true, data: result.message };
+    } catch (error) {
+      await this.storage.remove(storageKey).catch(() => undefined);
+      throw error;
+    }
+  }
+
+  @UseGuards(VisitorAuthGuard)
+  @Get("conversations/:conversationId/attachments/:attachmentId/url")
+  async attachmentUrl(@Param("conversationId") conversationId: string, @Param("attachmentId") attachmentId: string, @Req() req: VisitorRequest) {
+    await this.widgetService.assertOwnership(conversationId, req.visitor.visitorId);
+    const attachment = await this.conversations.getPublicAttachment(conversationId, attachmentId);
+    return { success: true, data: { url: await this.storage.getSignedDownloadUrl(attachment.storageKey) } };
   }
 
   @UseGuards(VisitorAuthGuard)

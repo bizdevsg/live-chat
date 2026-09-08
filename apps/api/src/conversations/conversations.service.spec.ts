@@ -92,9 +92,11 @@ describe("ConversationsService.autoReturnToAiOnAgentTimeout", () => {
         aiRunId: null,
         metadata: null,
         senderName: null,
+        attachments: [],
       },
       sensitiveDataDetected: false,
       promptInjectionDetected: false,
+      created: true,
     });
 
     return { service, prisma, realtime };

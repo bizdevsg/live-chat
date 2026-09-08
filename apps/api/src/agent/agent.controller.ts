@@ -1,13 +1,16 @@
-import { Body, Controller, Get, Param, Post, Query, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Param, Post, Query, UploadedFile, UseGuards, UseInterceptors } from "@nestjs/common";
+import { FileInterceptor } from "@nestjs/platform-express";
 import { ApiTags } from "@nestjs/swagger";
-import { Permission, type JwtAccessPayload } from "@solidchat/shared";
+import { MAX_ATTACHMENT_SIZE_BYTES, MessageType, Permission, type JwtAccessPayload } from "@solidchat/shared";
 import { PermissionsGuard } from "../common/guards/permissions.guard";
 import { RequirePermissions } from "../common/decorators/permissions.decorator";
 import { CurrentUser } from "../common/decorators/current-user.decorator";
 import { AgentService } from "./agent.service";
 import { ConversationsService } from "../conversations/conversations.service";
 import { AiOrchestratorService } from "../ai/ai-orchestrator.service";
+import { StorageService } from "../storage/storage.service";
 import { FindCrmCustomerByEmailDto, InternalNoteDto, SendAgentMessageDto, TransferConversationDto, UpdateAgentStatusDto } from "./dto/agent.dto";
+import { assertValidImageUpload, imageExtension } from "../common/utils/image-upload";
 
 @ApiTags("agent")
 @UseGuards(PermissionsGuard)
@@ -18,6 +21,7 @@ export class AgentController {
     private readonly agentService: AgentService,
     private readonly conversations: ConversationsService,
     private readonly aiOrchestrator: AiOrchestratorService,
+    private readonly storage: StorageService,
   ) {}
 
   @Get("queue")
@@ -93,6 +97,34 @@ export class AgentController {
       clientMessageId: dto.clientMessageId,
     });
     return { success: true, data: result.message };
+  }
+
+  @Post("conversations/:id/images")
+  @UseInterceptors(FileInterceptor("file", { limits: { fileSize: MAX_ATTACHMENT_SIZE_BYTES } }))
+  async uploadImage(@Param("id") id: string, @UploadedFile() file: Express.Multer.File, @Body() dto: SendAgentMessageDto, @CurrentUser() user: JwtAccessPayload) {
+    await this.agentService.assertConversationAccess(user, id);
+    assertValidImageUpload(file);
+    const storageKey = this.storage.buildStorageKey(`conversations/${id}`, `image${imageExtension(file.mimetype)}`);
+    await this.storage.upload(storageKey, file.buffer, file.mimetype);
+    try {
+      const result = await this.conversations.postMessage({
+        conversationId: id, senderType: "AGENT", senderId: user.sub, content: dto.content?.trim() || "",
+        clientMessageId: dto.clientMessageId, messageType: MessageType.IMAGE,
+        attachments: [{ storageKey, fileName: file.originalname, mimeType: file.mimetype, sizeBytes: file.size }],
+      });
+      if (!result.created) await this.storage.remove(storageKey).catch(() => undefined);
+      return { success: true, data: result.message };
+    } catch (error) {
+      await this.storage.remove(storageKey).catch(() => undefined);
+      throw error;
+    }
+  }
+
+  @Get("conversations/:conversationId/attachments/:attachmentId/url")
+  async attachmentUrl(@Param("conversationId") conversationId: string, @Param("attachmentId") attachmentId: string, @CurrentUser() user: JwtAccessPayload) {
+    await this.agentService.assertConversationAccess(user, conversationId);
+    const attachment = await this.agentService.getAttachment(conversationId, attachmentId);
+    return { success: true, data: { url: await this.storage.getSignedDownloadUrl(attachment.storageKey) } };
   }
 
   @Post("conversations/:id/internal-notes")

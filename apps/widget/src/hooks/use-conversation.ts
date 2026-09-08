@@ -6,12 +6,24 @@ import type { SitePresenceStatus } from "./use-widget-session";
 
 export interface WidgetMessage {
   id: string;
+  conversationId: string;
   senderType: string;
   messageType: string;
   content: string;
   createdAt: string;
   clientMessageId?: string | null;
   senderName?: string | null;
+  attachments?: Array<{ id: string; fileName: string; mimeType: string }>;
+}
+
+function mergeMessage(messages: WidgetMessage[], incoming: WidgetMessage): WidgetMessage[] {
+  const existingIndex = messages.findIndex(
+    (message) => message.id === incoming.id || (!!incoming.clientMessageId && message.id === incoming.clientMessageId),
+  );
+  if (existingIndex === -1) return [...messages, incoming];
+  const next = messages.slice();
+  next[existingIndex] = incoming;
+  return next;
 }
 
 function isReplyMessage(message: Pick<WidgetMessage, "senderType">) {
@@ -96,18 +108,7 @@ export function useConversation(
           widgetStorage.clearAgentRequestStartedAt(conv.id);
         }
         if (isReplyMessage(payload.message)) setLastIncomingReply(payload.message);
-        setMessages((prev) => {
-          const incoming = payload.message;
-          const existingIndex = prev.findIndex(
-            (m) => m.id === incoming.id || (!!incoming.clientMessageId && m.id === incoming.clientMessageId),
-          );
-          if (existingIndex !== -1) {
-            const next = prev.slice();
-            next[existingIndex] = incoming;
-            return next;
-          }
-          return [...prev, incoming];
-        });
+        setMessages((prev) => mergeMessage(prev, payload.message));
       });
       socket.on("conversation:updated", (payload: { conversationId: string; status?: string; handlerType?: string }) => {
         if (payload.conversationId !== conv.id) return;
@@ -309,9 +310,23 @@ export function useConversation(
       const clientMessageId = crypto.randomUUID();
       setMessages((prev) => [
         ...prev,
-        { id: clientMessageId, clientMessageId, senderType: "VISITOR", messageType: "TEXT", content, createdAt: new Date().toISOString() },
+        { id: clientMessageId, conversationId: conversation.id, clientMessageId, senderType: "VISITOR", messageType: "TEXT", content, createdAt: new Date().toISOString() },
       ]);
       api.post(`/api/v1/widget/conversations/${conversation.id}/messages`, { content, clientMessageId }, visitorToken).catch(() => undefined);
+    },
+    [conversation, visitorToken],
+  );
+
+  const uploadImage = useCallback(
+    (file: File, content: string) => {
+      if (!conversation || !visitorToken || conversation.handlerType !== "HUMAN") return Promise.reject(new Error("Agent belum menangani conversation ini."));
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("content", content);
+      formData.append("clientMessageId", crypto.randomUUID());
+      return api.upload(`/api/v1/widget/conversations/${conversation.id}/images`, formData, visitorToken).then((message) => {
+        setMessages((prev) => mergeMessage(prev, message as WidgetMessage));
+      });
     },
     [conversation, visitorToken],
   );
@@ -375,8 +390,8 @@ export function useConversation(
 
   const submitFeedback = useCallback(
     (score: number, comment?: string) => {
-      if (!conversation || !visitorToken) return;
-      api.post(`/api/v1/widget/conversations/${conversation.id}/feedback`, { score, comment }, visitorToken).catch(() => undefined);
+      if (!conversation || !visitorToken) return Promise.reject(new Error("Conversation tidak tersedia."));
+      return api.post(`/api/v1/widget/conversations/${conversation.id}/feedback`, { score, comment }, visitorToken);
     },
     [conversation, visitorToken],
   );
@@ -428,8 +443,10 @@ export function useConversation(
     agentConnecting,
     agentReplyRemainingSeconds,
     agentReplyTimedOut,
+    agentHandling,
     canRequestAgent,
     sendMessage,
+    uploadImage,
     requestAgent,
     closeConversation,
     startNewConversation,

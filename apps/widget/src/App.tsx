@@ -57,7 +57,9 @@ export default function App() {
     agentReplyRemainingSeconds,
     agentReplyTimedOut,
     canRequestAgent,
+    agentHandling,
     sendMessage,
+    uploadImage,
     requestAgent,
     closeConversation,
     startNewConversation,
@@ -167,9 +169,8 @@ export default function App() {
 
   const [showRating, setShowRating] = useState(false);
   useEffect(() => {
-    if (conversation?.status === "RESOLVED" || conversation?.status === "CLOSED") {
-      if (config?.settings?.ratingFormEnabled) setShowRating(true);
-    }
+    const conversationEnded = conversation?.status === "RESOLVED" || conversation?.status === "CLOSED";
+    setShowRating(Boolean(conversationEnded && config?.settings?.ratingFormEnabled));
   }, [conversation?.status, config?.settings?.ratingFormEnabled]);
 
   const conversationEnded = conversation?.status === "RESOLVED" || conversation?.status === "CLOSED";
@@ -301,11 +302,18 @@ export default function App() {
         aiTyping={aiTyping}
         agentConnecting={agentConnecting}
         agentReplyRemainingSeconds={agentReplyRemainingSeconds}
-        agentReplyTimedOut={agentReplyTimedOut}
+          agentReplyTimedOut={agentReplyTimedOut}
+          visitorToken={visitorToken ?? ""}
       />
       {showRating ? (
         <div className="px-4 pb-3">
-          <RatingForm widgetColor={config.widgetColor} onSubmit={(score, comment) => submitFeedback(score, comment)} />
+          <RatingForm
+            widgetColor={config.widgetColor}
+            onSubmit={async (score, comment) => {
+              await submitFeedback(score, comment);
+              setShowRating(false);
+            }}
+          />
         </div>
       ) : null}
       {conversationEnded ? (
@@ -332,9 +340,11 @@ export default function App() {
           config={config}
           disabled={!connected}
           onSend={sendMessage}
+          onUploadImage={uploadImage}
           onTyping={notifyTyping}
           onRequestAgent={requestAgent}
           canRequestAgent={canRequestAgent}
+          canUploadImage={agentHandling}
         />
       )}
     </div>

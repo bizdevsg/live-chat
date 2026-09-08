@@ -16,17 +16,37 @@ export interface UploadedObject {
 export class StorageService implements OnModuleInit {
   private readonly logger = new Logger(StorageService.name);
   private readonly client: Client;
+  // Signs download URLs against a browser-reachable endpoint. A presigned URL binds the `host`
+  // header into its signature, so a URL signed for the API's internal endpoint (e.g.
+  // http://minio:9000) fails in the operator's/visitor's browser — it can't resolve that
+  // hostname, and rewriting the host afterwards invalidates the signature. Identical to
+  // `client` when S3_PUBLIC_ENDPOINT is unset or matches S3_ENDPOINT.
+  private readonly signingClient: Client;
   private readonly bucket: string;
 
   constructor(private readonly config: ConfigService) {
-    const endpoint = new URL(this.config.get<string>("S3_ENDPOINT") ?? "http://localhost:9000");
-    this.client = new Client({
-      endPoint: endpoint.hostname,
-      port: Number(endpoint.port) || (endpoint.protocol === "https:" ? 443 : 80),
-      useSSL: endpoint.protocol === "https:",
+    const region = this.config.get<string>("S3_REGION") ?? "us-east-1";
+    const credentials = {
       accessKey: this.config.get<string>("S3_ACCESS_KEY") ?? "",
       secretKey: this.config.get<string>("S3_SECRET_KEY") ?? "",
-    });
+    };
+    const clientForEndpoint = (raw: string) => {
+      const url = new URL(raw);
+      return new Client({
+        endPoint: url.hostname,
+        port: Number(url.port) || (url.protocol === "https:" ? 443 : 80),
+        useSSL: url.protocol === "https:",
+        // Set explicitly so presignedGetObject never makes a region-lookup round-trip — the
+        // public signing endpoint is typically unreachable from inside the container.
+        region,
+        ...credentials,
+      });
+    };
+
+    const endpoint = this.config.get<string>("S3_ENDPOINT") ?? "http://localhost:9000";
+    const publicEndpoint = this.config.get<string>("S3_PUBLIC_ENDPOINT")?.trim() || endpoint;
+    this.client = clientForEndpoint(endpoint);
+    this.signingClient = publicEndpoint === endpoint ? this.client : clientForEndpoint(publicEndpoint);
     this.bucket = this.config.get<string>("S3_BUCKET") ?? "solidchat";
   }
 
@@ -53,7 +73,7 @@ export class StorageService implements OnModuleInit {
   }
 
   async getSignedDownloadUrl(storageKey: string, expirySeconds = 300): Promise<string> {
-    return this.client.presignedGetObject(this.bucket, storageKey, expirySeconds);
+    return this.signingClient.presignedGetObject(this.bucket, storageKey, expirySeconds);
   }
 
   async remove(storageKey: string): Promise<void> {

@@ -3,7 +3,28 @@
 Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
-- Belum ada perubahan terdeteksi.
+### Added
+- Menambahkan `apps/api/src/common/utils/image-upload.ts`.
+- Menambahkan `apps/widget/public/bg-live-chat.png`.
+
+### Changed
+- Memperbarui `.env.example`.
+- Memperbarui `apps/api/src/agent/agent.controller.ts`.
+- Memperbarui `apps/api/src/agent/agent.service.ts`.
+- Memperbarui `apps/api/src/config/env.validation.ts`.
+- Memperbarui `apps/api/src/conversations/conversations.service.spec.ts`.
+- Memperbarui `apps/api/src/conversations/conversations.service.ts`.
+- Memperbarui `apps/api/src/storage/storage.service.ts`.
+- Memperbarui `apps/api/src/widget/widget.controller.ts`.
+- Memperbarui `apps/dashboard/src/app/(dashboard)/inbox/[conversationId]/page.tsx`.
+- Memperbarui `apps/dashboard/src/lib/types.ts`.
+- Memperbarui `apps/widget-loader/src/loader.ts`.
+- Memperbarui `apps/widget/src/App.tsx`.
+- Memperbarui `apps/widget/src/components/Composer.tsx`.
+- Memperbarui `apps/widget/src/components/MessageList.tsx`.
+- Memperbarui `apps/widget/src/hooks/use-conversation.ts`.
+- Memperbarui `apps/widget/src/lib/api.ts`.
+- Memperbarui `docker-compose.yml`.
 
 ## [0.4.6] - 2026-09-08
 ### Added

@@ -1,8 +1,9 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
 import type { WidgetMessage } from "../hooks/use-conversation";
 import type { SiteConfig } from "../hooks/use-widget-session";
 import { RichText } from "../lib/rich-text";
+import { api } from "../lib/api";
 
 function getSenderStyle(senderType: WidgetMessage["senderType"]) {
   if (senderType === "AI") {
@@ -29,10 +30,17 @@ function formatMessageTime(value: string) {
   }).format(date);
 }
 
-function Bubble({ message, config }: { message: WidgetMessage; config: SiteConfig }) {
+function ImageAttachment({ conversationId, attachment, token }: { conversationId: string; attachment: NonNullable<WidgetMessage["attachments"]>[number]; token: string }) {
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => { api.get<{ url: string }>(`/api/v1/widget/conversations/${conversationId}/attachments/${attachment.id}/url`, token).then((data) => setUrl(data.url)).catch(() => setUrl(null)); }, [attachment.id, conversationId, token]);
+  return url ? <img src={url} alt="Lampiran gambar" className="block max-h-64 max-w-full rounded-xl object-contain" /> : null;
+}
+
+function Bubble({ message, config, token }: { message: WidgetMessage; config: SiteConfig; token: string }) {
   const isVisitor = message.senderType === "VISITOR" || message.senderType === "CUSTOMER";
   const isAi = message.senderType === "AI";
   const isSystem = message.senderType === "SYSTEM";
+  const hasImage = message.messageType === "IMAGE" && (message.attachments?.length ?? 0) > 0;
   const senderStyle = getSenderStyle(message.senderType);
   const senderLabel = isAi ? config.aiName : message.senderName?.trim() || "Agent";
   const messageTime = formatMessageTime(message.createdAt);
@@ -48,15 +56,18 @@ function Bubble({ message, config }: { message: WidgetMessage; config: SiteConfi
       <div className="max-w-[80%]">
         {!isVisitor && <div className={`mb-0.5 ml-1 text-[10px] ${senderStyle.label}`}>{senderLabel}</div>}
         <div
-          className={`rounded-2xl px-3.5 py-2 text-sm leading-relaxed ${isVisitor ? "rounded-br-sm text-ink" : senderStyle.bubble
+          className={`rounded-2xl text-sm leading-relaxed ${hasImage ? "p-1.5" : "px-3.5 py-2"} ${isVisitor ? "rounded-br-sm text-ink" : senderStyle.bubble
             }`}
           style={isVisitor ? { backgroundColor: config.widgetColor } : undefined}
         >
-          {isVisitor ? (
-            <span className="whitespace-pre-wrap">{message.content}</span>
-          ) : (
-            <RichText content={message.content} />
-          )}
+          {hasImage ? <div className="grid gap-1">{message.attachments?.map((attachment) => <ImageAttachment key={attachment.id} conversationId={message.conversationId} attachment={attachment} token={token} />)}</div> : null}
+          {message.content?.trim() ? (
+            isVisitor ? (
+              <span className={`whitespace-pre-wrap ${hasImage ? "block px-1.5 pb-0.5 pt-1" : ""}`}>{message.content}</span>
+            ) : (
+              <div className={hasImage ? "px-1.5 pb-0.5 pt-1" : ""}><RichText content={message.content} /></div>
+            )
+          ) : null}
         </div>
         {messageTime ? (
           <div className={`mt-1 text-[10px] ${isVisitor ? "mr-1 text-right text-zinc-500" : "ml-1 text-zinc-500"}`}>{messageTime}</div>
@@ -122,6 +133,7 @@ export function MessageList({
   agentConnecting,
   agentReplyRemainingSeconds,
   agentReplyTimedOut,
+  visitorToken,
 }: {
   messages: WidgetMessage[];
   config: SiteConfig;
@@ -131,6 +143,7 @@ export function MessageList({
   agentConnecting: boolean;
   agentReplyRemainingSeconds: number | null;
   agentReplyTimedOut: boolean;
+  visitorToken: string;
 }) {
   const endRef = useRef<HTMLDivElement>(null);
 
@@ -139,9 +152,12 @@ export function MessageList({
   }, [messages.length, agentTyping, agentTypingName, aiTyping, agentConnecting]);
 
   return (
-    <div className="scrollbar-thin min-h-0 flex-1 space-y-3 overflow-y-auto bg-ink px-4 py-4">
+    <div
+      className="scrollbar-thin min-h-0 flex-1 space-y-3 overflow-y-auto bg-ink bg-cover bg-center bg-no-repeat px-4 py-4"
+      style={{ backgroundImage: "url('/bg-live-chat.png')" }}
+    >
       {messages.map((m) => (
-        <Bubble key={m.id} message={m} config={config} />
+        <Bubble key={m.id} message={m} config={config} token={visitorToken} />
       ))}
       {agentConnecting && !agentReplyTimedOut && <ConnectingAgentBadge remainingSeconds={agentReplyRemainingSeconds} />}
       {aiTyping && <TypingBubble name={config.aiName} senderType="AI" />}

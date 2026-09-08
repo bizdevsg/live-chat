@@ -90,6 +90,11 @@ const envSchema = z.object({
   CRM_SSO_ROLE_MAP: z.string().default("sales:cs_agent,manager:supervisor,head:admin,superadmin:super_admin"),
 
   S3_ENDPOINT: z.string().default("http://localhost:9000"),
+  // Browser-reachable object-store endpoint used ONLY when signing download URLs. In Docker the
+  // API reaches MinIO over the internal network (S3_ENDPOINT=http://minio:9000), but the <img>
+  // tags that load those URLs run in the operator's / visitor's browser and must hit a published
+  // host. Leave empty to reuse S3_ENDPOINT (correct when the API and browsers share one endpoint).
+  S3_PUBLIC_ENDPOINT: z.string().default(""),
   S3_REGION: z.string().default("us-east-1"),
   S3_ACCESS_KEY: z.string().default("solidchat"),
   S3_SECRET_KEY: z.string().default("solidchat-secret"),

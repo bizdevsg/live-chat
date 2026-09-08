@@ -81,7 +81,10 @@ services:
     environment:
       DATABASE_URL: mysql://${MYSQL_USER:-solidchat}:${MYSQL_PASSWORD}@mysql:3306/${MYSQL_DATABASE:-solidchat}
       REDIS_HOST: redis
+      # API↔MinIO traffic stays on the internal network...
       S3_ENDPOINT: http://minio:9000
+      # ...but presigned download URLs are opened by the browser and must resolve from the host.
+      S3_PUBLIC_ENDPOINT: ${S3_PUBLIC_ENDPOINT:-http://localhost:9000}
     depends_on:
       mysql: { condition: service_healthy }
       redis: { condition: service_healthy }

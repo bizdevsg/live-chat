@@ -43,6 +43,7 @@ export interface MessageItem {
   metadata: Record<string, unknown> | null;
   createdAt: string;
   receipts?: MessageReceiptItem[];
+  attachments?: Array<{ id: string; fileName: string; mimeType: string; sizeBytes: number }>;
 }
 
 export interface ConversationDetail {

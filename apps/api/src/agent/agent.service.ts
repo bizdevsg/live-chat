@@ -156,6 +156,12 @@ export class AgentService {
     return { conversation, messages, summary: summaries[0] ?? null, recentAiRuns: aiRuns };
   }
 
+  async getAttachment(conversationId: string, attachmentId: string) {
+    const attachment = await this.prisma.messageAttachment.findFirst({ where: { id: attachmentId, message: { conversationId } } });
+    if (!attachment) throw new NotFoundApiException(ErrorCode.NOT_FOUND, "Lampiran tidak ditemukan.");
+    return attachment;
+  }
+
   async findCrmCustomerByEmail(user: JwtAccessPayload, email: string) {
     const normalizedEmail = email.trim().toLowerCase();
     if (!normalizedEmail) {

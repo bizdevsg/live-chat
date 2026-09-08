@@ -36,6 +36,7 @@ export interface PostMessageInput {
   clientMessageId?: string;
   aiRunId?: string;
   metadata?: Record<string, unknown>;
+  attachments?: Array<{ storageKey: string; fileName: string; mimeType: string; sizeBytes: number; isInternal?: boolean }>;
 }
 
 @Injectable()
@@ -378,6 +379,7 @@ export class ConversationsService {
       where: { conversationId, deletedAt: null },
       orderBy: { createdAt: "desc" },
       take: limit,
+      include: { attachments: true },
     });
     return this.enrichSenderNames(messages.reverse());
   }
@@ -386,8 +388,9 @@ export class ConversationsService {
     if (input.clientMessageId) {
       const existing = await this.prisma.message.findUnique({
         where: { conversationId_clientMessageId: { conversationId: input.conversationId, clientMessageId: input.clientMessageId } },
+        include: { attachments: true },
       });
-      if (existing) return { message: await this.enrichSenderName(existing), sensitiveDataDetected: false, promptInjectionDetected: false }; // idempotent retry
+      if (existing) return { message: await this.enrichSenderName(existing), sensitiveDataDetected: false, promptInjectionDetected: false, created: false }; // idempotent retry
     }
 
     let conversation: Awaited<ReturnType<ConversationsService["getConversationOrThrow"]>> | undefined;
@@ -429,7 +432,11 @@ export class ConversationsService {
           clientMessageId: input.clientMessageId,
           aiRunId: input.aiRunId,
           metadata: input.metadata as object | undefined,
+          attachments: input.attachments?.length
+            ? { create: input.attachments.map((attachment) => ({ ...attachment, isInternal: attachment.isInternal ?? false, scanStatus: "CLEAN" })) }
+            : undefined,
         },
+        include: { attachments: true },
       });
     } catch (error) {
       // Two near-simultaneous requests with the same clientMessageId (e.g. a network retry
@@ -444,8 +451,9 @@ export class ConversationsService {
       ) {
         const winner = await this.prisma.message.findUnique({
           where: { conversationId_clientMessageId: { conversationId: input.conversationId, clientMessageId: input.clientMessageId } },
+          include: { attachments: true },
         });
-        if (winner) return { message: await this.enrichSenderName(winner), sensitiveDataDetected: false, promptInjectionDetected: false };
+        if (winner) return { message: await this.enrichSenderName(winner), sensitiveDataDetected: false, promptInjectionDetected: false, created: false };
       }
       throw error;
     }
@@ -499,7 +507,7 @@ export class ConversationsService {
         }
       }
     }
-    return { message: enrichedMessage, sensitiveDataDetected: scan?.containsSensitiveData ?? false, promptInjectionDetected: scan?.promptInjectionDetected ?? false };
+    return { message: enrichedMessage, sensitiveDataDetected: scan?.containsSensitiveData ?? false, promptInjectionDetected: scan?.promptInjectionDetected ?? false, created: true };
   }
 
   /** Internal notes and AI suggestions must never reach the visitor-facing widget socket namespace (§14). */
@@ -729,6 +737,20 @@ export class ConversationsService {
     });
 
     return (await reserve()).count === 1;
+  }
+
+  async getAttachment(conversationId: string, attachmentId: string) {
+    const attachment = await this.prisma.messageAttachment.findFirst({ where: { id: attachmentId, message: { conversationId } } });
+    if (!attachment) throw new NotFoundApiException(ErrorCode.NOT_FOUND, "Lampiran tidak ditemukan.");
+    return attachment;
+  }
+
+  async getPublicAttachment(conversationId: string, attachmentId: string) {
+    const attachment = await this.prisma.messageAttachment.findFirst({
+      where: { id: attachmentId, isInternal: false, scanStatus: "CLEAN", message: { conversationId, isInternal: false } },
+    });
+    if (!attachment) throw new NotFoundApiException(ErrorCode.NOT_FOUND, "Lampiran tidak ditemukan.");
+    return attachment;
   }
 
   /** Hands a concurrency slot back when the assignment reserveAgentSlot was for did not go through. */
@@ -1086,6 +1108,13 @@ export class ConversationsService {
   async submitFeedback(conversationId: string, score: number, comment?: string) {
     if (score < 1 || score > 5) {
       throw new ApiException(ErrorCode.VALIDATION_ERROR, "Skor rating harus antara 1-5.", HttpStatus.BAD_REQUEST);
+    }
+    const conversation = await this.getConversationOrThrow(conversationId);
+    if (conversation.status !== ConversationStatus.RESOLVED && conversation.status !== ConversationStatus.CLOSED) {
+      throw new ApiException(ErrorCode.VALIDATION_ERROR, "Penilaian hanya dapat dikirim setelah percakapan selesai.", HttpStatus.BAD_REQUEST);
+    }
+    if (conversation.ratingScore !== null) {
+      throw new ApiException(ErrorCode.CONFLICT, "Penilaian untuk percakapan ini sudah dikirim.", HttpStatus.CONFLICT);
     }
     await this.prisma.customerFeedback.create({ data: { conversationId, score, comment } });
     await this.prisma.conversation.update({ where: { id: conversationId }, data: { ratingScore: score, ratingComment: comment } });

@@ -31,10 +31,11 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, init: RequestInit = {}, token?: string): Promise<T> {
+  const isFormData = init.body instanceof FormData;
   const response = await fetch(`${API_URL}${path}`, {
     ...init,
     headers: {
-      "Content-Type": "application/json",
+      ...(isFormData ? {} : { "Content-Type": "application/json" }),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...init.headers,
     },
@@ -50,6 +51,7 @@ export const api = {
   get: <T>(path: string, token?: string) => request<T>(path, { method: "GET" }, token),
   post: <T>(path: string, data?: unknown, token?: string) =>
     request<T>(path, { method: "POST", body: data !== undefined ? JSON.stringify(data) : undefined }, token),
+  upload: <T>(path: string, data: FormData, token?: string) => request<T>(path, { method: "POST", body: data }, token),
 };
 
 export { API_URL };
