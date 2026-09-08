@@ -26,6 +26,14 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 - Memperbarui `apps/widget/src/lib/api.ts`.
 - Memperbarui `docker-compose.yml`.
 
+## [0.4.7] - 2026-09-08
+### Changed
+- Memperbarui `apps/api/src/main.ts`.
+- Memperbarui `pnpm-lock.yaml`.
+
+### Fixed
+- Trust loopback proxy, configurable bind host, sync lockfile.
+
 ## [0.4.6] - 2026-09-08
 ### Added
 - Menambahkan `apps/dashboard/src/components/layout/permission-route-guard.tsx`.
@@ -237,7 +245,8 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 - Memperbarui `apps/dashboard/src/app/(dashboard)/knowledge/page.tsx`.
 - Memperbarui `package.json`.
 
-[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.4.6...HEAD
+[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.4.7...HEAD
+[0.4.7]: https://github.com/bizdevsg/live-chat/compare/v0.4.6...v0.4.7
 [0.4.6]: https://github.com/bizdevsg/live-chat/compare/v0.4.5...v0.4.6
 [0.4.5]: https://github.com/bizdevsg/live-chat/compare/v0.4.4...v0.4.5
 [0.4.4]: https://github.com/bizdevsg/live-chat/compare/v0.4.2...v0.4.4
