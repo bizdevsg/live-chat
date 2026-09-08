@@ -1,16 +1,15 @@
 import { BadRequestException, Body, Controller, Get, HttpCode, HttpStatus, Param, Post, Put, Req, Res, UploadedFile, UseInterceptors } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { FileInterceptor } from "@nestjs/platform-express";
-import type { CookieOptions, Request, Response } from "express";
+import type { Request, Response } from "express";
 import { ApiTags } from "@nestjs/swagger";
 import { AuthService } from "./auth.service";
 import { ForgotPasswordDto, LoginDto, RefreshDto, ResetPasswordDto, UpdateAccountSettingsDto, UploadNotificationSoundDto } from "./dto/auth.dto";
 import { Public } from "../common/decorators/public.decorator";
 import { CurrentUser } from "../common/decorators/current-user.decorator";
 import type { JwtAccessPayload } from "@solidchat/shared";
+import { ACCESS_COOKIE, REFRESH_COOKIE, clearAuthCookies, setAuthCookies } from "./auth-cookies.util";
 
-const REFRESH_COOKIE = "refresh_token";
-const ACCESS_COOKIE = "access_token";
 const MAX_NOTIFICATION_SOUND_BYTES = 5 * 1024 * 1024;
 const ALLOWED_NOTIFICATION_SOUND_MIME_TYPES = new Set([
   "audio/mpeg",
@@ -39,7 +38,7 @@ export class AuthController {
       ipAddress: req.ip,
       userAgent: req.headers["user-agent"],
     });
-    this.setCookies(req, res, tokens.accessToken, tokens.refreshToken);
+    setAuthCookies(req, res, this.config, tokens.accessToken, tokens.refreshToken);
     return { success: true, data: tokens };
   }
 
@@ -52,7 +51,7 @@ export class AuthController {
       ipAddress: req.ip,
       userAgent: req.headers["user-agent"],
     });
-    this.setCookies(req, res, tokens.accessToken, tokens.refreshToken);
+    setAuthCookies(req, res, this.config, tokens.accessToken, tokens.refreshToken);
     return { success: true, data: tokens };
   }
 
@@ -60,7 +59,7 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   async logout(@CurrentUser() user: JwtAccessPayload, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
     await this.authService.logout(user.sessionId);
-    this.clearCookies(req, res);
+    clearAuthCookies(req, res, this.config);
     return { success: true, data: null };
   }
 
@@ -68,7 +67,7 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   async logoutAll(@CurrentUser() user: JwtAccessPayload, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
     await this.authService.logoutAll(user.sub);
-    this.clearCookies(req, res);
+    clearAuthCookies(req, res, this.config);
     return { success: true, data: null };
   }
 
@@ -131,59 +130,4 @@ export class AuthController {
     return res.redirect(downloadUrl);
   }
 
-  private setCookies(req: Request, res: Response, accessToken: string, refreshToken: string) {
-    const common = this.resolveCookieOptions(req);
-    res.cookie(ACCESS_COOKIE, accessToken, { ...common, maxAge: 15 * 60 * 1000 });
-    res.cookie(REFRESH_COOKIE, refreshToken, { ...common, maxAge: 30 * 24 * 60 * 60 * 1000, path: "/api/v1/auth" });
-  }
-
-  private clearCookies(req: Request, res: Response) {
-    const common = this.resolveCookieOptions(req);
-    res.clearCookie(ACCESS_COOKIE, common);
-    res.clearCookie(REFRESH_COOKIE, { ...common, path: "/api/v1/auth" });
-  }
-
-  private resolveCookieOptions(req: Request): CookieOptions {
-    const configuredDomain = this.normalizeCookieDomain(this.config.get<string>("COOKIE_DOMAIN"));
-    const requestHost = (req.hostname || "").toLowerCase();
-    const forwardedProto = typeof req.headers["x-forwarded-proto"] === "string" ? req.headers["x-forwarded-proto"].split(",")[0]?.trim().toLowerCase() : undefined;
-    const requestOrigin = typeof req.headers.origin === "string" ? req.headers.origin : undefined;
-    const requestIsHttps = req.secure || forwardedProto === "https";
-    const originHost = requestOrigin ? this.extractOriginHost(requestOrigin) : null;
-    const crossOrigin = !!originHost && originHost !== requestHost;
-
-    const options: CookieOptions = {
-      httpOnly: true,
-      secure: requestIsHttps || this.config.get("NODE_ENV") === "production",
-      sameSite: "lax",
-    };
-
-    if (crossOrigin && options.secure) {
-      options.sameSite = "none";
-    }
-
-    if (configuredDomain && configuredDomain !== "localhost" && this.hostMatchesDomain(requestHost, configuredDomain)) {
-      options.domain = configuredDomain;
-    }
-
-    return options;
-  }
-
-  private extractOriginHost(origin: string): string | null {
-    try {
-      return new URL(origin).hostname.toLowerCase();
-    } catch {
-      return null;
-    }
-  }
-
-  private normalizeCookieDomain(domain?: string): string | null {
-    const trimmed = domain?.trim().toLowerCase();
-    if (!trimmed) return null;
-    return trimmed.replace(/^\./, "");
-  }
-
-  private hostMatchesDomain(host: string, domain: string) {
-    return host === domain || host.endsWith(`.${domain}`);
-  }
 }

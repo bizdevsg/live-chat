@@ -111,16 +111,19 @@ export function analyzeCommitMessage(rawMessage) {
 
   const lines = trimmed.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
   const subject = lines[0] ?? "";
-  const body = lines.slice(1).join("\n");
 
   if (!subject || /^chore\(release\): v\d+\.\d+\.\d+/i.test(subject)) {
     return null;
   }
 
-  const conventionalMatch = subject.match(/^([a-zA-Z]+)(\([^)]+\))?(!)?:\s*(.+)$/);
+  if (/^[a-zA-Z]+(\([^)]+\))?!:\s*/.test(subject)) {
+    throw new Error(`Gunakan prefix \"major:\" untuk breaking change, bukan \"!\": ${subject}`);
+  }
+
+  const conventionalMatch = subject.match(/^([a-zA-Z]+)(\([^)]+\))?:\s*(.+)$/);
   const type = conventionalMatch?.[1]?.toLowerCase() ?? null;
-  const description = conventionalMatch?.[4]?.trim() ?? subject;
-  const breaking = Boolean(conventionalMatch?.[3]) || /BREAKING CHANGE:/i.test(body);
+  const description = conventionalMatch?.[3]?.trim() ?? subject;
+  const breaking = type === "major";
 
   let section = "Changed";
   if (breaking) {

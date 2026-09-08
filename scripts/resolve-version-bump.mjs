@@ -92,7 +92,7 @@ const analyzedCommits = output
   .filter(Boolean);
 
 let bump = "";
-if (analyzedCommits.some((commit) => commit.breaking)) {
+if (analyzedCommits.some((commit) => commit.type === "major")) {
   bump = "major";
 } else if (analyzedCommits.some((commit) => commit.type === "feat")) {
   bump = "minor";

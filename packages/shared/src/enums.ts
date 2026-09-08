@@ -198,5 +198,9 @@ export const ErrorCode = {
   ACCOUNT_LOCKED: "ACCOUNT_LOCKED",
   ACCOUNT_DISABLED: "ACCOUNT_DISABLED",
   INVALID_CURSOR: "INVALID_CURSOR",
+  // Clara SSO (Bagian B — Kebutuhan API Live Chat dan SSO Dashboard §4A).
+  SSO_NOT_CONFIGURED: "SSO_NOT_CONFIGURED",
+  SSO_STATE_INVALID: "SSO_STATE_INVALID",
+  SSO_LOGIN_FAILED: "SSO_LOGIN_FAILED",
 } as const;
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];

@@ -28,7 +28,7 @@ export interface AuthTokens {
   expiresIn: string;
 }
 
-interface RequestMeta {
+export interface RequestMeta {
   ipAddress?: string;
   userAgent?: string;
 }
@@ -145,6 +145,32 @@ export class AuthService {
 
   async logout(sessionId: string): Promise<void> {
     await this.prisma.session.update({ where: { id: sessionId }, data: { revokedAt: new Date() } }).catch(() => undefined);
+  }
+
+  /**
+   * Used by the Clara SSO callback once the ID token is validated and mapped to a local user
+   * (Kebutuhan API Live Chat dan SSO Dashboard §4A.2, "buat session lokal ... setelah login").
+   * Issues the exact same access/refresh session pair as a normal email/password login, so the
+   * Dashboard cannot tell the two apart afterwards.
+   */
+  async issueSsoTokens(userId: string, meta: RequestMeta): Promise<AuthTokens> {
+    const tokens = await this.issueTokens(userId, meta);
+
+    await this.prisma.user.update({ where: { id: userId }, data: { lastLoginAt: new Date() } });
+
+    const context = await loadUserAuthContext(this.prisma, userId);
+    await this.auditLog.record({
+      organizationId: context?.organizationId,
+      actorType: "USER",
+      actorId: userId,
+      action: "auth.sso.clara_login",
+      resourceType: "user",
+      resourceId: userId,
+      ipAddress: meta.ipAddress,
+      userAgent: meta.userAgent,
+    });
+
+    return tokens;
   }
 
   async logoutAll(userId: string): Promise<void> {

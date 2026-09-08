@@ -56,12 +56,56 @@ dan lead terkait.
 - Response error konsisten: `{"error":{"code":"...","message":"..."}}` — lihat daftar kode di
   `docs/api.md`.
 
-## Yang belum diimplementasikan
+## SSO Dashboard Live Chat via akun Clara — status per 7 September 2026
 
-- **SSO Dashboard Live Chat via akun CRM (§4A draf v1.1)** — CRM belum bertindak sebagai
-  OAuth/OIDC provider, jadi flow login agent lewat CRM belum bisa dibangun. Kolom
-  `users.clara_user_id` sudah disiapkan di skema (nullable) untuk dipakai begitu SSO tersedia,
-  tapi saat ini tidak diisi/dipakai oleh endpoint manapun.
-- **Full incremental sync (`updated_after`/`cursor`)** — lihat catatan di atas; belum dibutuhkan
-  untuk kasus pakai saat ini, tapi desainnya (draf v1.1) sudah pernah divalidasi dan siap dipakai
-  kalau kebutuhannya muncul lagi.
+> **Koreksi:** bagian ini sebelumnya menyatakan *"CRM belum bertindak sebagai OAuth/OIDC
+> provider, jadi flow login agent lewat CRM belum bisa dibangun"* — seolah Live Chat menunggu
+> Clara. Setelah menerima *"CLARA · Live Chat — Unified Specification"* v1.0 (3 September 2026)
+> dari Tim Clara, ternyata sebaliknya: endpoint SSO Clara **sudah aktif di production** dan lulus
+> smoke test (discovery, proteksi token, allowlist redirect URI). Yang sebenarnya ditunggu adalah
+> callback dari sisi Live Chat. Catatan lama di atas sudah usang dan digantikan bagian ini.
+
+Sisi Live Chat (consumer/client OAuth) sekarang sudah diimplementasikan:
+
+- `GET /api/v1/auth/clara/login` — memulai login: membuat `state`/`nonce`/PKCE (S256), menyimpan
+  sementara di Redis (TTL `CRM_SSO_STATE_TTL_SECONDS`, default 600 detik), lalu redirect ke
+  `{CRM_SSO_ISSUER}/oauth/authorize`.
+- `GET /api/v1/auth/clara/callback` — memvalidasi `state` (sekali pakai), menukar `code` ke
+  `/oauth/token` dengan `code_verifier`, memvalidasi ID token (HS256, `iss`/`aud`/`exp`/`nonce`,
+  `isActive`, `organizationId`, `role` sesuai `CRM_SSO_ALLOWED_ROLES`), lalu membuat session
+  Dashboard biasa (cookie `access_token`/`refresh_token`, sama seperti login email/password) dan
+  redirect agent ke `CRM_SSO_POST_LOGIN_PATH`. Kegagalan apa pun redirect ke halaman login dengan
+  pesan generik + `requestId` korelasi — tidak pernah membocorkan detail ke user maupun log.
+- Kolom `users.clara_user_id` kini diisi otomatis saat login SSO pertama seorang agent, dengan
+  mencocokkan **email** ID token ke akun Live Chat yang sudah ada dan aktif. Setelah tertaut,
+  `claraUserId` (klaim `sub`) menjadi satu-satunya sumber kebenaran identitas untuk login
+  berikutnya — email tidak dipakai lagi sesudah tautan pertama itu.
+- **Akun agent dibuat otomatis saat login pertama** — sesuai niat awal integrasi ini: akun agent
+  datang dari Clara, jadi Live Chat tidak perlu proses "buat user dulu" secara manual. Kalau
+  `claraUserId` maupun email dari ID token belum cocok dengan akun manapun, Live Chat langsung
+  membuat akun baru dengan role hasil pemetaan `CRM_SSO_ROLE_MAP` (default:
+  `sales→cs_agent, manager→supervisor, head→admin, superadmin→super_admin`) di bawah organization
+  `CRM_SSO_DEFAULT_ORGANIZATION_SLUG`. Role Clara yang diizinkan (`CRM_SSO_ALLOWED_ROLES`) tapi
+  tidak ada di peta dianggap kesalahan konfigurasi — login ditolak, bukan ditebak rolenya. Akun
+  baru tidak punya password lokal (hash acak) sampai seseorang sengaja pakai "lupa password".
+
+Detail kontrak endpoint, urutan pekerjaan, dan checklist penerimaan ada di
+`docs/sso-clara-integration.md` — dokumen itu yang dikirim ke Tim Clara.
+
+### Yang masih menunggu sebelum bisa diuji end-to-end
+
+- **Client secret** (`CRM_SSO_CLIENT_SECRET`) dari Tim Clara, lewat kanal rahasia — belum ada di
+  `.env` manapun.
+- **Redirect URI staging & production** yang stabil dari Live Chat, didaftarkan ke Clara secara
+  *exact match* (§16). Saat ini belum ada domain staging/production tetap.
+- **Keputusan produk**: pemetaan role default di atas belum divalidasi dengan operasional
+  sebenarnya (misalnya apakah semua "sales" Clara memang setara `cs_agent` di semua tim), dan
+  session TTL Dashboard (`JWT_ACCESS_EXPIRES_IN`/`JWT_REFRESH_EXPIRES_IN` saat ini dipakai apa
+  adanya — belum ada keputusan eksplisit khusus untuk sesi hasil SSO).
+- **Technical contact** kedua tim (§10 `CRM-Integration-Guide.md` masih placeholder).
+
+## Full incremental sync (`updated_after`/`cursor`)
+
+Lihat catatan di bagian "Keputusan: lookup by agent email" di atas; belum dibutuhkan untuk kasus
+pakai saat ini, tapi desainnya (draf v1.1) sudah pernah divalidasi dan siap dipakai kalau
+kebutuhannya muncul lagi.

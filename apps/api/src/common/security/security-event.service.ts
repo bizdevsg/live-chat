@@ -12,7 +12,8 @@ export type SecurityEventType =
   | "DOMAIN_NOT_ALLOWED"
   | "WEBSOCKET_UNAUTHORIZED"
   | "CROSS_CONVERSATION_ACCESS_ATTEMPT"
-  | "FILE_TYPE_REJECTED";
+  | "FILE_TYPE_REJECTED"
+  | "SSO_LOGIN_FAILED";
 
 export type SecurityEventSeverity = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
 

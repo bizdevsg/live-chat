@@ -4,12 +4,34 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
 ### Added
+- Menambahkan `apps/api/src/auth/auth-cookies.util.ts`.
+- Menambahkan `apps/api/src/auth/clara-sso/clara-id-token.util.ts`.
+- Menambahkan `apps/api/src/auth/clara-sso/clara-sso-state.service.ts`.
+- Menambahkan `apps/api/src/auth/clara-sso/clara-sso.config.ts`.
+- Menambahkan `apps/api/src/auth/clara-sso/clara-sso.controller.ts`.
+- Menambahkan `apps/api/src/auth/clara-sso/clara-sso.service.ts`.
+- Menambahkan `apps/api/src/auth/clara-sso/pkce.util.ts`.
 - Menambahkan `db/db-live-chat.sql`.
+- Menambahkan `docs/sso-clara-integration.md`.
+- Menambahkan implementasi sisi klien SSO Clara → Dashboard Live Chat: `GET /api/v1/auth/clara/login` dan `/callback` (Authorization Code + PKCE, validasi ID token HS256, tautan `users.clara_user_id`), auto-provisioning akun agent baru dengan pemetaan role via `CRM_SSO_ROLE_MAP`, tombol "Masuk dengan Clara" di halaman login (di balik flag `NEXT_PUBLIC_CRM_SSO_ENABLED`), dan `docs/sso-clara-integration.md`.
 
 ### Changed
 - Memperbarui `.dockerignore`.
+- Memperbarui `.env.example`.
 - Memperbarui `.gitignore`.
+- Memperbarui `apps/api/src/auth/auth.controller.ts`.
+- Memperbarui `apps/api/src/auth/auth.module.ts`.
+- Memperbarui `apps/api/src/auth/auth.service.ts`.
+- Memperbarui `apps/api/src/common/security/security-event.service.ts`.
+- Memperbarui `apps/api/src/config/env.validation.ts`.
+- Memperbarui `apps/dashboard/Dockerfile`.
+- Memperbarui `apps/dashboard/src/app/login/page.tsx`.
+- Memperbarui `docker-compose.yml`.
+- Memperbarui `docs/crm-integration.md`.
 - Memperbarui `package.json`.
+- Memperbarui `packages/shared/src/enums.ts`.
+- Memperbarui `scripts/changelog-utils.mjs`.
+- Memperbarui `scripts/resolve-version-bump.mjs`.
 
 ### Fixed
 - Remove tmp folder.

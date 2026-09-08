@@ -62,6 +62,33 @@ const envSchema = z.object({
   CRM_INBOUND_API_KEY: z.string().optional(),
   CRM_ALLOWED_IPS: z.string().optional(),
 
+  // Outbound the other way: Live Chat as OAuth/OIDC *client* logging agents into the Dashboard
+  // via their Clara account (Kebutuhan API Live Chat dan SSO Dashboard §4A / Bagian B). Optional —
+  // when unset, GET /api/v1/auth/clara/login and /callback respond 503 SSO_NOT_CONFIGURED and the
+  // regular email/password login keeps working untouched.
+  CRM_SSO_ISSUER: z.string().optional(),
+  CRM_SSO_CLIENT_ID: z.string().optional(),
+  CRM_SSO_CLIENT_SECRET: z.string().optional(),
+  // Must be the exact URL registered with Clara for this environment, e.g.
+  // https://api-chat.sg-berjangka.com/api/v1/auth/clara/callback — Clara matches it exactly.
+  CRM_SSO_REDIRECT_URI: z.string().optional(),
+  // Comma-separated Clara roles allowed to sign in to the Dashboard this way.
+  CRM_SSO_ALLOWED_ROLES: z.string().default("sales,manager,head,superadmin"),
+  // Optional extra check: reject ID tokens whose organizationId claim doesn't match this value.
+  CRM_SSO_ALLOWED_ORGANIZATION_ID: z.string().optional(),
+  // How long a login attempt's state/nonce/PKCE verifier survives in Redis before it's
+  // considered abandoned (agent closed the tab, took too long on Clara's login page, etc).
+  CRM_SSO_STATE_TTL_SECONDS: z.coerce.number().default(600),
+  // Internal Dashboard path the agent lands on after a successful Clara login.
+  CRM_SSO_POST_LOGIN_PATH: z.string().default("/dashboard"),
+  // Auto-provisioning (§ intent: agent accounts come FROM Clara — Live Chat should not need a
+  // manual "create user" step first). New agents are created in this organization...
+  CRM_SSO_DEFAULT_ORGANIZATION_SLUG: z.string().default("solid-gold"),
+  // ...with this Clara role -> Live Chat role slug mapping ("clara_role:live_chat_role" pairs,
+  // comma-separated). A Clara role allowed by CRM_SSO_ALLOWED_ROLES but missing here is treated
+  // as a configuration error (login refused, not guessed).
+  CRM_SSO_ROLE_MAP: z.string().default("sales:cs_agent,manager:supervisor,head:admin,superadmin:super_admin"),
+
   S3_ENDPOINT: z.string().default("http://localhost:9000"),
   S3_REGION: z.string().default("us-east-1"),
   S3_ACCESS_KEY: z.string().default("solidchat"),

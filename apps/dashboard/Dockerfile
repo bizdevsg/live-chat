@@ -5,8 +5,10 @@ RUN corepack enable && apt-get update && apt-get install -y --no-install-recomme
 WORKDIR /repo
 ARG NEXT_PUBLIC_API_URL=http://localhost:4000
 ARG NEXT_PUBLIC_WIDGET_URL=http://localhost:3001
+ARG NEXT_PUBLIC_CRM_SSO_ENABLED=false
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_WIDGET_URL=$NEXT_PUBLIC_WIDGET_URL
+ENV NEXT_PUBLIC_CRM_SSO_ENABLED=$NEXT_PUBLIC_CRM_SSO_ENABLED
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml turbo.json ./
 COPY scripts ./scripts
 COPY packages ./packages
