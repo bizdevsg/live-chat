@@ -33,6 +33,10 @@ async function bootstrap() {
   const prisma = app.get(PrismaService);
   const isProduction = config.get<string>("NODE_ENV") === "production";
 
+  // Behind nginx (local reverse proxy) — trust the loopback proxy so req.ip / req.secure /
+  // req.protocol reflect the real client via X-Forwarded-* instead of 127.0.0.1.
+  app.getHttpAdapter().getInstance().set("trust proxy", "loopback");
+
   app.use(helmet());
   app.use(cookieParser());
 
@@ -121,7 +125,7 @@ async function bootstrap() {
   SwaggerModule.setup("api/docs", app, document);
 
   const port = config.get<number>("API_PORT") ?? 4000;
-  await app.listen(port, "0.0.0.0");
+  await app.listen(port, process.env.API_BIND_HOST ?? "0.0.0.0");
   console.log(`SolidChat API listening on port ${port}`);
 }
 

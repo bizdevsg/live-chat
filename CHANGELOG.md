@@ -3,7 +3,9 @@
 Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
-- Belum ada perubahan terdeteksi.
+### Changed
+- Memperbarui `apps/api/src/main.ts`.
+- Memperbarui `pnpm-lock.yaml`.
 
 ## [0.4.6] - 2026-09-08
 ### Added
