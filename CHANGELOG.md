@@ -3,6 +3,9 @@
 Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
+- Belum ada perubahan terdeteksi.
+
+## [0.4.6] - 2026-09-08
 ### Added
 - Menambahkan `apps/dashboard/src/components/layout/permission-route-guard.tsx`.
 
@@ -12,9 +15,11 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 - Memperbarui `apps/dashboard/src/app/(dashboard)/layout.tsx`.
 - Memperbarui `apps/dashboard/src/components/layout/nav-items.ts`.
 - Memperbarui `package.json`.
+- Merge branch 'dev' of https://github.com/bizdevsg/live-chat into dev.
 
 ### Fixed
 - .github.
+- Role access.
 
 ## [0.4.4] - 2026-09-06
 ### Added
@@ -204,7 +209,8 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 - Memperbarui `apps/dashboard/src/app/(dashboard)/knowledge/page.tsx`.
 - Memperbarui `package.json`.
 
-[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.4.4...HEAD
+[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.4.6...HEAD
+[0.4.6]: https://github.com/bizdevsg/live-chat/compare/v0.4.4...v0.4.6
 [0.4.4]: https://github.com/bizdevsg/live-chat/compare/v0.4.2...v0.4.4
 [0.4.2]: https://github.com/bizdevsg/live-chat/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/bizdevsg/live-chat/compare/v0.4.0...v0.4.1
