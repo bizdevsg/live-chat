@@ -13,6 +13,9 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 - Memperbarui `apps/dashboard/src/components/layout/nav-items.ts`.
 - Memperbarui `package.json`.
 
+### Fixed
+- .github.
+
 ## [0.4.4] - 2026-09-06
 ### Added
 - Menambahkan `apps/api/src/auth/auth-cookies.util.ts`.
