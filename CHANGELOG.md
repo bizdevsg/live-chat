@@ -3,7 +3,11 @@
 Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
+- Belum ada perubahan terdeteksi.
+
+## [0.5.0] - 2026-09-08
 ### Added
+- Image upload.
 - Menambahkan `apps/api/src/common/utils/image-upload.ts`.
 - Menambahkan `apps/widget/public/bg-live-chat.png`.
 
@@ -25,6 +29,7 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 - Memperbarui `apps/widget/src/hooks/use-conversation.ts`.
 - Memperbarui `apps/widget/src/lib/api.ts`.
 - Memperbarui `docker-compose.yml`.
+- Merge branch 'dev' of https://github.com/bizdevsg/live-chat into dev.
 
 ## [0.4.7] - 2026-09-08
 ### Changed
@@ -245,7 +250,8 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 - Memperbarui `apps/dashboard/src/app/(dashboard)/knowledge/page.tsx`.
 - Memperbarui `package.json`.
 
-[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.4.7...HEAD
+[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/bizdevsg/live-chat/compare/v0.4.7...v0.5.0
 [0.4.7]: https://github.com/bizdevsg/live-chat/compare/v0.4.6...v0.4.7
 [0.4.6]: https://github.com/bizdevsg/live-chat/compare/v0.4.5...v0.4.6
 [0.4.5]: https://github.com/bizdevsg/live-chat/compare/v0.4.4...v0.4.5
