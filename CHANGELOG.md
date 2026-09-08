@@ -3,7 +3,14 @@
 Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
+### Added
+- Menambahkan `apps/dashboard/src/components/layout/permission-route-guard.tsx`.
+
 ### Changed
+- Memperbarui `apps/api/src/admin/overview.controller.ts`.
+- Memperbarui `apps/api/src/analytics/analytics.controller.ts`.
+- Memperbarui `apps/dashboard/src/app/(dashboard)/layout.tsx`.
+- Memperbarui `apps/dashboard/src/components/layout/nav-items.ts`.
 - Memperbarui `package.json`.
 
 ## [0.4.4] - 2026-09-06

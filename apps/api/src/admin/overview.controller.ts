@@ -21,7 +21,6 @@ export class OverviewController {
   ) {}
 
   @Get("overview")
-  @RequirePermissions(Permission.ANALYTICS_VIEW)
   async overview(@CurrentUser() user: JwtAccessPayload) {
     const startOfDay = new Date();
     startOfDay.setHours(0, 0, 0, 0);

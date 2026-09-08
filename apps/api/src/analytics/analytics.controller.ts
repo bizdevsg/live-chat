@@ -29,6 +29,7 @@ export class AnalyticsController {
   }
 
   @Get("conversations")
+  @RequirePermissions()
   async conversations(@CurrentUser() user: JwtAccessPayload, @Query("siteId") siteId?: string, @Query("from") from?: string, @Query("to") to?: string) {
     return { success: true, data: await this.analyticsService.conversationsVolume(this.buildFilter(user, siteId, from, to)) };
   }

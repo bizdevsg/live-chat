@@ -9,6 +9,7 @@ import { useConversationRealtimeStore } from "@/lib/conversation-realtime-store"
 import { playNotificationSoundForType, prepareNotificationSounds } from "@/lib/notification-sounds";
 import { showBrowserNotification } from "@/lib/browser-notifications";
 import { DashboardShellProvider } from "@/components/layout/dashboard-shell";
+import { PermissionRouteGuard } from "@/components/layout/permission-route-guard";
 import { Sidebar } from "@/components/layout/sidebar";
 import { getDashboardSocket, disconnectDashboardSocket } from "@/lib/socket";
 import type { ConversationDetail, ConversationSummary } from "@/lib/types";
@@ -147,7 +148,9 @@ export default function DashboardGroupLayout({ children }: { children: ReactNode
     <DashboardShellProvider>
       <div className="flex h-screen min-w-0 overflow-hidden bg-[radial-gradient(circle_at_78%_0%,rgba(212,175,55,0.07),transparent_30rem),#101114]">
         <Sidebar />
-        <div className="flex min-w-0 flex-1 flex-col overflow-hidden">{children}</div>
+        <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+          <PermissionRouteGuard>{children}</PermissionRouteGuard>
+        </div>
       </div>
     </DashboardShellProvider>
   );
