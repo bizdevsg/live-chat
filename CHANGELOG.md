@@ -3,6 +3,9 @@
 Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
+- Belum ada perubahan terdeteksi.
+
+## [0.6.1] - 2026-09-09
 ### Added
 - Menambahkan `apps/api/src/leads/leads.service.spec.ts`.
 - Menambahkan `apps/widget/public/bg-widget.png`.
@@ -14,6 +17,9 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 - Memperbarui `apps/widget/src/components/MessageList.tsx`.
 - Mengganti nama `apps/widget/public/bg-widget.png` menjadi `apps/widget/src/assets/bg-widget.png`.
 - Mengganti nama `apps/widget/src/assets/bg-widget.png` menjadi `apps/widget/src/components/conversation-bg.png`.
+
+### Fixed
+- Stabilize widget background and visitor sessions.
 
 ### Removed
 - Menghapus `apps/widget/public/Gemini_Generated_Image_8ugtnu8ugtnu8ugt.jpg`.
@@ -272,7 +278,8 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 - Memperbarui `apps/dashboard/src/app/(dashboard)/knowledge/page.tsx`.
 - Memperbarui `package.json`.
 
-[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.6.1...HEAD
+[0.6.1]: https://github.com/bizdevsg/live-chat/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/bizdevsg/live-chat/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/bizdevsg/live-chat/compare/v0.4.7...v0.5.0
 [0.4.7]: https://github.com/bizdevsg/live-chat/compare/v0.4.6...v0.4.7
