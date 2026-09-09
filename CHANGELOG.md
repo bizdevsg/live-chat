@@ -3,6 +3,10 @@
 Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
+### Changed
+- Memperbarui `package.json`.
+
+## [0.6.2] - 2026-09-09
 ### Added
 - Menambahkan `.githooks/commit-msg`.
 - Menambahkan `scripts/bump-version-from-commit.mjs`.
@@ -294,7 +298,8 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 - Memperbarui `apps/dashboard/src/app/(dashboard)/knowledge/page.tsx`.
 - Memperbarui `package.json`.
 
-[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.6.1...HEAD
+[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.6.2...HEAD
+[0.6.2]: https://github.com/bizdevsg/live-chat/compare/v0.6.1...v0.6.2
 [0.6.1]: https://github.com/bizdevsg/live-chat/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/bizdevsg/live-chat/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/bizdevsg/live-chat/compare/v0.4.7...v0.5.0
