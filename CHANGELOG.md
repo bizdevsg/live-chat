@@ -4,7 +4,7 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
 ### Changed
-- Memperbarui `package.json`.
+- Memperbarui `.github/workflows/auto-version-release.yml`.
 
 ## [0.6.2] - 2026-09-09
 ### Added
