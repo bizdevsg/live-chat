@@ -117,11 +117,25 @@ function applyRealtimeReceipt(
 function MessageBubble({ message, showSeen }: { message: MessageItem; showSeen?: boolean }) {
   const mine = message.senderType === "AGENT";
   const isAi = message.senderType === "AI";
+  const isVisitor = isIncomingCustomerMessage(message);
   const isSystem = message.senderType === "SYSTEM" || message.messageType === "SYSTEM";
   const isSuggestion = message.messageType === "AI_SUGGESTION";
   const isNote = message.messageType === "INTERNAL_NOTE";
   const hasImage = message.messageType === "IMAGE" && (message.attachments?.length ?? 0) > 0;
   const messageTime = formatMessageTime(message.createdAt);
+  // Keep the dashboard's agent-on-the-right reading direction, while using the widget's
+  // role colours: visitor = olive, AI = orange, agent = green.
+  const senderLabel = isAi ? "Solid Prime AI" : isVisitor ? message.senderName?.trim() || "Visitor" : message.senderName?.trim() || "You";
+  const senderStyle = isAi
+    ? "text-orange-500"
+    : isVisitor
+      ? "text-yellow-500"
+      : "text-green-500";
+  const bubbleStyle = isAi
+    ? "border-orange-500 bg-orange-500/15"
+    : isVisitor
+      ? "border-lime-500/80 bg-zinc-950/90"
+      : "border-green-500 bg-green-500/15";
 
   if (isNote) {
     return (
@@ -148,18 +162,18 @@ function MessageBubble({ message, showSeen }: { message: MessageItem; showSeen?:
 
   return (
     <div className={`flex ${mine ? "justify-end" : "justify-start"}`}>
-      <div className="max-w-md">
-        <div className={`mb-0.5 px-1 text-[10px] uppercase tracking-wide opacity-60 ${mine ? "text-right" : "text-left"}`}>{message.senderType}</div>
+      <div className="max-w-[82%]">
+        {/* Sender label and bubble border use the same colour, matching the widget conversation. */}
+        <div className={`px-1 text-xs font-semibold ${senderStyle} ${mine ? "text-right" : "text-left"}`}>{senderLabel}</div>
         <div
-          className={`rounded-2xl text-sm ${hasImage ? "p-1.5" : "px-4 py-2"} ${mine ? "rounded-br-sm bg-gold-500 text-ink-900" : isAi ? "rounded-bl-sm border border-blue-800 bg-blue-950 text-blue-100" : "rounded-bl-sm bg-ink-700 text-zinc-100"
-            }`}
+          className={`mt-2 rounded-2xl border text-sm leading-relaxed text-white ${hasImage ? "p-1.5" : "px-4 py-3"} ${mine ? "rounded-br-sm" : "rounded-tl-md"} ${bubbleStyle}`}
         >
           {hasImage ? <div className="grid gap-1">{message.attachments?.map((attachment) => (
             <ImageAttachment key={attachment.id} conversationId={message.conversationId} attachment={attachment} />
           ))}</div> : null}
           {message.content?.trim() ? <div className={`whitespace-pre-wrap ${hasImage ? "px-1.5 pb-0.5 pt-1" : ""}`}>{message.content}</div> : null}
         </div>
-        <div className={`mt-1 flex items-center gap-2 text-[11px] text-zinc-500 ${mine ? "justify-end" : "justify-start"}`}>
+        <div className={`mt-2 flex items-center gap-2 text-[11px] ${mine ? "justify-end text-zinc-500" : "justify-start text-white/50"}`}>
           {messageTime ? <span>{messageTime}</span> : null}
           {mine && showSeen ? <span>Seen</span> : null}
         </div>
@@ -418,7 +432,7 @@ export default function ConversationDetailPage() {
   const canReply = isMine && conversation.handlerType === "HUMAN" && !isInactive;
   const canResolve = isMine && conversation.handlerType === "HUMAN" && conversation.status === "AGENT_ACTIVE";
   const replyHint = isQueued && !conversation.assignedAgentId
-    ? "Accept chat ini dulu sebelum membalas."
+    ? "Take over chat ini dulu sebelum membalas."
     : !isMine && conversation.assignedAgentId
       ? "Chat ini sedang ditangani agent lain."
       : isResolved
@@ -472,7 +486,7 @@ export default function ConversationDetailPage() {
             )}
             {isHydrated && isQueued && !conversation.assignedAgentId && (
               <Button size="sm" onClick={() => accept.mutate(undefined)}>
-                Accept
+                Take Over
               </Button>
             )}
             {isHydrated && isAiHandled && hasPermission(Permission.CONVERSATION_TAKEOVER) && (
@@ -572,7 +586,7 @@ export default function ConversationDetailPage() {
             <Textarea
               value={draft}
               onChange={(e) => handleDraftChange(e.target.value)}
-              placeholder={pendingImage ? "Tambahkan pesan (opsional)..." : canReply ? "Tulis balasan..." : "Accept chat dulu sebelum membalas..."}
+              placeholder={pendingImage ? "Tambahkan pesan (opsional)..." : canReply ? "Tulis balasan..." : "Take over chat dulu sebelum membalas..."}
               className="min-h-[60px]"
               disabled={!canReply || uploadImage.isPending}
               onKeyDown={(e) => {
@@ -641,7 +655,7 @@ export default function ConversationDetailPage() {
             <Input
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              placeholder={canReply ? "Internal note (tidak terlihat customer)..." : "Accept chat dulu sebelum menambah catatan..."}
+              placeholder={canReply ? "Internal note (tidak terlihat customer)..." : "Take over chat dulu sebelum menambah catatan..."}
               disabled={!canReply}
             />
             <Button
@@ -725,7 +739,7 @@ export default function ConversationDetailPage() {
       <TransferModal
         open={transferOpen}
         onClose={() => setTransferOpen(false)}
-        onTransfer={(toTeamId) => transfer.mutate({ toTeamId })}
+        onTransfer={(toAgentId) => transfer.mutate({ toAgentId })}
       />
       <Modal open={ticketOpen} title="Buat Ticket" onClose={() => setTicketOpen(false)}>
         <TicketForm onSubmit={(v) => createTicket.mutate(v)} pending={createTicket.isPending} />
@@ -734,22 +748,22 @@ export default function ConversationDetailPage() {
   );
 }
 
-function TransferModal({ open, onClose, onTransfer }: { open: boolean; onClose: () => void; onTransfer: (teamId: string) => void }) {
-  const teamsQuery = useQuery({
-    queryKey: ["admin", "teams"],
-    queryFn: () => apiClient.get<Array<{ id: string; name: string }>>("/api/v1/admin/teams"),
+function TransferModal({ open, onClose, onTransfer }: { open: boolean; onClose: () => void; onTransfer: (agentId: string) => void }) {
+  const agentsQuery = useQuery({
+    queryKey: ["agent", "transfer-candidates"],
+    queryFn: () => apiClient.get<Array<{ userId: string; availability: string; activeChatCount: number; maxConcurrentChats: number; user: { name: string; email: string } }>>("/api/v1/agent/transfer-candidates"),
     enabled: open,
   });
-  const [teamId, setTeamId] = useState("");
+  const [agentId, setAgentId] = useState("");
 
   return (
-    <Modal open={open} title="Transfer Conversation" onClose={onClose}>
-      <Label htmlFor="team">Pilih Tim</Label>
-      <Select id="team" value={teamId} onChange={(e) => setTeamId(e.target.value)}>
-        <option value="">- Pilih tim -</option>
-        {teamsQuery.data?.map((t) => (
-          <option key={t.id} value={t.id}>
-            {t.name}
+    <Modal open={open} title="Transfer ke Agent" onClose={onClose}>
+      <Label htmlFor="agent">Pilih Agent</Label>
+      <Select id="agent" value={agentId} onChange={(e) => setAgentId(e.target.value)}>
+        <option value="">- Pilih agent -</option>
+        {agentsQuery.data?.map((agent) => (
+          <option key={agent.userId} value={agent.userId}>
+            {agent.user.name} ({agent.availability} · {agent.activeChatCount}/{agent.maxConcurrentChats})
           </option>
         ))}
       </Select>
@@ -758,9 +772,9 @@ function TransferModal({ open, onClose, onTransfer }: { open: boolean; onClose: 
           Batal
         </Button>
         <Button
-          disabled={!teamId}
+          disabled={!agentId}
           onClick={() => {
-            onTransfer(teamId);
+            onTransfer(agentId);
             onClose();
           }}
         >

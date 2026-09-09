@@ -9,28 +9,28 @@ import { api } from "../lib/api";
 import bgWidget from "./conversation-bg.png";
 
 /**
- * Per-sender Tailwind class sets, so incoming bubbles are colour-coded by who is speaking:
- *   - AI    → blue   (the bot / "aiName")
- *   - AGENT → green  (a human customer-service agent)
+ * Per-sender accent for incoming (AI / agent) bubbles. The sender name is always brand gold; what
+ * tells the two apart is the bubble outline + translucent fill:
+ *   - AI    → orange  (the bot / "aiName")
+ *   - AGENT → green   (a human customer-service agent)
  *
- * `label` = the name shown above the bubble, `bubble` = the bubble surface, `dots` = the typing
- * indicator. Visitor ("you") messages never use this — they are painted with the site's brand
- * colour inline (see Bubble), so the switch here is really just AI-vs-agent.
+ * Visitor ("you") messages never use this — their olive outline is declared in `Bubble`, so this
+ * switch remains focused on distinguishing AI from the human agent.
  */
 function getSenderStyle(senderType: WidgetMessage["senderType"]) {
   if (senderType === "AI") {
     return {
-      label: "text-blue-300/80",
-      bubble: "rounded-bl-sm border border-blue-800/70 bg-blue-950 text-blue-100",
-      dots: "bg-blue-300",
+      name: "text-yellow-500",
+      bubble: "border-orange-500 bg-orange-500/15",
+      dots: "bg-orange-400",
     };
   }
 
   // AGENT (and any other non-AI incoming sender) → green.
   return {
-    label: "text-emerald-300/80",
-    bubble: "rounded-bl-sm border border-emerald-800/70 bg-emerald-950 text-emerald-100",
-    dots: "bg-emerald-300",
+    name: "text-green-500",
+    bubble: "border-green-500 bg-green-500/15",
+    dots: "bg-green-400",
   };
 }
 
@@ -57,13 +57,16 @@ function ImageAttachment({ conversationId, attachment, token }: { conversationId
 /**
  * A single message row. Everything about its layout and styling is driven by `senderType`:
  *
- *   VISITOR / CUSTOMER ("you") → right-aligned · brand-colour bubble · no name label ·
+ *   VISITOR / CUSTOMER ("you") → right-aligned · gold "You" label · olive-outlined bubble ·
  *                                plain text (visitors can't send formatting)
- *   AI                         → left-aligned  · blue bubble  · shows `aiName`      · rich text
- *   AGENT                      → left-aligned  · green bubble · shows agent's name  · rich text
+ *   AI                         → left-aligned · gold name · orange-outlined bubble · rich text
+ *   AGENT                      → left-aligned · gold name · green-outlined bubble  · rich text
  *   SYSTEM                     → centred "~ … ~" line, no bubble (e.g. "AI kembali membantu…")
  *
- * Image messages use tighter padding so the picture fills the bubble edge-to-edge.
+ * Incoming bubbles: name span on top, then a rounded bubble (tail at top-left via rounded-tl-md)
+ * with a coloured 1px border over a 15%-opacity fill of the same colour, white body text, and a
+ * dimmed white timestamp underneath. Image messages swap the roomy p-4 for tight p-1.5 so the
+ * picture fills the bubble.
  */
 function Bubble({ message, config, token }: { message: WidgetMessage; config: SiteConfig; token: string }) {
   // Visitor = the customer typing in the widget; CUSTOMER = the same person once identified.
@@ -71,7 +74,7 @@ function Bubble({ message, config, token }: { message: WidgetMessage; config: Si
   const isAi = message.senderType === "AI";
   const isSystem = message.senderType === "SYSTEM";
   const hasImage = message.messageType === "IMAGE" && (message.attachments?.length ?? 0) > 0;
-  // Only actually applied to incoming (AI / agent) bubbles; unused for visitor + system.
+  // Only applied to incoming (AI / agent) bubbles; unused for visitor + system.
   const senderStyle = getSenderStyle(message.senderType);
   // Name above an incoming bubble: the configured AI name, or the agent's own name ("Agent" fallback).
   const senderLabel = isAi ? config.aiName : message.senderName?.trim() || "Agent";
@@ -86,15 +89,21 @@ function Bubble({ message, config, token }: { message: WidgetMessage; config: Si
 
   return (
     // Visitor messages sit on the right; AI and agent both sit on the left.
-    <div className={`flex ${isVisitor ? "justify-end" : "justify-start"}`}>
-      <div className="max-w-[80%]">
-        {/* Sender name — incoming only; "you" gets no label. Colour comes from senderStyle (blue AI / green agent). */}
-        {!isVisitor && <div className={`mb-0.5 ml-1 text-[10px] ${senderStyle.label}`}>{senderLabel}</div>}
+    <div className={`flex ${isVisitor ? "justify-end" : "justify-start"} m-0`}>
+      <div className="max-w-[82%]">
+        {/* Speaker label: gold for visitor, orange for AI, green for a human agent. */}
+        {isVisitor ? (
+          <span className="mr-1 block text-right text-xs font-semibold text-yellow-500">You</span>
+        ) : (
+          <span className={`ml-1 text-xs font-semibold ${senderStyle.name}`}>{senderLabel}</span>
+        )}
         <div
-          className={`rounded-2xl text-sm leading-relaxed ${hasImage ? "p-1.5" : "px-3.5 py-2"} ${isVisitor ? "rounded-br-sm text-ink" : senderStyle.bubble
-            }`}
-          // Visitor bubble = the site's brand colour (config.widgetColor); AI/agent bubbles are coloured by senderStyle.
-          style={isVisitor ? { backgroundColor: config.widgetColor } : undefined}
+          className={`
+            backdrop-blur-sm ${isVisitor
+              ? `mt-2 rounded-2xl rounded-tr-md border border-yellow-500 bg-yellow-500/15 text-sm leading-relaxed text-white ${hasImage ? "p-1.5" : "px-4 py-3"}`
+              : `mt-2 rounded-2xl rounded-tl-md border text-sm leading-relaxed text-white ${senderStyle.bubble} ${hasImage ? "p-1.5" : "p-4"}`}
+            `}
+        // Colour is controlled by the role: olive visitor, orange AI, green agent.
         >
           {hasImage ? <div className="grid gap-1">{message.attachments?.map((attachment) => <ImageAttachment key={attachment.id} conversationId={message.conversationId} attachment={attachment} token={token} />)}</div> : null}
           {message.content?.trim() ? (
@@ -102,14 +111,14 @@ function Bubble({ message, config, token }: { message: WidgetMessage; config: Si
               // Visitor text is shown verbatim — newlines preserved, no markdown parsing.
               <span className={`whitespace-pre-wrap ${hasImage ? "block px-1.5 pb-0.5 pt-1" : ""}`}>{message.content}</span>
             ) : (
-              // AI / agent replies may contain links and light markdown → render through RichText.
+              // AI / agent replies may contain light markdown → render through RichText (inherits text-white).
               <div className={hasImage ? "px-1 pt-1.5" : ""}><RichText content={message.content} /></div>
             )
           ) : null}
         </div>
-        {/* Timestamp under the bubble, aligned to the same side as the bubble. */}
+        {/* Timestamp under the bubble: dimmed grey for the visitor, dimmed white on the dark incoming bubbles. */}
         {messageTime ? (
-          <div className={`mt-1 text-[10px] ${isVisitor ? "mr-1 text-right text-zinc-500" : "ml-1 text-zinc-500"}`}>{messageTime}</div>
+          <div className={`mt-2 text-[11px] ${isVisitor ? "mr-1 text-right text-zinc-500" : "ml-1 text-white/50"}`}>{messageTime}</div>
         ) : null}
       </div>
     </div>
@@ -118,7 +127,7 @@ function Bubble({ message, config, token }: { message: WidgetMessage; config: Si
 
 /**
  * Three bouncing dots in an incoming-style bubble, shown live while the AI or an agent is typing.
- * Reuses getSenderStyle so the placeholder matches the colour of the reply that's coming (blue
+ * Reuses getSenderStyle so the placeholder matches the colour of the reply that's coming (orange
  * for AI, green for agent).
  */
 function TypingBubble({ name, senderType }: { name: string; senderType: "AI" | "AGENT" }) {
@@ -127,8 +136,8 @@ function TypingBubble({ name, senderType }: { name: string; senderType: "AI" | "
   return (
     <div className="flex justify-start">
       <div className="max-w-[80%]">
-        <div className={`mb-0.5 ml-1 text-[10px] ${senderStyle.label}`}>{name}</div>
-        <div className={`flex items-center gap-1 rounded-2xl px-3.5 py-3 ${senderStyle.bubble}`}>
+        <span className={`ml-1 text-xs font-semibold ${senderStyle.name}`}>{name}</span>
+        <div className={`mt-2 flex items-center gap-1 rounded-2xl rounded-tl-md border px-4 py-3 ${senderStyle.bubble}`}>
           <span className={`h-1.5 w-1.5 animate-bounce rounded-full ${senderStyle.dots} [animation-delay:-0.3s]`} />
           <span className={`h-1.5 w-1.5 animate-bounce rounded-full ${senderStyle.dots} [animation-delay:-0.15s]`} />
           <span className={`h-1.5 w-1.5 animate-bounce rounded-full ${senderStyle.dots}`} />

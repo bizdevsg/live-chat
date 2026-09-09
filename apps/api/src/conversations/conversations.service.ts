@@ -1018,9 +1018,18 @@ export class ConversationsService {
     }
 
     if (target.toAgentId) {
+      const targetAgent = await this.prisma.agentProfile.findFirst({
+        where: {
+          userId: target.toAgentId,
+          user: { organizationId: conversation.organizationId, isActive: true },
+        },
+        select: { maxConcurrentChats: true },
+      });
+      if (!targetAgent) {
+        throw new ApiException(ErrorCode.NOT_FOUND, "Agent tujuan tidak ditemukan atau tidak aktif.", HttpStatus.NOT_FOUND);
+      }
       if (target.toAgentId !== conversation.assignedAgentId) {
-        const profile = await this.prisma.agentProfile.findUnique({ where: { userId: target.toAgentId }, select: { maxConcurrentChats: true } });
-        const reserved = await this.reserveAgentSlot(target.toAgentId, profile?.maxConcurrentChats ?? DEFAULT_MAX_CONCURRENT_CHATS);
+        const reserved = await this.reserveAgentSlot(target.toAgentId, targetAgent.maxConcurrentChats ?? DEFAULT_MAX_CONCURRENT_CHATS);
         if (!reserved) {
           throw new ApiException(
             ErrorCode.CONFLICT,

@@ -133,6 +133,26 @@ export class AgentService {
     return { availability: profile?.availability ?? "OFFLINE" };
   }
 
+  /**
+   * Transfer targets are individual, active agents in the same organization. Returning this
+   * purpose-built list avoids exposing the broader admin user directory to agents.
+   */
+  async transferCandidates(user: JwtAccessPayload) {
+    return this.prisma.agentProfile.findMany({
+      where: {
+        user: { organizationId: user.organizationId, isActive: true },
+      },
+      select: {
+        userId: true,
+        availability: true,
+        activeChatCount: true,
+        maxConcurrentChats: true,
+        user: { select: { name: true, email: true } },
+      },
+      orderBy: { user: { name: "asc" } },
+    });
+  }
+
   async getConversationDetail(user: JwtAccessPayload, conversationId: string) {
     await this.assertConversationAccess(user, conversationId);
     const [conversation, messages, summaries, aiRuns] = await Promise.all([

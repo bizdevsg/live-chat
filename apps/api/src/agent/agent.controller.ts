@@ -58,6 +58,12 @@ export class AgentController {
     return { success: true, data: { ...data, agentReplyDeadlineAt } };
   }
 
+  @Get("transfer-candidates")
+  @RequirePermissions(Permission.CONVERSATION_TRANSFER)
+  async transferCandidates(@CurrentUser() user: JwtAccessPayload) {
+    return { success: true, data: await this.agentService.transferCandidates(user) };
+  }
+
   @Get("crm/customer")
   async findCrmCustomerByEmail(@Query() query: FindCrmCustomerByEmailDto, @CurrentUser() user: JwtAccessPayload) {
     const data = await this.agentService.findCrmCustomerByEmail(user, query.email);

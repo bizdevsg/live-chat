@@ -3,8 +3,23 @@
 Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
+### Added
+- Menambahkan `.githooks/commit-msg`.
+- Menambahkan `scripts/bump-version-from-commit.mjs`.
+
 ### Changed
+- Memindahkan pembaruan versi ke hook commit lokal: `package.json` dan `CHANGELOG.md` kini diperbarui serta di-stage sebelum push, sementara GitHub Actions hanya membuat tag dan release dari versi yang telah dikomit.
+- Memperbarui `.github/workflows/auto-version-release.yml`.
+- Memperbarui `apps/api/src/agent/agent.controller.ts`.
+- Memperbarui `apps/api/src/agent/agent.service.ts`.
+- Memperbarui `apps/api/src/conversations/conversations.service.ts`.
+- Memperbarui `apps/dashboard/src/app/(dashboard)/inbox/[conversationId]/page.tsx`.
+- Memperbarui `apps/widget/src/components/MessageList.tsx` agar desain bubble membedakan visitor (olive), AI (oranye), dan agent (hijau), sehingga pengirim mudah dikenali.
 - Memperbarui `apps/widget/src/components/MessageList.tsx`.
+- Memperbarui `package.json`.
+- Memperbarui `scripts/setup-githooks.mjs`.
+- Mengubah transfer conversation di dashboard menjadi transfer langsung ke agent aktif, serta mengganti label aksi Accept menjadi Take Over untuk memperjelas pengambilalihan chat.
+- Menyamakan bubble percakapan pada detail inbox dashboard dengan widget melalui label dan border berwarna per pengirim; posisi balasan agent di kanan tetap dipertahankan untuk alur kerja operator.
 
 ## [0.6.1] - 2026-09-09
 ### Added

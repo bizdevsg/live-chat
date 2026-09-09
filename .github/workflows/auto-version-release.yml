@@ -1,4 +1,4 @@
-name: Auto Version Release
+name: Publish Local Release
 
 on:
   push:
@@ -9,8 +9,7 @@ permissions:
   contents: write
 
 jobs:
-  auto-version:
-    if: github.actor != 'github-actions[bot]' && !contains(github.event.head_commit.message, '[skip version]')
+  publish-release:
     runs-on: ubuntu-latest
 
     steps:
@@ -19,114 +18,32 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
-      - name: Enable Corepack
-        run: corepack enable
-
-      - name: Resolve release range start
-        id: release-range
-        env:
-          EVENT_BEFORE: ${{ github.event.before }}
-        run: |
-          if git cat-file -e "${EVENT_BEFORE}^{commit}" 2>/dev/null \
-            && git merge-base --is-ancestor "$EVENT_BEFORE" "${{ github.sha }}"; then
-            echo "from_ref=$EVENT_BEFORE" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          latest_tag="$(git tag --list 'v*' --sort=-v:refname | head -n 1)"
-          if [ -n "$latest_tag" ]; then
-            echo "from_ref=$latest_tag" >> "$GITHUB_OUTPUT"
-          else
-            echo "from_ref=$(git rev-parse '${{ github.sha }}^')" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Resolve next version
+      - name: Read committed version
         id: version
-        run: |
-          node scripts/resolve-version-bump.mjs \
-            --from-ref "${{ steps.release-range.outputs.from_ref }}" \
-            --to-ref "${{ github.sha }}" >> "$GITHUB_OUTPUT"
-
-      - name: Build unreleased changelog from pushed commits
-        run: |
-          node scripts/update-changelog.mjs \
-            --from-ref "${{ steps.version.outputs.from_ref }}" \
-            --to-ref "${{ steps.version.outputs.to_ref }}" \
-            --write
-
-      - name: Detect changelog changes
-        id: changelog
-        run: |
-          if git diff --quiet -- CHANGELOG.md; then
-            echo "changed=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "changed=true" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Stop when nothing changed
-        if: steps.version.outputs.should_release != 'true' && steps.changelog.outputs.changed != 'true'
-        run: echo "Tidak ada version bump atau perubahan changelog untuk push ini."
-
-      - name: Commit changelog only
-        if: steps.version.outputs.should_release != 'true' && steps.changelog.outputs.changed == 'true'
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add CHANGELOG.md
-          git commit -m "docs(changelog): sync unreleased [skip version]"
-          git push origin HEAD:${{ github.ref_name }}
+        run: echo "value=$(node -p \"require('./package.json').version\")" >> "$GITHUB_OUTPUT"
 
       - name: Check existing tag
-        if: steps.version.outputs.should_release == 'true'
-        id: tag-check
+        id: tag
         run: |
-          if git rev-parse -q --verify "refs/tags/v${{ steps.version.outputs.next_version }}" >/dev/null; then
+          if git rev-parse -q --verify "refs/tags/v${{ steps.version.outputs.value }}" >/dev/null; then
             echo "exists=true" >> "$GITHUB_OUTPUT"
           else
             echo "exists=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Stop when release tag already exists
-        if: steps.version.outputs.should_release == 'true' && steps.tag-check.outputs.exists == 'true'
-        run: echo "Tag v${{ steps.version.outputs.next_version }} sudah ada, release otomatis dilewati."
-
-      - name: Promote release version
-        if: steps.version.outputs.should_release == 'true' && steps.tag-check.outputs.exists != 'true'
-        run: node scripts/release-version.mjs "${{ steps.version.outputs.next_version }}"
-
-      - name: Commit package version and changelog
-        id: release-commit
-        if: steps.version.outputs.should_release == 'true' && steps.tag-check.outputs.exists != 'true'
+      - name: Create release tag
+        if: steps.tag.outputs.exists != 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add package.json CHANGELOG.md
-          git commit -m "chore(release): v${{ steps.version.outputs.next_version }} [skip version]"
-          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
-
-      - name: Create tag
-        if: steps.version.outputs.should_release == 'true' && steps.tag-check.outputs.exists != 'true'
-        # Annotated tag so `git push` actually ships it (a lightweight tag is skipped by
-        # --follow-tags, which used to leave action-gh-release to recreate the tag against
-        # the repo default branch).
-        run: git tag -a "v${{ steps.version.outputs.next_version }}" -m "Release v${{ steps.version.outputs.next_version }}"
-
-      - name: Push release commit and tag
-        if: steps.version.outputs.should_release == 'true' && steps.tag-check.outputs.exists != 'true'
-        run: |
-          git push origin HEAD:${{ github.ref_name }}
-          git push origin "refs/tags/v${{ steps.version.outputs.next_version }}"
+          git tag -a "v${{ steps.version.outputs.value }}" -m "Release v${{ steps.version.outputs.value }}"
+          git push origin "refs/tags/v${{ steps.version.outputs.value }}"
 
       - name: Publish GitHub release
-        if: steps.version.outputs.should_release == 'true' && steps.tag-check.outputs.exists != 'true'
+        if: steps.tag.outputs.exists != 'true'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ steps.version.outputs.next_version }}
-          target_commitish: ${{ steps.release-commit.outputs.sha }}
+          tag_name: v${{ steps.version.outputs.value }}
+          target_commitish: ${{ github.sha }}
           make_latest: true
           generate_release_notes: true

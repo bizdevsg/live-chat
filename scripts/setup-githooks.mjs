@@ -25,7 +25,10 @@ if (shouldSkipSetup()) {
 
 try {
   const repoRoot = runGit(["rev-parse", "--show-toplevel"]);
-  chmodSync(path.join(repoRoot, ".githooks", "pre-commit"), 0o755);
+  for (const hookName of ["pre-commit", "commit-msg"]) {
+    const hookPath = path.join(repoRoot, ".githooks", hookName);
+    if (existsSync(hookPath)) chmodSync(hookPath, 0o755);
+  }
   runGit(["config", "core.hooksPath", ".githooks"]);
   process.stdout.write("Git hooks path di-set ke .githooks\n");
 } catch {
