@@ -3,7 +3,11 @@
 Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
-- Belum ada perubahan terdeteksi.
+### Added
+- Menambahkan `apps/widget/public/Gemini_Generated_Image_8ugtnu8ugtnu8ugt.jpg`.
+
+### Changed
+- Memperbarui `apps/widget/src/components/MessageList.tsx`.
 
 ## [0.5.0] - 2026-09-08
 ### Added

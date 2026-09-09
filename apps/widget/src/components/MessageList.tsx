@@ -65,7 +65,7 @@ function Bubble({ message, config, token }: { message: WidgetMessage; config: Si
             isVisitor ? (
               <span className={`whitespace-pre-wrap ${hasImage ? "block px-1.5 pb-0.5 pt-1" : ""}`}>{message.content}</span>
             ) : (
-              <div className={hasImage ? "px-1.5 pb-0.5 pt-1" : ""}><RichText content={message.content} /></div>
+              <div className={hasImage ? "px-1 pt-1.5" : ""}><RichText content={message.content} /></div>
             )
           ) : null}
         </div>
@@ -154,7 +154,7 @@ export function MessageList({
   return (
     <div
       className="scrollbar-thin min-h-0 flex-1 space-y-3 overflow-y-auto bg-ink bg-cover bg-center bg-no-repeat px-4 py-4"
-      style={{ backgroundImage: "url('/bg-live-chat.png')" }}
+      style={{ backgroundImage: "url('/Gemini_Generated_Image_8ugtnu8ugtnu8ugt.jpg')" }}
     >
       {messages.map((m) => (
         <Bubble key={m.id} message={m} config={config} token={visitorToken} />
