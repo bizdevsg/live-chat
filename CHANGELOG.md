@@ -3,7 +3,8 @@
 Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
-- Belum ada perubahan terdeteksi.
+### Changed
+- Memperbarui `apps/widget/src/components/MessageList.tsx`.
 
 ## [0.6.1] - 2026-09-09
 ### Added
