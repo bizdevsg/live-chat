@@ -4,6 +4,9 @@ import type { WidgetMessage } from "../hooks/use-conversation";
 import type { SiteConfig } from "../hooks/use-widget-session";
 import { RichText } from "../lib/rich-text";
 import { api } from "../lib/api";
+// Imported (not referenced from /public) so Vite fingerprints it — a background swap then ships
+// as a new hashed URL and browsers pick it up immediately instead of serving a stale cache.
+import bgWidget from "./conversation-bg.png";
 
 function getSenderStyle(senderType: WidgetMessage["senderType"]) {
   if (senderType === "AI") {
@@ -154,7 +157,7 @@ export function MessageList({
   return (
     <div
       className="scrollbar-thin min-h-0 flex-1 space-y-3 overflow-y-auto bg-ink bg-cover bg-center bg-no-repeat px-4 py-4"
-      style={{ backgroundImage: "url('/Gemini_Generated_Image_8ugtnu8ugtnu8ugt.jpg')" }}
+      style={{ backgroundImage: `url(${bgWidget})` }}
     >
       {messages.map((m) => (
         <Bubble key={m.id} message={m} config={config} token={visitorToken} />

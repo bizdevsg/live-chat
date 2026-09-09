@@ -9,6 +9,7 @@ import { ApiException, NotFoundApiException } from "../common/errors/api.excepti
 import type { CreateLeadDto } from "./dto/lead.dto";
 import { NotificationsService } from "../notifications/notifications.service";
 import { RealtimeEmitterService } from "../realtime/realtime-emitter.service";
+import { ConversationsService } from "../conversations/conversations.service";
 
 @Injectable()
 export class LeadsService {
@@ -18,6 +19,7 @@ export class LeadsService {
     private readonly crmProviderFactory: CrmProviderFactory,
     private readonly notifications: NotificationsService,
     private readonly realtime: RealtimeEmitterService,
+    private readonly conversations: ConversationsService,
     @InjectQueue(QUEUE_NAMES.CRM_SYNC) private readonly crmSyncQueue: Queue<CrmSyncJobData>,
   ) {}
 
@@ -33,6 +35,24 @@ export class LeadsService {
       purpose: dto.purpose?.trim() || undefined,
       productInterest: dto.productInterest?.trim() || undefined,
     };
+  }
+
+  /**
+   * The pre-chat form is an identity checkpoint. A conversation's stored customer should only be
+   * treated as "the person filling in the form right now" when the contact details line up.
+   * Otherwise this is a second visitor sharing the same browser/device (localStorage keeps the
+   * visitor + conversation id around forever), and adopting that record would rename the previous
+   * visitor's customer and splice the new lead onto their transcript.
+   */
+  private isSameParty(
+    owner: { email: string | null; phone: string | null } | null,
+    lead: { email: string; phone: string },
+  ): boolean {
+    if (!owner) return true;
+    if (!owner.email && !owner.phone) return true;
+    if (owner.email && owner.email === lead.email) return true;
+    if (owner.phone && owner.phone === lead.phone) return true;
+    return false;
   }
 
   private getResumeState() {
@@ -62,29 +82,52 @@ export class LeadsService {
     if (!normalized.consentGiven) {
       throw new ApiException(ErrorCode.VALIDATION_ERROR, "Persetujuan privacy policy diperlukan sebelum data dikirim.", HttpStatus.BAD_REQUEST);
     }
-    const site = await this.prisma.site.findUniqueOrThrow({ where: { id: siteId } });
-    const conversation = conversationId
-      ? await this.prisma.conversation.findUnique({
-          where: { id: conversationId },
-          select: {
-            id: true,
-            organizationId: true,
-            siteId: true,
-            visitorId: true,
-            assignedAgentId: true,
-            assignedTeamId: true,
-            customerId: true,
-            status: true,
-            handlerType: true,
-            firstMessageAt: true,
-          },
-        })
+    const site = await this.prisma.site.findUniqueOrThrow({ where: { id: siteId }, include: { settings: true } });
+    const conversationSelect = {
+      id: true,
+      organizationId: true,
+      siteId: true,
+      visitorId: true,
+      assignedAgentId: true,
+      assignedTeamId: true,
+      customerId: true,
+      status: true,
+      handlerType: true,
+      firstMessageAt: true,
+    } as const;
+    let conversation = conversationId
+      ? await this.prisma.conversation.findUnique({ where: { id: conversationId }, select: conversationSelect })
       : null;
 
+    // The widget persists the visitor + conversation id in localStorage indefinitely, so a second
+    // person on the same browser lands on the previous visitor's still-open conversation. If that
+    // thread already has history and belongs to someone whose contact details don't match this
+    // submission, treat the form filler as a new visitor and give them their own conversation
+    // instead of hijacking the transcript / overwriting the other customer's record.
+    if (conversation?.customerId && conversation.firstMessageAt) {
+      const owner = await this.prisma.customer.findUnique({
+        where: { id: conversation.customerId },
+        select: { email: true, phone: true },
+      });
+      if (!this.isSameParty(owner, normalized)) {
+        const fresh = await this.conversations.createConversation({
+          organizationId: conversation.organizationId,
+          siteId,
+          visitorId: conversation.visitorId ?? undefined,
+          skipRouting: !!site.settings?.preChatFormEnabled,
+          context: { language: site.language },
+        });
+        conversation = await this.prisma.conversation.findUnique({ where: { id: fresh.id }, select: conversationSelect });
+      }
+    }
+
     const result = await this.prisma.$transaction(async (tx) => {
+      const conversationCustomer = conversation?.customerId
+        ? await tx.customer.findUnique({ where: { id: conversation.customerId } })
+        : null;
       const existingCustomer =
-        conversation?.customerId
-          ? await tx.customer.findUnique({ where: { id: conversation.customerId } })
+        conversationCustomer && this.isSameParty(conversationCustomer, normalized)
+          ? conversationCustomer
           : await tx.customer.findFirst({
               where: {
                 siteId,

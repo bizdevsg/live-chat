@@ -3,7 +3,21 @@
 Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
-- Belum ada perubahan terdeteksi.
+### Added
+- Menambahkan `apps/api/src/leads/leads.service.spec.ts`.
+- Menambahkan `apps/widget/public/bg-widget.png`.
+- Menambahkan `apps/widget/src/components/conversation-bg.png`.
+
+### Changed
+- Memperbarui `apps/api/src/leads/leads.module.ts`.
+- Memperbarui `apps/api/src/leads/leads.service.ts`.
+- Memperbarui `apps/widget/src/components/MessageList.tsx`.
+- Mengganti nama `apps/widget/public/bg-widget.png` menjadi `apps/widget/src/assets/bg-widget.png`.
+- Mengganti nama `apps/widget/src/assets/bg-widget.png` menjadi `apps/widget/src/components/conversation-bg.png`.
+
+### Removed
+- Menghapus `apps/widget/public/Gemini_Generated_Image_8ugtnu8ugtnu8ugt.jpg`.
+- Menghapus `apps/widget/public/bg-live-chat.png`.
 
 ## [0.6.0] - 2026-09-09
 ### Added

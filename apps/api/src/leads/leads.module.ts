@@ -4,9 +4,10 @@ import { QUEUE_NAMES } from "@solidchat/shared";
 import { LeadsController } from "./leads.controller";
 import { LeadsService } from "./leads.service";
 import { CrmProviderFactory } from "./crm-provider.factory";
+import { ConversationsModule } from "../conversations/conversations.module";
 
 @Module({
-  imports: [BullModule.registerQueue({ name: QUEUE_NAMES.CRM_SYNC })],
+  imports: [ConversationsModule, BullModule.registerQueue({ name: QUEUE_NAMES.CRM_SYNC })],
   controllers: [LeadsController],
   providers: [LeadsService, CrmProviderFactory],
   exports: [LeadsService, CrmProviderFactory],
