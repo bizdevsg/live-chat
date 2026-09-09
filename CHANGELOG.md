@@ -3,8 +3,12 @@
 Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
+- Belum ada perubahan terdeteksi.
+
+## [0.6.0] - 2026-09-09
 ### Added
 - Menambahkan `apps/widget/public/Gemini_Generated_Image_8ugtnu8ugtnu8ugt.jpg`.
+- Swap live chat background image and tweak agent bubble padding.
 
 ### Changed
 - Memperbarui `apps/widget/src/components/MessageList.tsx`.
@@ -254,7 +258,8 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 - Memperbarui `apps/dashboard/src/app/(dashboard)/knowledge/page.tsx`.
 - Memperbarui `package.json`.
 
-[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/bizdevsg/live-chat/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/bizdevsg/live-chat/compare/v0.4.7...v0.5.0
 [0.4.7]: https://github.com/bizdevsg/live-chat/compare/v0.4.6...v0.4.7
 [0.4.6]: https://github.com/bizdevsg/live-chat/compare/v0.4.5...v0.4.6
