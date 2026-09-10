@@ -3,6 +3,9 @@
 Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
+- Belum ada perubahan terdeteksi.
+
+## [0.8.0] - 2026-09-10
 ### Changed
 - Memindahkan aksi End Chat dari menu titik tiga ke tombol langsung di header widget, dengan dialog konfirmasi tetap dipertahankan.
 - Memperbarui `.github/workflows/auto-version-release.yml`.
@@ -315,7 +318,8 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 - Memperbarui `apps/dashboard/src/app/(dashboard)/knowledge/page.tsx`.
 - Memperbarui `package.json`.
 
-[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/bizdevsg/live-chat/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/bizdevsg/live-chat/compare/v0.6.2...v0.7.0
 [0.6.2]: https://github.com/bizdevsg/live-chat/compare/v0.6.1...v0.6.2
 [0.6.1]: https://github.com/bizdevsg/live-chat/compare/v0.6.0...v0.6.1
