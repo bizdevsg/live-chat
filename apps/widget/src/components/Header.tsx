@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { MessageSquarePlus, MoreHorizontal, PowerOff, X } from "lucide-react";
+import { LogOut, MessageSquarePlus, PowerOff, X } from "lucide-react";
 import { sendToParent } from "../lib/postmessage";
 import type { SiteConfig, SitePresenceStatus } from "../hooks/use-widget-session";
 
@@ -14,6 +14,8 @@ const PRESENCE_DOT: Record<SitePresenceStatus, string> = {
   BUSY: "bg-amber-400",
   OFFLINE: "bg-zinc-500",
 };
+
+const WIDGET_SURFACE_BACKGROUND = "linear-gradient(135deg, #3a3a3a 0%, #2e2e2e 55%, #222222 100%)";
 
 export function Header({
   config,
@@ -32,7 +34,6 @@ export function Header({
   onStartNewConversation: () => void;
   onEndConversation: () => void;
 }) {
-  const [menuOpen, setMenuOpen] = useState(false);
   const [confirmEnd, setConfirmEnd] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const headerName = config.name === "Solid Gold — Website Utama" ? "Customer Service SGB" : config.name;
@@ -40,24 +41,23 @@ export function Header({
   const statusDot = !connected ? "bg-zinc-500" : presenceStatus ? PRESENCE_DOT[presenceStatus] : "bg-emerald-400";
 
   useEffect(() => {
-    if (!menuOpen) {
-      setConfirmEnd(false);
-      return;
-    }
+    if (!confirmEnd) return;
 
     function handleClickOutside(event: MouseEvent) {
       if (!menuRef.current?.contains(event.target as Node)) {
-        setMenuOpen(false);
         setConfirmEnd(false);
       }
     }
 
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [menuOpen]);
+  }, [confirmEnd]);
 
   return (
-    <header className="flex items-center justify-between border-b border-zinc-800 bg-ink px-4 py-3 text-white">
+    <header
+      className="flex items-center justify-between border-b border-zinc-700 px-4 py-3 text-white"
+      style={{ background: WIDGET_SURFACE_BACKGROUND }}
+    >
       <div className="flex items-center gap-2">
         <img src="/icon-header.png" alt={headerName} className="h-7 w-7 rounded-full object-cover" />
         <div>
@@ -69,70 +69,55 @@ export function Header({
         </div>
       </div>
       <div className="flex items-center gap-1">
-        {canStartNew || canEndConversation ? (
+        {canEndConversation ? (
           <div className="relative" ref={menuRef}>
             <button
-              aria-label="Aksi percakapan"
-              onClick={() => setMenuOpen((open) => !open)}
-              className="flex h-8 w-8 items-center justify-center rounded-full text-zinc-400 hover:bg-zinc-800 hover:text-white"
+              aria-label="Akhiri percakapan"
+              onClick={() => setConfirmEnd((open) => !open)}
+              className="flex h-8 w-8 items-center justify-center rounded-md border border-red-500 bg-linear-to-r from-red-500/20 text-red-500 hover:text-red-400"
             >
-              <MoreHorizontal className="h-4 w-4" />
+              <LogOut className="h-4 w-4" />
             </button>
-            {menuOpen ? (
+
+            {confirmEnd ? (
               <div className="absolute right-0 top-10 z-10 w-52 rounded-xl border border-zinc-800 bg-zinc-950 p-2 shadow-2xl">
-                {canEndConversation ? (
-                  confirmEnd ? (
-                    <div className="space-y-2">
-                      <p className="text-xs leading-relaxed text-zinc-300">Akhiri percakapan yang sedang berjalan?</p>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => {
-                            onEndConversation();
-                            setMenuOpen(false);
-                            setConfirmEnd(false);
-                          }}
-                          className="flex-1 rounded-lg bg-rose-500 px-3 py-2 text-xs font-medium text-white hover:bg-rose-400"
-                        >
-                          Ya, akhiri
-                        </button>
-                        <button
-                          onClick={() => setConfirmEnd(false)}
-                          className="flex-1 rounded-lg bg-zinc-900 px-3 py-2 text-xs text-zinc-300 hover:bg-zinc-800"
-                        >
-                          Batal
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
+                <div className="space-y-2">
+                  <p className="text-xs leading-relaxed text-zinc-300">Akhiri percakapan yang sedang berjalan?</p>
+                  <div className="flex gap-2">
                     <button
-                      onClick={() => setConfirmEnd(true)}
-                      className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-zinc-200 hover:bg-zinc-900"
+                      onClick={() => {
+                        onEndConversation();
+                        setConfirmEnd(false);
+                      }}
+                      className="flex-1 rounded-lg bg-rose-500 px-3 py-2 text-xs font-medium text-white hover:bg-rose-400"
                     >
-                      <PowerOff className="h-4 w-4 shrink-0 text-zinc-400" />
-                      Akhiri Percakapan
+                      Ya, akhiri
                     </button>
-                  )
-                ) : null}
-                {canStartNew ? (
-                  <button
-                    onClick={() => {
-                      onStartNewConversation();
-                      setMenuOpen(false);
-                    }}
-                    className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-zinc-200 hover:bg-zinc-900"
-                  >
-                    <MessageSquarePlus className="h-4 w-4 shrink-0 text-zinc-400" />
-                    Pesan Baru
-                  </button>
-                ) : null}
+                    <button
+                      onClick={() => setConfirmEnd(false)}
+                      className="flex-1 rounded-lg bg-zinc-900 px-3 py-2 text-xs text-zinc-300 hover:bg-zinc-800"
+                    >
+                      Batal
+                    </button>
+                  </div>
+                </div>
               </div>
             ) : null}
           </div>
         ) : null}
+        {canStartNew ? (
+          <button
+            aria-label="Pesan baru"
+            onClick={onStartNewConversation}
+            className="flex h-8 w-8 items-center justify-center rounded-full text-zinc-400 hover:bg-zinc-700 hover:text-white"
+          >
+            <MessageSquarePlus className="h-4 w-4" />
+          </button>
+        ) : null}
         <button
           aria-label="Tutup chat"
           onClick={() => sendToParent({ type: "solidchat:request-close" })}
-          className="flex h-8 w-8 items-center justify-center rounded-full text-zinc-400 hover:bg-zinc-800 hover:text-white"
+          className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 bg-zinc-700 hover:bg-zinc-400 hover:text-white transition-all"
         >
           <X className="h-4 w-4" />
         </button>

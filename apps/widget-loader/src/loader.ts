@@ -26,11 +26,13 @@ declare global {
   }
 }
 
-const FLOATING_BOTTOM_OFFSET = 40;
-// The open chat panel sits closer to the bottom edge than the bubble does.
-const PANEL_BOTTOM_OFFSET = 16;
-// Below Tailwind's `md` breakpoint (768px) the panel goes full-screen instead of floating.
-const MOBILE_MEDIA_QUERY = "(max-width: 767.98px)";
+const FLOATING_BOTTOM_OFFSET = 20;
+// Keep the desktop chat compact even when the browser window is very tall.
+const PANEL_BOTTOM_OFFSET = 15;
+const PANEL_MAX_HEIGHT = 720;
+// A narrow desktop browser must remain a floating panel. Full-screen mode is reserved for actual
+// touch devices, which avoids treating a resized desktop window as a phone.
+const MOBILE_MEDIA_QUERY = "(max-width: 767.98px) and (pointer: coarse)";
 
 function supportsRequiredFeatures(): boolean {
   return (
@@ -106,8 +108,8 @@ function init() {
       100% { box-shadow: 0 0 0 0 rgba(229,72,77,0); }
     }
     .panel { position: fixed; bottom: ${PANEL_BOTTOM_OFFSET}px; ${config.position === "bottom-left" ? "left: 20px;" : "right: 20px;"}
-      width: 440px; max-width: calc(100vw - 40px); height: 720px; max-height: calc(100vh - 120px); border: none; border-radius: 16px;
-      box-shadow: 0 10px 40px rgba(0,0,0,.45); display: none; background: #0b0b0c; }
+      width: 440px; height: min(${PANEL_MAX_HEIGHT}px, calc(100vh - 40px)); max-width: calc(100vw - 40px); border: none; border-radius: 16px;
+      box-shadow: 0 10px 40px rgba(0,0,0,.45); display: none; background: #2e2e2e; }
     .panel.open { display: block; }
     @media ${MOBILE_MEDIA_QUERY} {
       .panel {

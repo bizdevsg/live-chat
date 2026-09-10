@@ -4,7 +4,18 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
 ### Changed
+- Memindahkan aksi End Chat dari menu titik tiga ke tombol langsung di header widget, dengan dialog konfirmasi tetap dipertahankan.
 - Memperbarui `.github/workflows/auto-version-release.yml`.
+- Memperbarui `apps/widget-loader/src/loader.ts`.
+- Memperbarui `apps/widget/nginx.conf`.
+- Memperbarui `apps/widget/src/components/Composer.tsx`.
+- Memperbarui `apps/widget/src/components/Header.tsx`.
+- Memperbarui `apps/widget/src/components/MessageList.tsx`.
+- Memperbarui `apps/widget/src/index.css`.
+- Memperbarui `apps/widget/tailwind.config.js`.
+- Mengganti palet dasar widget pada header, panel percakapan, dan tampilan mobile menjadi abu-abu gelap `#2e2e2e`, termasuk overlay di atas gambar latar percakapan, dan mencegah cache pada HTML iframe agar perubahan tema segera termuat tanpa mengubah warna brand yang dikonfigurasi per situs.
+- Mengubah latar header widget menjadi gradient abu-abu gelap agar tampilannya lebih berdimensi.
+- Mengurangi opasitas overlay area percakapan agar wallpaper chat kembali terlihat di balik tema `#2e2e2e`.
 
 ## [0.6.2] - 2026-09-09
 ### Added
@@ -13,6 +24,12 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ### Changed
 - Memindahkan pembaruan versi ke hook commit lokal: `package.json` dan `CHANGELOG.md` kini diperbarui serta di-stage sebelum push, sementara GitHub Actions hanya membuat tag dan release dari versi yang telah dikomit.
+- Membatasi tinggi panel widget desktop hingga 720px dan membedakan browser desktop sempit dari perangkat sentuh agar widget tidak memenuhi layar saat jendela diperkecil.
+- Menurunkan batas tinggi panel widget desktop menjadi 560px agar tampilan chat lebih ringkas.
+- Menurunkan posisi bubble launcher dari 40px menjadi 20px dari bawah layar agar lebih dekat ke tepi viewport.
+- Mengembalikan tinggi maksimum panel widget desktop menjadi 720px dengan jarak 16px dari bawah viewport.
+- Menyesuaikan jarak panel widget desktop menjadi 8px dari bawah viewport.
+- Menyesuaikan jarak panel widget desktop menjadi 15px dari bawah viewport.
 - Memperbarui `.github/workflows/auto-version-release.yml`.
 - Memperbarui `apps/api/src/agent/agent.controller.ts`.
 - Memperbarui `apps/api/src/agent/agent.service.ts`.

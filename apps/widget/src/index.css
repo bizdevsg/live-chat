@@ -23,7 +23,7 @@ body,
   #root > div {
     border-radius: 0;
     border-width: 0;
-    background-color: #0b0b0c;
+    background-color: #2e2e2e;
     padding-top: env(safe-area-inset-top, 0px);
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
@@ -33,13 +33,13 @@ body,
   width: 5px;
 }
 .scrollbar-thin::-webkit-scrollbar-thumb {
-  background: #3a3a3d;
+  background: #52525b;
   border-radius: 9999px;
 }
 
 .scrollbar-composer {
   scrollbar-width: thin;
-  scrollbar-color: #6b6b70 transparent;
+  scrollbar-color: #a1a1aa transparent;
 }
 
 .scrollbar-composer::-webkit-scrollbar {
@@ -51,11 +51,11 @@ body,
 }
 
 .scrollbar-composer::-webkit-scrollbar-thumb {
-  background: #6b6b70;
+  background: #a1a1aa;
   border-radius: 9999px;
   border: 1px solid transparent;
 }
 
 .scrollbar-composer::-webkit-scrollbar-thumb:hover {
-  background: #8a8a90;
+  background: #d4d4d8;
 }

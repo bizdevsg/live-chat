@@ -14,6 +14,7 @@ const COMPOSER_MAX_HEIGHT =
 
 const ALLOWED_IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp"];
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+const WIDGET_SURFACE_COLOR = "#2e2e2e";
 
 export function Composer({
   onSend,
@@ -140,11 +141,11 @@ export function Composer({
   const canSubmit = !disabled && !uploading && (!!value.trim() || !!pendingImage);
 
   return (
-    <div className="border-t border-zinc-800 bg-ink p-3">
+    <div className="border-t border-zinc-800 p-3" style={{ backgroundColor: WIDGET_SURFACE_COLOR }}>
       {config.settings?.showAgentButton && canRequestAgent && (
         <button
           onClick={onRequestAgent}
-          className="mb-2 flex items-center gap-1.5 text-xs text-zinc-400 underline decoration-dotted underline-offset-2 hover:text-white"
+          className="mb-2 flex items-center gap-1.5 text-xs text-yellow-400 underline decoration-dotted underline-offset-2 hover:text-yellow-600"
         >
           <Headset className="h-3.5 w-3.5" />
           {agentButtonLabel}
@@ -201,7 +202,7 @@ export function Composer({
       </div>
       {uploading ? <p className="mt-2 text-center text-[10px] text-zinc-400">Mengirim gambar...</p> : null}
       {uploadError ? <p role="alert" className="mt-2 text-center text-[10px] text-red-400">{uploadError}</p> : null}
-      <p className="mt-2 text-center text-[10px] text-zinc-600">Percakapan dapat dibaca oleh AI dan petugas resmi Solid Gold.</p>
+      <p className="mt-2 text-center text-[10px] text-zinc-200">Percakapan dapat dibaca oleh AI dan petugas resmi Solid Gold.</p>
     </div>
   );
 }

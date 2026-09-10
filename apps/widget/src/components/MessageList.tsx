@@ -8,6 +8,8 @@ import { api } from "../lib/api";
 // as a new hashed URL and browsers pick it up immediately instead of serving a stale cache.
 import bgWidget from "./conversation-bg.png";
 
+const WIDGET_SURFACE_OVERLAY = "rgba(46, 46, 46, 0.38)";
+
 /**
  * Per-sender accent for incoming (AI / agent) bubbles. The sender name is always brand gold; what
  * tells the two apart is the bubble outline + translucent fill:
@@ -216,8 +218,11 @@ export function MessageList({
 
   return (
     <div
-      className="scrollbar-thin min-h-0 flex-1 space-y-3 overflow-y-auto bg-ink bg-cover bg-center bg-no-repeat px-4 py-4"
-      style={{ backgroundImage: `url(${bgWidget})` }}
+      className="scrollbar-thin min-h-0 flex-1 space-y-3 overflow-y-auto bg-cover bg-center bg-no-repeat px-4 py-4"
+      style={{
+        backgroundColor: "#2e2e2e",
+        backgroundImage: `linear-gradient(${WIDGET_SURFACE_OVERLAY}, ${WIDGET_SURFACE_OVERLAY}), url(${bgWidget})`,
+      }}
     >
       {messages.map((m) => (
         <Bubble key={m.id} message={m} config={config} token={visitorToken} />
