@@ -353,3 +353,91 @@ describe("ConversationsService.requestAgent (agents handle up to 5 concurrent ch
     });
   });
 });
+
+describe("ConversationsService.transfer (offline target)", () => {
+  it("rejects a transfer to an OFFLINE agent before reserving a slot", async () => {
+    const prisma = {
+      conversation: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: "conv-1",
+          organizationId: "org-1",
+          assignedAgentId: "agent-1",
+          status: "AGENT_ACTIVE",
+          handlerType: "HUMAN",
+        }),
+      },
+      agentProfile: {
+        findFirst: jest.fn().mockResolvedValue({ maxConcurrentChats: 5, availability: "OFFLINE" }),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        update: jest.fn().mockResolvedValue({}),
+      },
+    };
+    const service = new ConversationsService(
+      prisma as never,
+      { toConversation: jest.fn(), toTeam: jest.fn(), toAgent: jest.fn(), toSite: jest.fn() } as never,
+      { record: jest.fn() } as never,
+      { record: jest.fn() } as never,
+      { notifyAgent: jest.fn(), notifyTeam: jest.fn(), notifyOrganization: jest.fn() } as never,
+      { getJob: jest.fn(), add: jest.fn() } as never,
+    );
+    jest.spyOn(service, "logEvent").mockResolvedValue(undefined);
+
+    await expect(service.transfer("conv-1", "agent-1", { toAgentId: "agent-2" })).rejects.toThrow("offline");
+    // The concurrency-slot reservation must not have run.
+    expect(prisma.agentProfile.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("rejects a transfer on a CLOSED conversation before touching the target agent", async () => {
+    const prisma = {
+      conversation: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: "conv-1",
+          organizationId: "org-1",
+          assignedAgentId: "agent-1",
+          status: "CLOSED",
+          handlerType: "HUMAN",
+        }),
+      },
+      agentProfile: { findFirst: jest.fn() },
+    };
+    const service = new ConversationsService(
+      prisma as never,
+      { toConversation: jest.fn(), toTeam: jest.fn(), toAgent: jest.fn(), toSite: jest.fn() } as never,
+      { record: jest.fn() } as never,
+      { record: jest.fn() } as never,
+      { notifyAgent: jest.fn(), notifyTeam: jest.fn(), notifyOrganization: jest.fn() } as never,
+      { getJob: jest.fn(), add: jest.fn() } as never,
+    );
+    jest.spyOn(service, "logEvent").mockResolvedValue(undefined);
+
+    await expect(service.transfer("conv-1", "agent-1", { toAgentId: "agent-2" })).rejects.toThrow("ditutup");
+    expect(prisma.agentProfile.findFirst).not.toHaveBeenCalled();
+  });
+
+  it("rejects a transfer where the target is the caller themselves", async () => {
+    const prisma = {
+      conversation: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: "conv-1",
+          organizationId: "org-1",
+          assignedAgentId: "agent-1",
+          status: "AGENT_ACTIVE",
+          handlerType: "HUMAN",
+        }),
+      },
+      agentProfile: { findFirst: jest.fn() },
+    };
+    const service = new ConversationsService(
+      prisma as never,
+      { toConversation: jest.fn(), toTeam: jest.fn(), toAgent: jest.fn(), toSite: jest.fn() } as never,
+      { record: jest.fn() } as never,
+      { record: jest.fn() } as never,
+      { notifyAgent: jest.fn(), notifyTeam: jest.fn(), notifyOrganization: jest.fn() } as never,
+      { getJob: jest.fn(), add: jest.fn() } as never,
+    );
+    jest.spyOn(service, "logEvent").mockResolvedValue(undefined);
+
+    await expect(service.transfer("conv-1", "agent-1", { toAgentId: "agent-1" })).rejects.toThrow("diri sendiri");
+    expect(prisma.agentProfile.findFirst).not.toHaveBeenCalled();
+  });
+});

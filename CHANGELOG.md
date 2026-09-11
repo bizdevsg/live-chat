@@ -3,10 +3,23 @@
 Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
-- Belum ada perubahan terdeteksi.
+### Added
+- Menambahkan `apps/api/src/agent/agent.service.spec.ts`.
+
+### Changed
+- Memperbarui `apps/api/src/agent/agent.controller.ts`.
+- Memperbarui `apps/api/src/agent/agent.service.ts`.
+- Memperbarui `apps/api/src/auth/auth.controller.ts`.
+- Memperbarui `apps/api/src/auth/auth.module.ts`.
+- Memperbarui `apps/api/src/conversations/conversations.service.spec.ts`.
+- Memperbarui `apps/api/src/conversations/conversations.service.ts`.
+- Memperbarui `apps/api/src/realtime/dashboard.gateway.ts`.
+- Memperbarui `apps/dashboard/src/app/(dashboard)/inbox/[conversationId]/page.tsx`.
+- Memperbarui `apps/dashboard/src/components/layout/agent-status-toggle.tsx`.
 
 ## [0.8.0] - 2026-09-10
 ### Changed
+- Mengubah pembaruan status availability agent di dashboard menjadi request HTTP yang persisten, sehingga status Online/Busy tetap tersimpan dan dikirim ke widget meski WebSocket belum tersambung.
 - Memindahkan aksi End Chat dari menu titik tiga ke tombol langsung di header widget, dengan dialog konfirmasi tetap dipertahankan.
 - Memperbarui `.github/workflows/auto-version-release.yml`.
 - Memperbarui `apps/widget-loader/src/loader.ts`.
@@ -319,8 +332,7 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 - Memperbarui `package.json`.
 
 [Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.8.0...HEAD
-[0.8.0]: https://github.com/bizdevsg/live-chat/compare/v0.7.0...v0.8.0
-[0.7.0]: https://github.com/bizdevsg/live-chat/compare/v0.6.2...v0.7.0
+[0.8.0]: https://github.com/bizdevsg/live-chat/compare/v0.6.2...v0.8.0
 [0.6.2]: https://github.com/bizdevsg/live-chat/compare/v0.6.1...v0.6.2
 [0.6.1]: https://github.com/bizdevsg/live-chat/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/bizdevsg/live-chat/compare/v0.5.0...v0.6.0

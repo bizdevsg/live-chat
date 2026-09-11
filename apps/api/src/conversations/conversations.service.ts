@@ -1,6 +1,6 @@
 import { InjectQueue } from "@nestjs/bullmq";
 import { Injectable, Logger } from "@nestjs/common";
-import { ConversationStatus, ErrorCode, HandlerType, MessageType, QUEUE_NAMES, SenderType, type ConversationTimeoutJobData, type HandoffReason } from "@solidchat/shared";
+import { AgentAvailability, ConversationStatus, ErrorCode, HandlerType, MessageType, QUEUE_NAMES, SenderType, type ConversationTimeoutJobData, type HandoffReason } from "@solidchat/shared";
 import { Prisma } from "@solidchat/database";
 import type { Queue } from "bullmq";
 import { PrismaService } from "../prisma/prisma.service";
@@ -1013,6 +1013,16 @@ export class ConversationsService {
 
   async transfer(conversationId: string, actorId: string, target: { toAgentId?: string; toTeamId?: string }) {
     const conversation = await this.getConversationOrThrow(conversationId);
+    // A closed conversation is done — there's no live handoff to make, and re-opening it via a
+    // transfer would resurrect it behind the agent's back instead of through an explicit reopen.
+    if (conversation.status === ConversationStatus.CLOSED) {
+      throw new ApiException(ErrorCode.CONFLICT, "Percakapan yang sudah ditutup tidak dapat ditransfer.", HttpStatus.CONFLICT);
+    }
+    // A "transfer" to yourself isn't a handoff to anyone — the dashboard already excludes the
+    // caller from the candidate list, but re-check here in case the request bypasses that UI.
+    if (target.toAgentId && target.toAgentId === actorId) {
+      throw new ApiException(ErrorCode.VALIDATION_ERROR, "Tidak dapat mentransfer percakapan ke diri sendiri.", HttpStatus.BAD_REQUEST);
+    }
     if (conversation.assignedAgentId && !target.toAgentId && this.shouldReleaseAgent(conversation)) {
       await this.prisma.agentProfile.update({ where: { userId: conversation.assignedAgentId }, data: { activeChatCount: { decrement: 1 } } }).catch(() => undefined);
     }
@@ -1023,12 +1033,22 @@ export class ConversationsService {
           userId: target.toAgentId,
           user: { organizationId: conversation.organizationId, isActive: true },
         },
-        select: { maxConcurrentChats: true },
+        select: { maxConcurrentChats: true, availability: true },
       });
       if (!targetAgent) {
         throw new ApiException(ErrorCode.NOT_FOUND, "Agent tujuan tidak ditemukan atau tidak aktif.", HttpStatus.NOT_FOUND);
       }
       if (target.toAgentId !== conversation.assignedAgentId) {
+        // An offline agent isn't watching the inbox — pushing a live chat to them would strand the
+        // visitor. The dashboard also greys these out, but re-check here in case the agent flipped
+        // to OFFLINE between the transfer dialog loading and the request landing.
+        if (targetAgent.availability === AgentAvailability.OFFLINE) {
+          throw new ApiException(
+            ErrorCode.CONFLICT,
+            "Agent tujuan sedang offline dan tidak bisa menerima transfer.",
+            HttpStatus.CONFLICT,
+          );
+        }
         const reserved = await this.reserveAgentSlot(target.toAgentId, targetAgent.maxConcurrentChats ?? DEFAULT_MAX_CONCURRENT_CHATS);
         if (!reserved) {
           throw new ApiException(

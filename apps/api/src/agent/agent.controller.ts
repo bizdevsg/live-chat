@@ -128,7 +128,8 @@ export class AgentController {
 
   @Get("conversations/:conversationId/attachments/:attachmentId/url")
   async attachmentUrl(@Param("conversationId") conversationId: string, @Param("attachmentId") attachmentId: string, @CurrentUser() user: JwtAccessPayload) {
-    await this.agentService.assertConversationAccess(user, conversationId);
+    // View access — an attachment from a conversation transferred away should stay viewable.
+    await this.agentService.assertConversationViewAccess(user, conversationId);
     const attachment = await this.agentService.getAttachment(conversationId, attachmentId);
     return { success: true, data: { url: await this.storage.getSignedDownloadUrl(attachment.storageKey) } };
   }

@@ -9,6 +9,7 @@ import { Public } from "../common/decorators/public.decorator";
 import { CurrentUser } from "../common/decorators/current-user.decorator";
 import type { JwtAccessPayload } from "@solidchat/shared";
 import { ACCESS_COOKIE, REFRESH_COOKIE, clearAuthCookies, setAuthCookies } from "./auth-cookies.util";
+import { AgentService } from "../agent/agent.service";
 
 const MAX_NOTIFICATION_SOUND_BYTES = 5 * 1024 * 1024;
 const ALLOWED_NOTIFICATION_SOUND_MIME_TYPES = new Set([
@@ -28,6 +29,7 @@ export class AuthController {
   constructor(
     private readonly authService: AuthService,
     private readonly config: ConfigService,
+    private readonly agentService: AgentService,
   ) {}
 
   @Public()
@@ -60,6 +62,8 @@ export class AuthController {
   async logout(@CurrentUser() user: JwtAccessPayload, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
     await this.authService.logout(user.sessionId);
     clearAuthCookies(req, res, this.config);
+    // Best-effort — a logout must never fail because presence bookkeeping hiccuped.
+    this.agentService.markOfflineOnLogout(user.sub, user.organizationId).catch(() => undefined);
     return { success: true, data: null };
   }
 
@@ -68,6 +72,7 @@ export class AuthController {
   async logoutAll(@CurrentUser() user: JwtAccessPayload, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
     await this.authService.logoutAll(user.sub);
     clearAuthCookies(req, res, this.config);
+    this.agentService.markOfflineOnLogout(user.sub, user.organizationId).catch(() => undefined);
     return { success: true, data: null };
   }
 

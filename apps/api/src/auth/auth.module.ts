@@ -6,9 +6,10 @@ import { ClaraSsoController } from "./clara-sso/clara-sso.controller";
 import { ClaraSsoService } from "./clara-sso/clara-sso.service";
 import { ClaraSsoConfigService } from "./clara-sso/clara-sso.config";
 import { ClaraSsoStateService } from "./clara-sso/clara-sso-state.service";
+import { AgentModule } from "../agent/agent.module";
 
 @Module({
-  imports: [JwtModule.register({})],
+  imports: [JwtModule.register({}), AgentModule],
   controllers: [AuthController, ClaraSsoController],
   providers: [AuthService, ClaraSsoService, ClaraSsoConfigService, ClaraSsoStateService],
   exports: [AuthService],

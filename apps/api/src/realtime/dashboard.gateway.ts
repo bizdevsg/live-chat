@@ -96,7 +96,9 @@ export class DashboardGateway implements OnGatewayInit, OnGatewayConnection {
   @SubscribeMessage("conversation:join")
   async onConversationJoin(@ConnectedSocket() client: DashboardSocket, @MessageBody() body: { conversationId: string }) {
     try {
-      await this.agentService.assertConversationAccess(client.data.user, body.conversationId);
+      // View access — joining the room is how the dashboard watches a conversation live while
+      // it's open, including one this agent was transferred away from (kept as "My Chats" history).
+      await this.agentService.assertConversationViewAccess(client.data.user, body.conversationId);
     } catch {
       client.emit("error", { code: "FORBIDDEN", message: "Tidak dapat membuka conversation ini." });
       return;

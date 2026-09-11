@@ -10,9 +10,10 @@ import { getDashboardSocket } from "@/lib/socket";
 import { useAuthStore } from "@/lib/auth-store";
 import { useToast } from "@/components/ui/toast";
 import { Button } from "@/components/ui/button";
-import { Textarea, Input, Select, Label } from "@/components/ui/input";
+import { Textarea, Input, Label } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Modal } from "@/components/ui/modal";
+import { cn } from "@/components/ui/cn";
 import { AutoReturnCountdown } from "@/components/inbox/auto-return-countdown";
 import { Permission } from "@/lib/permissions";
 import type { ConversationDetail, MessageItem, MessageReceiptItem } from "@/lib/types";
@@ -114,7 +115,7 @@ function applyRealtimeReceipt(
   };
 }
 
-function MessageBubble({ message, showSeen }: { message: MessageItem; showSeen?: boolean }) {
+function MessageBubble({ message, showSeen, visitorName }: { message: MessageItem; showSeen?: boolean; visitorName?: string }) {
   const mine = message.senderType === "AGENT";
   const isAi = message.senderType === "AI";
   const isVisitor = isIncomingCustomerMessage(message);
@@ -125,7 +126,11 @@ function MessageBubble({ message, showSeen }: { message: MessageItem; showSeen?:
   const messageTime = formatMessageTime(message.createdAt);
   // Keep the dashboard's agent-on-the-right reading direction, while using the widget's
   // role colours: visitor = olive, AI = orange, agent = green.
-  const senderLabel = isAi ? "Solid Prime AI" : isVisitor ? message.senderName?.trim() || "Visitor" : message.senderName?.trim() || "You";
+  const senderLabel = isAi
+    ? "Solid Prime AI"
+    : isVisitor
+      ? message.senderName?.trim() || visitorName?.trim() || "Visitor"
+      : message.senderName?.trim() || "You";
   const senderStyle = isAi
     ? "text-orange-500"
     : isVisitor
@@ -419,7 +424,8 @@ export default function ConversationDetailPage() {
   if (!detailQuery.data) return <div className="flex-1 p-6 text-sm text-red-400">Conversation tidak ditemukan.</div>;
 
   const { conversation, summary, recentAiRuns, agentReplyDeadlineAt } = detailQuery.data;
-  const customerDisplayName = conversation.customer?.name ?? conversation.leads?.[0]?.name ?? "Visitor anonim";
+  const visitorName = conversation.customer?.name?.trim() || conversation.leads?.[0]?.name?.trim() || undefined;
+  const customerDisplayName = visitorName ?? "Visitor anonim";
   const isMine = isHydrated && conversation.assignedAgentId === user?.userId;
   const isQueued =
     conversation.status === "QUEUED" ||
@@ -499,7 +505,7 @@ export default function ConversationDetailPage() {
                 Return to AI
               </Button>
             )}
-            {isHydrated && hasPermission(Permission.CONVERSATION_TRANSFER) && (
+            {isHydrated && !isClosed && hasPermission(Permission.CONVERSATION_TRANSFER) && (
               <Button size="sm" variant="secondary" onClick={() => setTransferOpen(true)}>
                 Transfer
               </Button>
@@ -526,11 +532,11 @@ export default function ConversationDetailPage() {
 
         <div className="scrollbar-thin flex-1 space-y-3 overflow-y-auto p-4 sm:p-6">
           {visibleMessages.map((m) => (
-            <MessageBubble key={m.id} message={m} showSeen={m.id === lastSeenAgentMessageId} />
+            <MessageBubble key={m.id} message={m} visitorName={visitorName} showSeen={m.id === lastSeenAgentMessageId} />
           ))}
           {(visitorTyping || aiTyping) && (
             <div className="text-xs text-zinc-500">
-              {visitorTyping ? "Visitor sedang mengetik…" : "AI sedang mengetik…"}
+              {visitorTyping ? `${visitorName ?? "Visitor"} sedang mengetik…` : "AI sedang mengetik…"}
             </div>
           )}
           <div ref={messagesEndRef} />
@@ -748,7 +754,21 @@ export default function ConversationDetailPage() {
   );
 }
 
+/** Per-availability dot + label colour for the transfer agent picker: Online green, Busy yellow, Offline red. */
+const AVAILABILITY_META = {
+  ONLINE: { label: "Online", dot: "bg-emerald-400", text: "text-emerald-400" },
+  BUSY: { label: "Busy", dot: "bg-yellow-400", text: "text-yellow-400" },
+  OFFLINE: { label: "Offline", dot: "bg-red-400", text: "text-red-400" },
+} as const;
+
+function availabilityMeta(availability: string) {
+  return availability === "ONLINE" || availability === "BUSY" || availability === "OFFLINE"
+    ? AVAILABILITY_META[availability]
+    : AVAILABILITY_META.OFFLINE;
+}
+
 function TransferModal({ open, onClose, onTransfer }: { open: boolean; onClose: () => void; onTransfer: (agentId: string) => void }) {
+  const queryClient = useQueryClient();
   const agentsQuery = useQuery({
     queryKey: ["agent", "transfer-candidates"],
     queryFn: () => apiClient.get<Array<{ userId: string; availability: string; activeChatCount: number; maxConcurrentChats: number; user: { name: string; email: string } }>>("/api/v1/agent/transfer-candidates"),
@@ -756,23 +776,77 @@ function TransferModal({ open, onClose, onTransfer }: { open: boolean; onClose: 
   });
   const [agentId, setAgentId] = useState("");
 
+  // Start from a clean picker every time the dialog opens.
+  useEffect(() => {
+    if (open) setAgentId("");
+  }, [open]);
+
+  // Agents flip availability live (topbar toggle → `agent:status`). Refresh the candidate list on
+  // every such event while the dialog is open, so a target that just went offline is greyed out
+  // and the Transfer button blocks before the request is even sent.
+  useEffect(() => {
+    if (!open) return;
+    const socket = getDashboardSocket();
+    const refresh = () => queryClient.invalidateQueries({ queryKey: ["agent", "transfer-candidates"] });
+    socket.on("agent:status", refresh);
+    return () => {
+      socket.off("agent:status", refresh);
+    };
+  }, [open, queryClient]);
+
+  const selectedAgent = agentsQuery.data?.find((agent) => agent.userId === agentId);
+  const selectedOffline = selectedAgent?.availability === "OFFLINE";
+
   return (
     <Modal open={open} title="Transfer ke Agent" onClose={onClose}>
-      <Label htmlFor="agent">Pilih Agent</Label>
-      <Select id="agent" value={agentId} onChange={(e) => setAgentId(e.target.value)}>
-        <option value="">- Pilih agent -</option>
-        {agentsQuery.data?.map((agent) => (
-          <option key={agent.userId} value={agent.userId}>
-            {agent.user.name} ({agent.availability} · {agent.activeChatCount}/{agent.maxConcurrentChats})
-          </option>
-        ))}
-      </Select>
+      <Label>Pilih Agent</Label>
+      <div role="listbox" aria-label="Pilih Agent" className="max-h-64 space-y-1 overflow-y-auto rounded-lg border border-ink-600 p-1">
+        {agentsQuery.data?.length ? (
+          agentsQuery.data.map((agent) => {
+            const meta = availabilityMeta(agent.availability);
+            const isOffline = agent.availability === "OFFLINE";
+            const isSelected = agentId === agent.userId;
+            return (
+              <button
+                key={agent.userId}
+                type="button"
+                role="option"
+                aria-selected={isSelected}
+                disabled={isOffline}
+                onClick={() => setAgentId(agent.userId)}
+                className={cn(
+                  "flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors",
+                  isSelected ? "bg-gold-500/10 ring-1 ring-gold-500/60" : "hover:bg-ink-700",
+                  isOffline && "cursor-not-allowed opacity-50",
+                )}
+              >
+                <span className="flex min-w-0 items-center gap-2">
+                  {/* Status dot: green Online, yellow Busy, red Offline. */}
+                  <span className={cn("h-2 w-2 shrink-0 rounded-full", meta.dot)} />
+                  <span className="truncate text-zinc-200">{agent.user.name}</span>
+                </span>
+                <span className="flex shrink-0 items-center gap-2 text-xs">
+                  <span className={meta.text}>{meta.label}</span>
+                  <span className="text-zinc-500">
+                    {agent.activeChatCount}/{agent.maxConcurrentChats}
+                  </span>
+                </span>
+              </button>
+            );
+          })
+        ) : (
+          <p className="p-3 text-center text-xs text-zinc-600">Tidak ada agent tersedia.</p>
+        )}
+      </div>
+      {selectedOffline ? (
+        <p className="mt-2 text-xs text-red-400">Agent ini sedang offline dan tidak bisa menerima transfer.</p>
+      ) : null}
       <div className="mt-4 flex justify-end gap-2">
         <Button variant="secondary" onClick={onClose}>
           Batal
         </Button>
         <Button
-          disabled={!agentId}
+          disabled={!agentId || selectedOffline}
           onClick={() => {
             onTransfer(agentId);
             onClose();
