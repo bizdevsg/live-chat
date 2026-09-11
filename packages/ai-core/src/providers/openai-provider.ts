@@ -52,6 +52,7 @@ function applyPromptTemplate(
   template: string,
   input: Pick<AnswerInput, "aiName" | "customerName" | "organizationName" | "language">,
   evidenceBlock: string,
+  historyBlock = "",
 ): string {
   const language = input.language === "en" ? "English" : "Bahasa Indonesia";
   const customerName = input.customerName?.trim() || "(nama tidak diketahui)";
@@ -61,6 +62,7 @@ function applyPromptTemplate(
       .replace(/\{\{organizationName\}\}/g, input.organizationName)
       .replace(/\{\{language\}\}/g, language)
       .replace(/\{\{evidence\}\}/g, evidenceBlock)
+      .replace(/\{\{history\}\}/g, historyBlock)
        // Only verified customer identities are exposed to the prompt. Anonymous visitors keep
        // the existing generic greeting rather than receiving a guessed name.
        .replace(/\{\{\s*(?:visitor_?name|customer_?name|user_?name|nama)\s*\}\}/gi, customerName)
@@ -68,6 +70,15 @@ function applyPromptTemplate(
       // raw template syntax can never reach a customer-facing sentence.
       .replace(/\{\{[^}]*\}\}/g, "")
   );
+}
+
+/**
+ * Flattens the last N conversation turns into "SENDER: content" lines for the answer prompt's
+ * "history for context" block. Callers that don't need continuity (greeting, no-answer fallback)
+ * simply don't build or pass this — applyPromptTemplate defaults it to "".
+ */
+function formatHistoryForPrompt(history: ChatTurn[]): string {
+  return history.map((turn) => `${turn.senderType}: ${turn.content}`).join("\n");
 }
 
 function escapeRegExp(value: string) {
@@ -531,11 +542,15 @@ export class OpenAiProvider implements AiProvider {
     const evidenceBlock = input.evidence
       .map((e, i) => `[${i + 1}] (${e.title}) ${e.content}`)
       .join("\n\n");
+    // Context for follow-ups/references ("yang tadi", "itu berapa" …) — NOT a source of facts.
+    // The grounding rule right below still governs what the model may actually claim.
+    const historyBlock = formatHistoryForPrompt(input.history);
     const customPrompt = input.systemPrompt?.trim();
     const promptUsesEvidencePlaceholder = customPrompt?.includes("{{evidence}}") ?? false;
+    const promptUsesHistoryPlaceholder = customPrompt?.includes("{{history}}") ?? false;
     const mixedScopeRequest = shouldPrioritizeCustomerServiceSubrequest(input.message, input.intent);
     const baseSystemPrompt = customPrompt
-      ? applyPromptTemplate(customPrompt, input, evidenceBlock || "(tidak ada dokumen relevan)")
+      ? applyPromptTemplate(customPrompt, input, evidenceBlock || "(tidak ada dokumen relevan)", historyBlock)
       : `Anda adalah ${input.aiName}, asisten virtual resmi ${input.organizationName}.`;
     const system = [
       baseSystemPrompt,
@@ -545,6 +560,7 @@ export class OpenAiProvider implements AiProvider {
         : "",
       "Gunakan knowledge base sebagai sumber utama, tapi jangan pernah menyebut ke customer bahwa kamu 'berdasarkan dokumen/panduan/artikel X', jangan sebutkan judul, nama file, versi, atau nomor referensi ([1], [2], dst) apa pun dari knowledge base. Serap isinya lalu sampaikan sebagai pengetahuanmu sendiri.",
       "ATURAN PALING PENTING — DILARANG MENGARANG: HANYA gunakan fakta yang benar-benar tertulis di dalam dokumen referensi di bawah. Dilarang keras menambahkan, menebak, atau mengarang nama produk, jenis akun, fitur, syarat, angka, atau istilah apa pun (termasuk yang terdengar masuk akal secara umum di industri trading/broker) kalau itu TIDAK ada tertulis eksplisit di dokumen referensi. Contoh: kalau dokumen referensi tidak menyebutkan 'akun standar' atau 'akun syariah', kamu DILARANG menyebutkan jenis akun tersebut sama sekali, walau itu lazim ada di broker lain. Kalau dokumen referensi kosong/tidak relevan dengan pertanyaan, JANGAN mengisi kekosongan itu dengan pengetahuan umummu — akui saja informasinya belum tersedia dan arahkan ke petugas.",
+      "RIWAYAT PERCAKAPAN (bagian di bawah, jika ada) HANYA untuk memahami konteks/alur — supaya kamu bisa menjawab rujukan seperti 'yang tadi', 'itu', 'kalau begitu gimana', atau melanjutkan topik yang sudah dibahas. Riwayat BUKAN sumber fakta: jangan mengulang atau menganggap benar klaim apa pun dari riwayat (termasuk balasanmu sendiri sebelumnya) kalau itu tidak didukung dokumen referensi saat ini. Kalau pertanyaan customer saat ini berdiri sendiri tanpa perlu rujukan ke riwayat, jawab seperti biasa tanpa memaksakan koneksi ke riwayat.",
       "Jangan mengulang pertanyaan customer sebagai judul/heading, dan jangan menampilkan format tanya-jawab (misalnya '**Apa itu X?**') meskipun sumbernya ditulis begitu. Rangkai jadi kalimat/paragraf mengalir.",
       "Hanya jawab bagian yang relevan dengan pertanyaan customer saat ini — jangan tempel/dump seluruh isi dokumen referensi kalau customer cuma menanyakan satu hal spesifik.",
       "Jaga jawaban singkat dan padat (idealnya 2-5 kalimat, kecuali customer minta detail lengkap atau berupa daftar langkah).",
@@ -562,6 +578,7 @@ export class OpenAiProvider implements AiProvider {
         : []),
       `Gunakan bahasa: ${input.language === "en" ? "English" : "Bahasa Indonesia"}.`,
       "Balas HANYA dengan JSON valid, satu objek, tanpa markdown code block (jangan pakai ```), tanpa teks apa pun sebelum atau sesudah JSON-nya: {\"answer\": string, \"confidence\": number 0-1, \"handoffRequired\": boolean}. Field \"answer\" berisi teks final yang akan dibaca customer apa adanya — jadi jangan sertakan label sumber, markdown heading, atau nomor referensi di dalamnya. Pastikan semua tanda kutip ganda (\") di dalam isi \"answer\" di-escape dengan benar (\\\") supaya JSON-nya tetap valid.",
+      ...(promptUsesHistoryPlaceholder || !historyBlock ? [] : ["", "=== RIWAYAT PERCAKAPAN SEBELUMNYA (internal, konteks saja — bukan sumber fakta) ===", historyBlock]),
       ...(promptUsesEvidencePlaceholder ? [] : ["", "=== KNOWLEDGE BASE / DOKUMEN REFERENSI (internal, JANGAN dikutip identitasnya ke customer) ===", evidenceBlock || "(tidak ada dokumen relevan)"]),
     ].join("\n");
 

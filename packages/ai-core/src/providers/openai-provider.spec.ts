@@ -285,6 +285,59 @@ describe("OpenAiProvider", () => {
     expect(systemPromptSent).not.toMatch(/\{\{[^}]*\}\}/);
   });
 
+  it("includes prior conversation turns in the answer prompt so it can resolve follow-up references", async () => {
+    const provider = createProvider();
+    const respondSpy = jest.spyOn(provider as any, "respond");
+    respondSpy
+      // No calculation-trigger characters ("-", "=", "x", "*", "/", "+") in the draft, so this
+      // stays a 2-call sequence (draft + grounding review) like the other grounded-answer tests.
+      .mockResolvedValueOnce('{"answer":"Untuk akun Mini, minimal deposit adalah IDR 5.000.000.","confidence":0.9,"handoffRequired":false}')
+      .mockResolvedValueOnce('{"grounded":true,"revisedAnswer":"","confidence":0.9,"handoffRequired":false}');
+
+    await provider.generateAnswer({
+      ...baseInput,
+      history: [
+        { senderType: "VISITOR", content: "saya mau tanya soal akun Mini", createdAt: new Date().toISOString() },
+        { senderType: "AI", content: "Tentu, apa yang ingin diketahui soal akun Mini?", createdAt: new Date().toISOString() },
+        { senderType: "VISITOR", content: "minimal depositnya berapa?", createdAt: new Date().toISOString() },
+      ],
+      message: "minimal depositnya berapa?",
+      intent: AiIntent.DEPOSIT,
+      evidence: [
+        { chunkId: "chunk_1", documentId: "doc_1", title: "Biaya", version: 1, content: "| Minimum Deposit Akun Mini | IDR 5.000.000 |", audience: "PUBLIC" },
+      ],
+    });
+
+    const systemPromptSent = respondSpy.mock.calls[0]?.[1] as string;
+    expect(systemPromptSent).toContain("RIWAYAT PERCAKAPAN");
+    expect(systemPromptSent).toContain("saya mau tanya soal akun Mini");
+    expect(systemPromptSent).toContain("Tentu, apa yang ingin diketahui soal akun Mini?");
+    // The grounding rule must still govern — history is context, not a licence to invent facts.
+    expect(systemPromptSent).toContain("BUKAN sumber fakta");
+  });
+
+  it("lets a custom system prompt place {{history}} exactly where it wants, instead of appending it", async () => {
+    const provider = createProvider();
+    const respondSpy = jest.spyOn(provider as any, "respond");
+    respondSpy
+      .mockResolvedValueOnce('{"answer":"Baik.","confidence":0.9,"handoffRequired":false}')
+      .mockResolvedValueOnce('{"grounded":true,"revisedAnswer":"","confidence":0.9,"handoffRequired":false}');
+
+    await provider.generateAnswer({
+      ...baseInput,
+      history: [{ senderType: "VISITOR", content: "riwayat unik untuk dicari", createdAt: new Date().toISOString() }],
+      message: "lanjut dong",
+      intent: AiIntent.GENERAL_INQUIRY,
+      systemPrompt: "Kamu adalah {{aiName}}. Riwayat: {{history}}",
+      evidence: [{ chunkId: "chunk_1", documentId: "doc_1", title: "X", version: 1, content: "isi dokumen", audience: "PUBLIC" }],
+    });
+
+    const systemPromptSent = respondSpy.mock.calls[0]?.[1] as string;
+    expect(systemPromptSent).toContain("riwayat unik untuk dicari");
+    // Placeholder honoured → the default appended history block must not also show up.
+    expect(systemPromptSent).not.toContain("RIWAYAT PERCAKAPAN SEBELUMNYA");
+  });
+
   it("tells the classifier to prioritise the Solid Gold service intent when a coding request is mixed in", async () => {
     const provider = createProvider();
     const respondSpy = jest.spyOn(provider as any, "respond");

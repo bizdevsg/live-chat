@@ -134,13 +134,13 @@ function MessageBubble({ message, showSeen, visitorName }: { message: MessageIte
   const senderStyle = isAi
     ? "text-orange-500"
     : isVisitor
-      ? "text-yellow-500"
-      : "text-green-500";
+      ? "text-green-500"
+      : "text-yellow-500";
   const bubbleStyle = isAi
     ? "border-orange-500 bg-orange-500/15"
     : isVisitor
-      ? "border-lime-500/80 bg-zinc-950/90"
-      : "border-green-500 bg-green-500/15";
+      ? "border-green-500/80 bg-green-500/15"
+      : "border-yellow-500 bg-yellow-500/15";
 
   if (isNote) {
     return (
@@ -530,7 +530,10 @@ export default function ConversationDetailPage() {
           </div>
         </div>
 
-        <div className="scrollbar-thin flex-1 space-y-3 overflow-y-auto p-4 sm:p-6">
+        <div className="scrollbar-thin flex-1 space-y-3 overflow-y-auto p-4 sm:p-6" style={{
+          backgroundColor: "#2e2e2e",
+          backgroundImage: "url(/conversation-bg.png)",
+        }}>
           {visibleMessages.map((m) => (
             <MessageBubble key={m.id} message={m} visitorName={visitorName} showSeen={m.id === lastSeenAgentMessageId} />
           ))}
