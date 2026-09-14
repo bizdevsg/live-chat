@@ -5,6 +5,9 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 ## [Unreleased]
 ### Changed
 - Memperbarui `package.json`.
+- Memperbarui `packages/ai-core/src/providers/openai-provider.spec.ts`.
+- Memperbarui `packages/ai-core/src/providers/openai-provider.ts`.
+- Memperbarui instruksi AI agar jawaban mengikuti bahasa utama pada pesan terakhir customer, menggunakan bahasa situs hanya sebagai fallback, dan menangani pesan campuran secara natural.
 
 ## [0.9.0] - 2026-09-14
 ### Added

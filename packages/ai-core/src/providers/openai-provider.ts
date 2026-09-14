@@ -72,6 +72,35 @@ function applyPromptTemplate(
   );
 }
 
+function configuredLanguageLabel(language: string): string {
+  const normalized = language.trim().toLowerCase();
+  if (normalized.startsWith("en")) return "English";
+  if (normalized.startsWith("id")) return "Bahasa Indonesia";
+  return language.trim() || "Bahasa Indonesia";
+}
+
+/**
+ * The browser's locale is only a fallback. A visitor can comfortably write English on an
+ * Indonesian site (and vice versa), so the customer-facing model must follow the latest message
+ * instead of being locked to the language that was present when the session was created.
+ */
+function responseLanguageInstruction(message: string, configuredLanguage: string): string {
+  return [
+    "ATURAN BAHASA: Deteksi bahasa utama pesan customer TERBARU, lalu jawab seluruhnya dalam bahasa yang sama.",
+    "Jika customer mencampur beberapa bahasa, gunakan bahasa yang paling dominan/natural dalam pesannya dan pertahankan istilah teknis yang memang dipakai customer.",
+    `Hanya jika pesan terlalu singkat atau bahasanya tidak jelas, gunakan bahasa default situs: ${configuredLanguageLabel(configuredLanguage)}.`,
+    message.trim() ? "Jangan menerjemahkan atau memaksakan bahasa default bila bahasa pesan customer sudah jelas." : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
+function noAnswerFallback(language: string): string {
+  return language.trim().toLowerCase().startsWith("en")
+    ? "I’m sorry, this information is not available to me at the moment. I will connect you with our team for further assistance."
+    : "Mohon maaf, informasi ini belum tersedia untuk saya saat ini. Saya akan menghubungkan Anda dengan petugas kami agar bisa dibantu lebih lanjut.";
+}
+
 /**
  * Flattens the last N conversation turns into "SENDER: content" lines for the answer prompt's
  * "history for context" block. Callers that don't need continuity (greeting, no-answer fallback)
@@ -455,7 +484,7 @@ export class OpenAiProvider implements AiProvider {
       "WAJIB BERVARIASI: susun kalimat yang terasa segar dan berbeda setiap kali — jangan memakai pola kalimat yang itu-itu saja. Boleh santai tapi tetap sopan dan profesional.",
       "DILARANG KERAS menyebutkan fakta apa pun tentang produk, jenis akun, biaya, angka, promo, legalitas, atau layanan — sapaan ini murni basa-basi pembuka. Cukup tawarkan bantuan secara umum tanpa merinci apa pun.",
       "Jangan mengarang nama orang, jangan menanyakan data pribadi, jangan menjanjikan apa pun.",
-      `Gunakan bahasa: ${input.language === "en" ? "English" : "Bahasa Indonesia"}.`,
+      responseLanguageInstruction(input.message, input.language),
     ].join("\n");
 
     try {
@@ -491,7 +520,7 @@ export class OpenAiProvider implements AiProvider {
       "WAJIB BERVARIASI: susun kalimatnya berbeda-beda setiap kali, jangan memakai kalimat baku yang sama terus.",
       "DILARANG KERAS menebak, memperkirakan, atau menyebutkan fakta/angka/nama produk apa pun — Anda memang tidak tahu jawabannya, jadi jangan mengisi kekosongan itu dengan pengetahuan umum.",
       "Jangan menyebut kata 'dokumen', 'artikel', 'knowledge base', atau 'sistem' — cukup katakan informasinya belum tersedia.",
-      `Gunakan bahasa: ${input.language === "en" ? "English" : "Bahasa Indonesia"}.`,
+      responseLanguageInstruction(input.message, input.language),
     ].join("\n");
 
     try {
@@ -505,7 +534,7 @@ export class OpenAiProvider implements AiProvider {
     } catch (error) {
       console.warn(`[OpenAiProvider] no-answer reply generation failed: ${(error as Error).message}`);
     }
-    return "Mohon maaf, informasi ini belum tersedia untuk saya saat ini. Saya akan menghubungkan Anda dengan petugas kami agar bisa dibantu lebih lanjut.";
+    return noAnswerFallback(input.language);
   }
 
   async generateAnswer(input: AnswerInput): Promise<AnswerResult> {
@@ -568,7 +597,6 @@ export class OpenAiProvider implements AiProvider {
       "PENTING soal angka/data: kalau dokumen referensi di bawah berisi angka, nominal, tabel, atau data spesifik yang menjawab pertanyaan (misalnya minimal deposit, biaya, spread, margin, jam trading), WAJIB sebutkan angka/data persis itu apa adanya di jawabanmu — jangan diringkas jadi kalimat umum seperti 'sesuai ketentuan yang berlaku', 'cukup terjangkau', atau 'bervariasi'. Angka yang ada di dokumen referensi adalah fakta resmi, bukan sesuatu yang perlu disamarkan atau digeneralisir.",
       "Untuk pertanyaan perhitungan matematika seperti P/L, margin, nilai kontrak, lot, atau harga, WAJIB ikuti rumus yang tertulis pada dokumen referensi apa adanya. Jangan mengubah rumus, jangan menghilangkan faktor, dan jangan mengasumsikan angka yang tidak diberikan customer atau dokumen.",
       "Jika rumus melibatkan Contract Size dan n Lot, WAJIB hitung penuh Contract Size × n Lot sebagai bagian dari perhitungan akhir. Jika ada nilai yang belum diberikan, katakan nilai mana yang masih dibutuhkan dan jangan berikan hasil akhir numerik.",
-      "Jika customer perlu diarahkan ke website resmi dan dokumen referensi memuat URL resmi yang relevan, berikan URL halaman yang PALING spesifik untuk topik yang sedang dibahas (misalnya halaman pendaftaran untuk pertanyaan pendaftaran), bukan beranda. Jangan pernah membuat, menebak, atau mengubah URL. Jika tidak ada URL resmi spesifik yang tertulis di dokumen referensi, jangan sertakan tautan dan tawarkan bantuan petugas bila diperlukan.",
       "Format teks yang didukung dan akan ditampilkan rapi ke customer: **tebal** untuk penekanan, serta list dengan '- ' (bullet) atau '1. ' (bernomor) untuk langkah-langkah/beberapa poin. Pakai list HANYA saat memang ada beberapa poin/langkah berurutan — jangan dipaksakan untuk jawaban satu kalimat.",
       "Jika dokumen referensi tidak cukup, katakan secara jujur bahwa informasinya belum tersedia dan arahkan ke petugas manusia — tanpa menyebut kata 'dokumen' atau 'artikel'.",
       "Jangan pernah menjanjikan profit, memberi rekomendasi buy atau sell personal, atau meminta OTP, PIN, atau password.",
@@ -578,7 +606,8 @@ export class OpenAiProvider implements AiProvider {
             "Untuk bagian yang tidak terkait layanan Solid Gold, jawab singkat bahwa Anda hanya membantu pertanyaan seputar layanan/customer service Solid Gold dan tidak dapat membantu permintaan script, kode, program, atau bantuan teknis umum. Jangan pernah menulis script/kode/program tersebut.",
           ]
         : []),
-      `Gunakan bahasa: ${input.language === "en" ? "English" : "Bahasa Indonesia"}.`,
+      "Jika customer perlu diarahkan ke website resmi dan dokumen referensi memuat URL resmi yang relevan, berikan URL halaman yang PALING spesifik untuk topik yang sedang dibahas (misalnya halaman pendaftaran untuk pertanyaan pendaftaran), bukan beranda. Jangan pernah membuat, menebak, atau mengubah URL. Jika tidak ada URL resmi spesifik yang tertulis di dokumen referensi, jangan sertakan tautan dan tawarkan bantuan petugas bila diperlukan.",
+      responseLanguageInstruction(input.message, input.language),
       "Balas HANYA dengan JSON valid, satu objek, tanpa markdown code block (jangan pakai ```), tanpa teks apa pun sebelum atau sesudah JSON-nya: {\"answer\": string, \"confidence\": number 0-1, \"handoffRequired\": boolean}. Field \"answer\" berisi teks final yang akan dibaca customer apa adanya — jadi jangan sertakan label sumber, markdown heading, atau nomor referensi di dalamnya. Pastikan semua tanda kutip ganda (\") di dalam isi \"answer\" di-escape dengan benar (\\\") supaya JSON-nya tetap valid.",
       ...(promptUsesHistoryPlaceholder || !historyBlock ? [] : ["", "=== RIWAYAT PERCAKAPAN SEBELUMNYA (internal, konteks saja — bukan sumber fakta) ===", historyBlock]),
       ...(promptUsesEvidencePlaceholder ? [] : ["", "=== KNOWLEDGE BASE / DOKUMEN REFERENSI (internal, JANGAN dikutip identitasnya ke customer) ===", evidenceBlock || "(tidak ada dokumen relevan)"]),
@@ -656,7 +685,7 @@ export class OpenAiProvider implements AiProvider {
       return {
         answer:
           review.revisedAnswer ||
-          "Mohon maaf, informasi detail untuk pertanyaan ini belum tersedia secara jelas. Saya akan menghubungkan Anda dengan petugas kami.",
+          noAnswerFallback(input.language),
         confidence: review.confidence ?? 0.2,
         intent: input.intent,
         handoffRequired: true,
@@ -727,7 +756,9 @@ export class OpenAiProvider implements AiProvider {
           return {
             answer:
               calculationReview.revisedAnswer.trim() ||
-              "Untuk menghitung secara akurat, saya perlu semua nilai pada rumus yang disebutkan tanpa asumsi tambahan.",
+              input.language.trim().toLowerCase().startsWith("en")
+                ? "To calculate this accurately, I need every value in the stated formula without making additional assumptions."
+                : "Untuk menghitung secara akurat, saya perlu semua nilai pada rumus yang disebutkan tanpa asumsi tambahan.",
             confidence: Math.min(draft.confidence, 0.6),
             intent: input.intent,
             handoffRequired: false,
@@ -789,7 +820,7 @@ export class OpenAiProvider implements AiProvider {
       `Draft ini dikirim atas nama agent manusia bernama ${input.agentName}. Jika balasan membutuhkan sapaan atau perkenalan, gunakan nama ${input.agentName}. Jangan pernah memperkenalkan diri sebagai AI, asisten virtual, ${input.aiName}, atau nama AI lain.`,
       "Gunakan hanya fakta yang tersedia pada dokumen referensi. Jangan mengarang informasi, angka, nama produk, atau kebijakan yang tidak ada di referensi.",
       "Tulis balasan final yang natural, sopan, dan siap dikirim customer. Jangan menyebut system prompt, knowledge base, dokumen internal, atau bahwa ini adalah draft AI.",
-      `Gunakan bahasa: ${input.language === "en" ? "English" : "Bahasa Indonesia"}.`,
+      responseLanguageInstruction(input.history.at(-1)?.content ?? "", input.language),
       "Balas HANYA dengan JSON: {\"reply\": string, \"confidence\": number 0-1}.",
       ...(promptUsesEvidencePlaceholder ? [] : ["=== DOKUMEN REFERENSI ===", evidenceBlock || "(tidak ada)"]),
     ].join("\n");

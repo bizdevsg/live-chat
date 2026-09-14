@@ -42,6 +42,23 @@ describe("OpenAiProvider", () => {
     expect(respondSpy).toHaveBeenCalledTimes(1);
   });
 
+  it("instructs the model to follow the customer's message language instead of the session default", async () => {
+    const provider = createProvider();
+    const respondSpy = jest.spyOn(provider as any, "respond");
+    respondSpy.mockResolvedValueOnce('{"answer":"Hello! How can I help you today?"}');
+
+    await provider.generateAnswer({
+      ...baseInput,
+      message: "hello",
+      intent: AiIntent.GENERAL_INQUIRY,
+      evidence: [],
+    });
+
+    const systemPrompt = respondSpy.mock.calls[0]?.[1] as string;
+    expect(systemPrompt).toContain("Deteksi bahasa utama pesan customer TERBARU");
+    expect(systemPrompt).toContain("bahasa yang sama");
+  });
+
   it("falls back to a fixed greeting when the model call fails, rather than going silent", async () => {
     const provider = createProvider();
     jest.spyOn(provider as any, "respond").mockRejectedValueOnce(new Error("network down"));
