@@ -5,6 +5,10 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 ## [Unreleased]
 ### Changed
 - Memperbarui `package.json`.
+
+## [0.9.1] - 2026-09-14
+### Changed
+- Memperbarui `package.json`.
 - Memperbarui `packages/ai-core/src/providers/openai-provider.spec.ts`.
 - Memperbarui `packages/ai-core/src/providers/openai-provider.ts`.
 - Memperbarui instruksi AI agar jawaban mengikuti bahasa utama pada pesan terakhir customer, menggunakan bahasa situs hanya sebagai fallback, dan menangani pesan campuran secara natural.
@@ -383,7 +387,8 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 - Memperbarui `apps/dashboard/src/app/(dashboard)/knowledge/page.tsx`.
 - Memperbarui `package.json`.
 
-[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.9.0...HEAD
+[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.9.1...HEAD
+[0.9.1]: https://github.com/bizdevsg/live-chat/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/bizdevsg/live-chat/compare/v0.8.2...v0.9.0
 [0.8.2]: https://github.com/bizdevsg/live-chat/compare/v0.8.1...v0.8.2
 [0.8.1]: https://github.com/bizdevsg/live-chat/compare/v0.8.0...v0.8.1
