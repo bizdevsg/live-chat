@@ -17,10 +17,41 @@ import { cn } from "@/components/ui/cn";
 import { AutoReturnCountdown } from "@/components/inbox/auto-return-countdown";
 import { Permission } from "@/lib/permissions";
 import type { ConversationDetail, MessageItem, MessageReceiptItem } from "@/lib/types";
-import { ImagePlus, Send, X } from "lucide-react";
+import { ImagePlus, Send, Smile, X } from "lucide-react";
 
 const ALLOWED_IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp"];
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+const EMOJI_MART_DATA_URL = "https://cdn.jsdelivr.net/npm/@emoji-mart/data";
+
+function EmojiMartPicker({ onSelect, onClose }: { onSelect: (emoji: string) => void; onClose: () => void }) {
+  const pickerHostRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    let pickerNode: Node | null = null;
+    let cancelled = false;
+    void import("emoji-mart").then(({ Picker }) => {
+      if (cancelled || !pickerHostRef.current) return;
+      const picker = new Picker({
+        data: async () => (await fetch(EMOJI_MART_DATA_URL)).json(),
+        theme: "dark",
+        locale: "en",
+        previewPosition: "none",
+        skinTonePosition: "none",
+        maxFrequentRows: 2,
+        onEmojiSelect: (emoji: { native?: string }) => emoji.native && onSelect(emoji.native),
+        onClickOutside: onClose,
+      });
+      pickerNode = picker as unknown as Node;
+      pickerHostRef.current.appendChild(pickerNode);
+    });
+    return () => {
+      cancelled = true;
+      pickerNode?.parentNode?.removeChild(pickerNode);
+    };
+  }, [onClose, onSelect]);
+
+  return <div className="overflow-hidden rounded-xl" ref={pickerHostRef} />;
+}
 
 function ImageAttachment({ conversationId, attachment }: { conversationId: string; attachment: NonNullable<MessageItem["attachments"]>[number] }) {
   const image = useQuery({
@@ -204,8 +235,10 @@ export default function ConversationDetailPage() {
   const [visitorTyping, setVisitorTyping] = useState(false);
   const [aiTyping, setAiTyping] = useState(false);
   const [pendingImage, setPendingImage] = useState<{ file: File; previewUrl: string } | null>(null);
+  const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const draftTextareaRef = useRef<HTMLTextAreaElement>(null);
   const typingStopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const agentReadMessageIdsRef = useRef(new Set<string>());
 
@@ -471,6 +504,18 @@ export default function ConversationDetailPage() {
     }, 1500);
   }
 
+  function insertEmoji(emoji: string) {
+    const textarea = draftTextareaRef.current;
+    const start = textarea?.selectionStart ?? draft.length;
+    const end = textarea?.selectionEnd ?? draft.length;
+    handleDraftChange(`${draft.slice(0, start)}${emoji}${draft.slice(end)}`);
+    setEmojiPickerOpen(false);
+    requestAnimationFrame(() => {
+      textarea?.focus();
+      textarea?.setSelectionRange(start + emoji.length, start + emoji.length);
+    });
+  }
+
   return (
     <>
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
@@ -592,11 +637,18 @@ export default function ConversationDetailPage() {
               }}
             />
 
-            <Textarea
+            <div className="relative min-w-0 flex-1">
+              {emojiPickerOpen ? (
+                <div className="absolute bottom-[68px] right-0 z-20 w-[352px] max-w-[calc(100vw-3rem)] rounded-xl border border-ink-600 bg-ink-800 p-1 shadow-xl">
+                  <EmojiMartPicker onSelect={insertEmoji} onClose={() => setEmojiPickerOpen(false)} />
+                </div>
+              ) : null}
+              <Textarea
+              ref={draftTextareaRef}
               value={draft}
               onChange={(e) => handleDraftChange(e.target.value)}
               placeholder={pendingImage ? "Tambahkan pesan (opsional)..." : canReply ? "Tulis balasan..." : "Take over chat dulu sebelum membalas..."}
-              className="min-h-[60px]"
+              className="min-h-[60px] pr-10"
               disabled={!canReply || uploadImage.isPending}
               onKeyDown={(e) => {
                 if (!canReply) return;
@@ -618,7 +670,11 @@ export default function ConversationDetailPage() {
                   }
                 }
               }}
-            />
+              />
+              <button type="button" onClick={() => setEmojiPickerOpen((open) => !open)} disabled={!canReply || uploadImage.isPending} aria-label="Pilih emoji" className="absolute bottom-2 right-2 rounded p-1 text-zinc-400 hover:text-gold-500 disabled:opacity-40">
+                <Smile className="h-5 w-5" />
+              </button>
+            </div>
 
             <div className="flex flex-col items-center justify-between gap-1.5">
               <Button

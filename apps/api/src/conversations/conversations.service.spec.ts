@@ -189,6 +189,55 @@ describe("ConversationsService.autoReturnToAiOnAgentTimeout", () => {
   });
 });
 
+describe("ConversationsService.handleAiInactivity", () => {
+  function createService(status = ConversationStatus.AI_ACTIVE, handlerType = HandlerType.AI, newerVisitorMessage: { id: string } | null = null) {
+    const prisma = {
+      conversation: {
+        findUnique: jest.fn().mockResolvedValue({ id: "conv-1", status, handlerType }),
+        update: jest.fn().mockResolvedValue({}),
+      },
+      message: { findFirst: jest.fn().mockResolvedValue(newerVisitorMessage) },
+      agentProfile: { update: jest.fn().mockResolvedValue({}) },
+    };
+    const service = new ConversationsService(
+      prisma as never,
+      { toConversation: jest.fn() } as never,
+      { record: jest.fn() } as never,
+      { record: jest.fn() } as never,
+      { notifyAgent: jest.fn(), notifyTeam: jest.fn(), notifyOrganization: jest.fn() } as never,
+      { getJob: jest.fn().mockResolvedValue(undefined), add: jest.fn() } as never,
+    );
+    jest.spyOn(service, "postMessage").mockResolvedValue({ message: { id: "msg-1" } } as never);
+    return { service, prisma };
+  }
+
+  it("sends the requested five-minute reminder only while AI is handling the chat", async () => {
+    const { service } = createService();
+
+    await expect(service.handleAiInactivity("conv-1", new Date("2026-09-01T10:00:00.000Z"), "reminder")).resolves.toBe(true);
+    expect(service.postMessage).toHaveBeenCalledWith({
+      conversationId: "conv-1",
+      senderType: SenderType.AI,
+      content: "Apakah masih ada hal yang ingin Anda tanyakan atau diskusikan?",
+    });
+  });
+
+  it("does not send an inactivity message for a stale job after another visitor message", async () => {
+    const { service } = createService(ConversationStatus.AI_ACTIVE, HandlerType.AI, { id: "newer-message" });
+
+    await expect(service.handleAiInactivity("conv-1", new Date("2026-09-01T10:00:00.000Z"), "closing-warning")).resolves.toBe(false);
+    expect(service.postMessage).not.toHaveBeenCalled();
+  });
+
+  it("closes the conversation at the ten-minute deadline", async () => {
+    const { service } = createService();
+    jest.spyOn(service, "close").mockResolvedValue({} as never);
+
+    await expect(service.handleAiInactivity("conv-1", new Date("2026-09-01T10:00:00.000Z"), "close")).resolves.toBe(true);
+    expect(service.close).toHaveBeenCalledWith("conv-1", "SYSTEM");
+  });
+});
+
 describe("ConversationsService.requestAgent (agents handle up to 5 concurrent chats)", () => {
   function createService(opts?: {
     onlineAgents?: Array<{ userId: string; activeChatCount: number; maxConcurrentChats: number }>;

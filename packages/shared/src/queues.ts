@@ -10,7 +10,17 @@ export interface CrmSyncJobData {
   leadId: string;
 }
 
-export interface ConversationTimeoutJobData {
+export interface AgentReplyTimeoutJobData {
   conversationId: string;
   timeoutStartedAt: string;
 }
+
+export type ConversationInactivityJobKind = "reminder" | "closing-warning" | "close";
+
+export interface ConversationInactivityJobData {
+  conversationId: string;
+  activityStartedAt: string;
+  kind: ConversationInactivityJobKind;
+}
+
+export type ConversationTimeoutJobData = AgentReplyTimeoutJobData | ConversationInactivityJobData;

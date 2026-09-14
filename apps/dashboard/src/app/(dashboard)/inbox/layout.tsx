@@ -78,7 +78,7 @@ export default function InboxLayout({ children }: { children: ReactNode }) {
   });
 
   const closedQuery = useQuery({
-    queryKey: ["agent", "conversations", "closed-by-visitor"],
+    queryKey: ["agent", "conversations", "closed-without-agent-reply"],
     queryFn: () => apiClient.get<ConversationSummary[]>("/api/v1/agent/closed"),
     refetchInterval: 15000,
     refetchIntervalInBackground: true,

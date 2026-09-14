@@ -135,18 +135,18 @@ export class AgentService {
   }
 
   /**
-   * Conversations abandoned by a visitor before any human agent replied. Keep these separate
-   * from the live queue so agents can review missed opportunities without mixing them into work
-   * that can still be accepted.
+   * Conversations closed before any human agent replied, including the AI inactivity timeout.
+   * Keep these separate from the live queue so agents can review missed opportunities without
+   * mixing them into work that can still be accepted.
    */
-  async closedByVisitorWithoutAgentReply(user: JwtAccessPayload) {
+  async closedWithoutAgentReply(user: JwtAccessPayload) {
     const canViewAll = user.permissions.includes(Permission.CONVERSATION_VIEW_ALL);
     const teamIds = canViewAll ? undefined : await this.myTeamIds(user.sub);
     return this.prisma.conversation.findMany({
       where: {
         organizationId: user.organizationId,
         status: ConversationStatus.CLOSED,
-        events: { some: { type: "conversation.closed", actorType: "VISITOR" } },
+        events: { some: { type: "conversation.closed", actorType: { in: ["VISITOR", "SYSTEM"] } } },
         messages: { none: { deletedAt: null, isInternal: false, senderType: "AGENT" } },
         ...(teamIds ? { assignedTeamId: { in: teamIds } } : {}),
       },

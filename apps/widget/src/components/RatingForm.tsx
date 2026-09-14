@@ -7,11 +7,11 @@ export function RatingForm({ onSubmit, widgetColor }: { onSubmit: (score: number
   const [submitted, setSubmitted] = useState(false);
 
   if (submitted) {
-    return <div className="mx-auto max-w-[85%] rounded-2xl bg-zinc-800 px-4 py-3 text-center text-sm text-zinc-200">Terima kasih atas penilaian Anda!</div>;
+    return <div className="mx-auto max-w-[85%] rounded-2xl bg-zinc-900/95 px-4 py-3 text-center text-sm text-zinc-200 shadow-2xl backdrop-blur-sm">Terima kasih atas penilaian Anda!</div>;
   }
 
   return (
-    <div className="mx-auto max-w-[90%] rounded-2xl bg-zinc-800 p-4">
+    <div className="mx-auto w-full max-w-[90%] rounded-2xl bg-zinc-900/95 p-4 shadow-2xl backdrop-blur-sm">
       <p className="mb-2 text-center text-sm text-zinc-200">Bagaimana pengalaman Anda dengan layanan kami?</p>
       <div className="mb-3 flex justify-center gap-1">
         {[1, 2, 3, 4, 5].map((n) => {

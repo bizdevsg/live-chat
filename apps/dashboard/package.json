@@ -11,10 +11,11 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@uiw/react-md-editor": "^4.1.1",
     "@solidchat/shared": "workspace:*",
     "@tanstack/react-query": "^5.59.16",
+    "@uiw/react-md-editor": "^4.1.1",
     "clsx": "^2.1.1",
+    "emoji-mart": "^5.6.0",
     "lucide-react": "^1.32.0",
     "next": "^14.2.15",
     "react": "^18.3.1",

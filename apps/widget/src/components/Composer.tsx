@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { SiteConfig } from "../hooks/use-widget-session";
-import { Headset, ImagePlus, Send, X } from "lucide-react";
+import { Headset, ImagePlus, Send, Smile, X } from "lucide-react";
 
 const COMPOSER_MIN_HEIGHT = 46;
 const COMPOSER_MAX_LINES = 3;
@@ -15,6 +15,37 @@ const COMPOSER_MAX_HEIGHT =
 const ALLOWED_IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp"];
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 const WIDGET_SURFACE_COLOR = "#2e2e2e";
+const EMOJI_MART_DATA_URL = "https://cdn.jsdelivr.net/npm/@emoji-mart/data";
+
+function EmojiMartPicker({ onSelect, onClose }: { onSelect: (emoji: string) => void; onClose: () => void }) {
+  const pickerHostRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    let pickerNode: Node | null = null;
+    let cancelled = false;
+    void import("emoji-mart").then(({ Picker }) => {
+      if (cancelled || !pickerHostRef.current) return;
+      const picker = new Picker({
+        data: async () => (await fetch(EMOJI_MART_DATA_URL)).json(),
+        theme: "dark",
+        locale: "en",
+        previewPosition: "none",
+        skinTonePosition: "none",
+        maxFrequentRows: 2,
+        onEmojiSelect: (emoji: { native?: string }) => emoji.native && onSelect(emoji.native),
+        onClickOutside: onClose,
+      });
+      pickerNode = picker as unknown as Node;
+      pickerHostRef.current.appendChild(pickerNode);
+    });
+    return () => {
+      cancelled = true;
+      pickerNode?.parentNode?.removeChild(pickerNode);
+    };
+  }, [onClose, onSelect]);
+
+  return <div className="overflow-hidden rounded-xl" ref={pickerHostRef} />;
+}
 
 export function Composer({
   onSend,
@@ -45,6 +76,7 @@ export function Composer({
   const [pendingImage, setPendingImage] = useState<{ file: File; previewUrl: string } | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
   const agentButtonLabel = config.settings?.agentButtonLabel?.trim() || "Hubungi Agent Kami";
 
   const resizeTextarea = useCallback((textarea: HTMLTextAreaElement | null) => {
@@ -83,6 +115,19 @@ export function Composer({
     onTyping(true);
     if (typingTimeout.current) clearTimeout(typingTimeout.current);
     typingTimeout.current = setTimeout(() => onTyping(false), 1500);
+  }
+
+  function insertEmoji(emoji: string) {
+    const textarea = textareaRef.current;
+    const start = textarea?.selectionStart ?? value.length;
+    const end = textarea?.selectionEnd ?? value.length;
+    const nextValue = `${value.slice(0, start)}${emoji}${value.slice(end)}`;
+    handleChange(nextValue);
+    setEmojiPickerOpen(false);
+    requestAnimationFrame(() => {
+      textarea?.focus();
+      textarea?.setSelectionRange(start + emoji.length, start + emoji.length);
+    });
   }
 
   function stageImage(file: File | undefined) {
@@ -172,23 +217,33 @@ export function Composer({
           </button>
         ) : null}
         <input ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(event) => stageImage(event.target.files?.[0])} />
-        <textarea
-          ref={textareaRef}
-          value={value}
-          onChange={(e) => {
-            resizeTextarea(e.currentTarget);
-            handleChange(e.target.value);
-          }}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              void submit();
-            }
-          }}
-          placeholder={pendingImage ? "Tambahkan pesan (opsional)..." : "Tulis pesan..."}
-          rows={1}
-          className="scrollbar-composer block min-h-11 w-full flex-1 resize-none rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-3 text-sm leading-5 text-white placeholder:text-zinc-500 focus:border-gold focus:outline-none box-border"
-        />
+        <div className="relative min-w-0 flex-1">
+          {emojiPickerOpen ? (
+            <div className="absolute bottom-12 right-0 z-20 w-[352px] max-w-[calc(100vw-3rem)] rounded-xl border border-zinc-700 bg-zinc-800 p-1 shadow-xl">
+              <EmojiMartPicker onSelect={insertEmoji} onClose={() => setEmojiPickerOpen(false)} />
+            </div>
+          ) : null}
+          <textarea
+            ref={textareaRef}
+            value={value}
+            onChange={(e) => {
+              resizeTextarea(e.currentTarget);
+              handleChange(e.target.value);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                void submit();
+              }
+            }}
+            placeholder={pendingImage ? "Tambahkan pesan (opsional)..." : "Tulis pesan..."}
+            rows={1}
+            className="scrollbar-composer block min-h-11 w-full resize-none rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-3 pr-10 text-sm leading-5 text-white placeholder:text-zinc-500 focus:border-gold focus:outline-none box-border"
+          />
+          <button type="button" onClick={() => setEmojiPickerOpen((open) => !open)} disabled={disabled || uploading} aria-label="Pilih emoji" className="absolute bottom-2 right-2 rounded p-1 text-zinc-400 hover:text-yellow-400 disabled:opacity-40">
+            <Smile className="h-5 w-5" />
+          </button>
+        </div>
         <button
           onClick={() => void submit()}
           disabled={!canSubmit}

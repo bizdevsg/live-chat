@@ -3,8 +3,39 @@
 Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
+### Added
+- Menambahkan lifecycle timeout untuk percakapan yang ditangani AI: pengingat setelah 5 menit tanpa pesan visitor, peringatan penutupan 20 detik sebelum batas 10 menit, dan penutupan otomatis pada menit ke-10. Timer direset setiap visitor mengirim pesan baru dan diproses di server melalui queue agar tetap berjalan saat widget ditutup.
+
 ### Changed
+- Memaksa mode layar penuh widget pada perangkat mobile yang membuka halaman host tanpa `meta viewport`, sehingga tidak kembali ke ukuran panel desktop.
+- Memastikan overlay formulir penilaian tidak lagi menahan klik pada tombol Pesan Baru dan kontrol chat lainnya di belakangnya.
+- Membatasi overlay formulir penilaian widget pada area riwayat percakapan saja agar header dan tombol Pesan Baru tetap terlihat serta dapat diakses.
+- Membatasi tinggi panel desktop widget hingga 720px sambil mempertahankan penyesuaian otomatis pada viewport desktop yang lebih pendek.
+- Memperbarui `apps/api/src/agent/agent.controller.ts`.
+- Memperbarui `apps/api/src/agent/agent.service.ts`.
+- Memperbarui `apps/api/src/conversations/conversation-timeout.constants.ts`.
+- Memperbarui `apps/api/src/conversations/conversation-timeout.processor.ts`.
+- Memperbarui `apps/api/src/conversations/conversations.service.spec.ts`.
+- Memperbarui `apps/api/src/conversations/conversations.service.ts`.
+- Memperbarui `apps/dashboard/package.json`.
+- Memperbarui `apps/dashboard/src/app/(dashboard)/inbox/[conversationId]/page.tsx`.
+- Memperbarui `apps/dashboard/src/app/(dashboard)/inbox/layout.tsx`.
+- Memperbarui `apps/widget-loader/src/loader.ts`.
+- Memperbarui `apps/widget/package.json`.
+- Memperbarui `apps/widget/src/App.tsx`.
+- Memperbarui `apps/widget/src/components/Composer.tsx`.
+- Memperbarui `apps/widget/src/components/RatingForm.tsx`.
 - Memperbarui `package.json`.
+- Memperbarui `packages/ai-core/src/providers/openai-provider.ts`.
+- Memperbarui `packages/shared/src/queues.ts`.
+- Memperbarui `pnpm-lock.yaml`.
+- Memperbesar ikon bubble live chat agar lebih terlihat dan mudah diakses pengunjung.
+- Menambahkan lapisan gelap tipis pada overlay formulir penilaian agar fokus customer tetap pada rating tanpa menutupi percakapan sepenuhnya.
+- Menambahkan pemilih emoji berbasis `emoji-mart` pada kolom pesan widget dan Inbox Dashboard untuk menyisipkan emoji ke posisi kursor saat membalas chat.
+- Menampilkan percakapan yang ditutup otomatis oleh timeout AI pada tab Closed di Dashboard, sehingga riwayat chat tetap dapat ditinjau tim meski belum pernah dibalas agent.
+- Mengarahkan AI untuk memberikan URL halaman resmi yang paling spesifik terhadap topik customer hanya jika tautan tersebut terverifikasi dalam knowledge base, tanpa membuat atau menebak URL.
+- Mengubah formulir penilaian widget menjadi overlay transparan di atas percakapan agar riwayat chat tetap terlihat saat customer memberi rating.
+- Menyesuaikan tinggi panel widget desktop dengan tinggi viewport serta menjadikan widget layar penuh pada lebar mobile, termasuk dalam mode responsif browser.
 
 ## [0.8.2] - 2026-09-11
 ### Added

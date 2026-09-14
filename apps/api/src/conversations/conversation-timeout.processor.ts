@@ -1,10 +1,10 @@
 import { Processor, WorkerHost } from "@nestjs/bullmq";
 import { Logger } from "@nestjs/common";
 import { ModuleRef } from "@nestjs/core";
-import { QUEUE_NAMES, type ConversationTimeoutJobData } from "@solidchat/shared";
+import { QUEUE_NAMES, type ConversationInactivityJobData, type ConversationTimeoutJobData } from "@solidchat/shared";
 import type { Job } from "bullmq";
 import { AiOrchestratorService } from "../ai/ai-orchestrator.service";
-import { AGENT_REPLY_TIMEOUT_JOB_NAME } from "./conversation-timeout.constants";
+import { AGENT_REPLY_TIMEOUT_JOB_NAME, CONVERSATION_INACTIVITY_JOB_NAME } from "./conversation-timeout.constants";
 import { ConversationsService } from "./conversations.service";
 
 @Processor(QUEUE_NAMES.CONVERSATION_TIMEOUT)
@@ -19,9 +19,16 @@ export class ConversationTimeoutProcessor extends WorkerHost {
   }
 
   async process(job: Job<ConversationTimeoutJobData>): Promise<void> {
+    if (job.name === CONVERSATION_INACTIVITY_JOB_NAME) {
+      const inactivityJob = job.data as ConversationInactivityJobData;
+      await this.conversations.handleAiInactivity(inactivityJob.conversationId, new Date(inactivityJob.activityStartedAt), inactivityJob.kind);
+      return;
+    }
+
     if (job.name !== AGENT_REPLY_TIMEOUT_JOB_NAME) return;
 
-    const restored = await this.conversations.autoReturnToAiOnAgentTimeout(job.data.conversationId, new Date(job.data.timeoutStartedAt));
+    const timeoutJob = job.data as Extract<ConversationTimeoutJobData, { timeoutStartedAt: string }>;
+    const restored = await this.conversations.autoReturnToAiOnAgentTimeout(timeoutJob.conversationId, new Date(timeoutJob.timeoutStartedAt));
     if (restored) {
       // Answer immediately if the visitor's latest message is still hanging unanswered. Checking
       // from epoch (not the handoff moment) means a question asked *before* the handoff is picked

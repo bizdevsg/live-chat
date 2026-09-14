@@ -46,8 +46,8 @@ export class AgentController {
   }
 
   @Get("closed")
-  async closedByVisitorWithoutAgentReply(@CurrentUser() user: JwtAccessPayload) {
-    const data = await this.agentService.closedByVisitorWithoutAgentReply(user);
+  async closedWithoutAgentReply(@CurrentUser() user: JwtAccessPayload) {
+    const data = await this.agentService.closedWithoutAgentReply(user);
     return { success: true, data };
   }
 

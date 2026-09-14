@@ -278,7 +278,7 @@ export default function App() {
   }
 
   return (
-    <div className="flex h-screen min-h-0 flex-col overflow-hidden rounded-2xl border border-zinc-800 shadow-2xl">
+    <div className="relative flex h-screen min-h-0 flex-col overflow-hidden rounded-2xl border border-zinc-800 shadow-2xl">
       <Header
         config={config}
         connected={connected}
@@ -294,28 +294,32 @@ export default function App() {
         onEndConversation={closeConversation}
       />
       {isBusy && !conversationEnded ? <BusyNotice /> : null}
-      <MessageList
-        messages={messages}
-        config={config}
-        agentTyping={agentTyping}
-        agentTypingName={agentTypingName}
-        aiTyping={aiTyping}
-        agentConnecting={agentConnecting}
-        agentReplyRemainingSeconds={agentReplyRemainingSeconds}
+      <div className="relative flex min-h-0 flex-1 flex-col">
+        <MessageList
+          messages={messages}
+          config={config}
+          agentTyping={agentTyping}
+          agentTypingName={agentTypingName}
+          aiTyping={aiTyping}
+          agentConnecting={agentConnecting}
+          agentReplyRemainingSeconds={agentReplyRemainingSeconds}
           agentReplyTimedOut={agentReplyTimedOut}
           visitorToken={visitorToken ?? ""}
-      />
-      {showRating ? (
-        <div className="px-4 pb-3">
-          <RatingForm
-            widgetColor={config.widgetColor}
-            onSubmit={async (score, comment) => {
-              await submitFeedback(score, comment);
-              setShowRating(false);
-            }}
-          />
-        </div>
-      ) : null}
+        />
+        {showRating ? (
+          <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center bg-black/75 px-4">
+            <div className="pointer-events-auto w-full">
+              <RatingForm
+                widgetColor={config.widgetColor}
+                onSubmit={async (score, comment) => {
+                  await submitFeedback(score, comment);
+                  setShowRating(false);
+                }}
+              />
+            </div>
+          </div>
+        ) : null}
+      </div>
       {conversationEnded ? (
         <div className="border-t border-zinc-800 bg-ink p-4">
           <div className="rounded-2xl border border-zinc-800 bg-zinc-950 px-4 py-4 text-center">
