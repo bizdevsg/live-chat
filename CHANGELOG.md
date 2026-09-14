@@ -3,6 +3,10 @@
 Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
+### Changed
+- Memperbarui `package.json`.
+
+## [0.9.0] - 2026-09-14
 ### Added
 - Menambahkan lifecycle timeout untuk percakapan yang ditangani AI: pengingat setelah 5 menit tanpa pesan visitor, peringatan penutupan 20 detik sebelum batas 10 menit, dan penutupan otomatis pada menit ke-10. Timer direset setiap visitor mengirim pesan baru dan diproses di server melalui queue agar tetap berjalan saat widget ditutup.
 
@@ -376,7 +380,8 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 - Memperbarui `apps/dashboard/src/app/(dashboard)/knowledge/page.tsx`.
 - Memperbarui `package.json`.
 
-[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.8.2...HEAD
+[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/bizdevsg/live-chat/compare/v0.8.2...v0.9.0
 [0.8.2]: https://github.com/bizdevsg/live-chat/compare/v0.8.1...v0.8.2
 [0.8.1]: https://github.com/bizdevsg/live-chat/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/bizdevsg/live-chat/compare/v0.6.2...v0.8.0
