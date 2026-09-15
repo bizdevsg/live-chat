@@ -3,6 +3,9 @@
 Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
+
+### Added
+- Menambahkan pengeditan nama, upload, tampil, dan hapus foto profil pengguna pada Dashboard, termasuk penyimpanan avatar privat dan URL unduhan bertanda tangan.
 ### Changed
 - Memperbarui `package.json`.
 

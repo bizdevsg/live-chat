@@ -10,6 +10,9 @@ export interface UserAuthContext {
   roles: string[];
   permissions: string[];
   accountSettings: UserAccountSettings;
+  /** MinIO object key for the profile photo, or null if none uploaded. Never expose as a raw
+   *  URL — the client only uses it as a cache-bust key against the signed-URL redirect endpoint. */
+  avatarStorageKey: string | null;
 }
 
 export async function loadUserAuthContext(prisma: PrismaService, userId: string): Promise<UserAuthContext | null> {
@@ -38,5 +41,6 @@ export async function loadUserAuthContext(prisma: PrismaService, userId: string)
     roles: [...roleSlugs],
     permissions: [...permissionSlugs],
     accountSettings,
+    avatarStorageKey: user.avatarStorageKey,
   };
 }

@@ -1,4 +1,4 @@
-import { IsBoolean, IsEmail, IsIn, IsOptional, IsString, Matches, MinLength } from "class-validator";
+import { IsBoolean, IsEmail, IsIn, IsOptional, IsString, Matches, MaxLength, MinLength } from "class-validator";
 import {
   CUSTOM_NEW_MESSAGES_SOUND_ID,
   CUSTOM_ON_CONVERSATION_SOUND_ID,
@@ -26,6 +26,13 @@ export class RefreshDto {
 export class ForgotPasswordDto {
   @IsEmail()
   email!: string;
+}
+
+export class UpdateProfileDto {
+  @IsString()
+  @MinLength(1)
+  @MaxLength(120)
+  name!: string;
 }
 
 export class ResetPasswordDto {

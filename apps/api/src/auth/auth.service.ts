@@ -12,7 +12,8 @@ import { SecurityEventService } from "../common/security/security-event.service"
 import { ApiException, UnauthorizedApiException } from "../common/errors/api.exception";
 import { StorageService } from "../storage/storage.service";
 import { loadUserAuthContext } from "./auth-context.util";
-import type { UpdateAccountSettingsDto, UploadNotificationSoundDto } from "./dto/auth.dto";
+import type { UpdateAccountSettingsDto, UpdateProfileDto, UploadNotificationSoundDto } from "./dto/auth.dto";
+import { assertValidImageUpload, imageExtension } from "../common/utils/image-upload";
 import {
   CUSTOM_NEW_MESSAGES_SOUND_ID,
   CUSTOM_ON_CONVERSATION_SOUND_ID,
@@ -332,6 +333,101 @@ export class AuthService {
     }
 
     return this.storage.getSignedDownloadUrl(storageKey);
+  }
+
+  async updateProfile(userId: string, dto: UpdateProfileDto) {
+    const context = await loadUserAuthContext(this.prisma, userId);
+    if (!context) throw new UnauthorizedApiException();
+
+    const name = dto.name.trim();
+    if (!name) throw new BadRequestException("Nama tidak boleh kosong.");
+
+    await this.prisma.user.update({ where: { id: userId }, data: { name } });
+    await this.auditLog.record({
+      organizationId: context.organizationId,
+      actorType: "USER",
+      actorId: userId,
+      action: "auth.profile.updated",
+      resourceType: "user",
+      resourceId: userId,
+      beforeData: { name: context.name },
+      afterData: { name },
+    });
+
+    const updated = await loadUserAuthContext(this.prisma, userId);
+    if (!updated) throw new UnauthorizedApiException();
+    return updated;
+  }
+
+  async uploadAvatar(userId: string, file: Express.Multer.File) {
+    const context = await loadUserAuthContext(this.prisma, userId);
+    if (!context) throw new UnauthorizedApiException();
+    assertValidImageUpload(file);
+
+    // A fresh, random key per upload (never the previous one reused) — the client relies on the
+    // key changing to bust its own cache, same as the notification-sound upload above.
+    const storageKey = this.storage.buildStorageKey(`avatars/${context.organizationId}/${userId}`, `avatar${imageExtension(file.mimetype)}`);
+    await this.storage.upload(storageKey, file.buffer, file.mimetype);
+    try {
+      await this.prisma.user.update({ where: { id: userId }, data: { avatarStorageKey: storageKey } });
+    } catch (error) {
+      await this.storage.remove(storageKey).catch(() => undefined);
+      throw error;
+    }
+
+    const previousStorageKey = context.avatarStorageKey;
+    if (previousStorageKey && previousStorageKey !== storageKey) {
+      await this.storage.remove(previousStorageKey).catch(() => undefined);
+    }
+
+    await this.auditLog.record({
+      organizationId: context.organizationId,
+      actorType: "USER",
+      actorId: userId,
+      action: "auth.profile.avatar_uploaded",
+      resourceType: "user",
+      resourceId: userId,
+      beforeData: { avatarStorageKey: previousStorageKey },
+      afterData: { avatarStorageKey: storageKey },
+    });
+
+    const updated = await loadUserAuthContext(this.prisma, userId);
+    if (!updated) throw new UnauthorizedApiException();
+    return updated;
+  }
+
+  async removeAvatar(userId: string) {
+    const context = await loadUserAuthContext(this.prisma, userId);
+    if (!context) throw new UnauthorizedApiException();
+    if (!context.avatarStorageKey) return context;
+
+    await this.prisma.user.update({ where: { id: userId }, data: { avatarStorageKey: null } });
+    await this.storage.remove(context.avatarStorageKey).catch(() => undefined);
+    await this.auditLog.record({
+      organizationId: context.organizationId,
+      actorType: "USER",
+      actorId: userId,
+      action: "auth.profile.avatar_removed",
+      resourceType: "user",
+      resourceId: userId,
+      beforeData: { avatarStorageKey: context.avatarStorageKey },
+      afterData: { avatarStorageKey: null },
+    });
+
+    const updated = await loadUserAuthContext(this.prisma, userId);
+    if (!updated) throw new UnauthorizedApiException();
+    return updated;
+  }
+
+  /** Signed, short-lived MinIO URL for the caller's own profile photo — never a stored public URL. */
+  async getAvatarDownloadUrl(userId: string) {
+    const context = await loadUserAuthContext(this.prisma, userId);
+    if (!context) throw new UnauthorizedApiException();
+    if (!context.avatarStorageKey) throw new NotFoundException("Foto profil belum diunggah.");
+
+    // Longer-lived than the 300s default: an avatar is displayed for as long as a page stays
+    // open, not downloaded once — 1h keeps it from going stale mid-session.
+    return this.storage.getSignedDownloadUrl(context.avatarStorageKey, 3600);
   }
 
   private async issueTokens(userId: string, meta: RequestMeta, tokenFamily?: string): Promise<AuthTokens> {

@@ -45,9 +45,15 @@ export class AgentController {
     return { success: true, data };
   }
 
+  @Get("conversations/all")
+  async allConversations(@CurrentUser() user: JwtAccessPayload) {
+    const data = await this.agentService.allConversations(user);
+    return { success: true, data };
+  }
+
   @Get("closed")
-  async closedWithoutAgentReply(@CurrentUser() user: JwtAccessPayload) {
-    const data = await this.agentService.closedWithoutAgentReply(user);
+  async closedByVisitorWithoutAgentReply(@CurrentUser() user: JwtAccessPayload) {
+    const data = await this.agentService.closedByVisitorWithoutAgentReply(user);
     return { success: true, data };
   }
 

@@ -135,18 +135,34 @@ export class AgentService {
   }
 
   /**
-   * Conversations closed before any human agent replied, including the AI inactivity timeout.
-   * Keep these separate from the live queue so agents can review missed opportunities without
-   * mixing them into work that can still be accepted.
+   * Superadmin inbox view: every conversation in the organization, including
+   * completed and closed conversations, rather than only the agent's history.
    */
-  async closedWithoutAgentReply(user: JwtAccessPayload) {
+  async allConversations(user: JwtAccessPayload) {
+    if (!user.roles.includes(SystemRole.SUPER_ADMIN)) {
+      throw new ForbiddenApiException("Hanya Superadmin yang dapat melihat seluruh conversation.");
+    }
+
+    return this.prisma.conversation.findMany({
+      where: { organizationId: user.organizationId },
+      orderBy: [{ lastMessageAt: "desc" }, { createdAt: "desc" }],
+      include: this.conversationListInclude(user.sub),
+    });
+  }
+
+  /**
+   * Conversations abandoned by a visitor before any human agent replied. Keep these separate
+   * from the live queue so agents can review missed opportunities without mixing them into work
+   * that can still be accepted.
+   */
+  async closedByVisitorWithoutAgentReply(user: JwtAccessPayload) {
     const canViewAll = user.permissions.includes(Permission.CONVERSATION_VIEW_ALL);
     const teamIds = canViewAll ? undefined : await this.myTeamIds(user.sub);
     return this.prisma.conversation.findMany({
       where: {
         organizationId: user.organizationId,
         status: ConversationStatus.CLOSED,
-        events: { some: { type: "conversation.closed", actorType: { in: ["VISITOR", "SYSTEM"] } } },
+        events: { some: { type: "conversation.closed", actorType: "VISITOR" } },
         messages: { none: { deletedAt: null, isInternal: false, senderType: "AGENT" } },
         ...(teamIds ? { assignedTeamId: { in: teamIds } } : {}),
       },

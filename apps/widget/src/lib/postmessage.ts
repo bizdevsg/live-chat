@@ -1,4 +1,4 @@
-export interface WidgetContext {
+interface WidgetContext {
   pageType?: string;
   campaign?: string;
   product?: string;

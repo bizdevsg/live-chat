@@ -78,12 +78,6 @@ export class IdentifyDto {
   identityToken!: string;
 }
 
-export class UpdateContextDto {
-  @IsOptional() @IsString() pageType?: string;
-  @IsOptional() @IsString() campaign?: string;
-  @IsOptional() @IsString() product?: string;
-}
-
 /** Submitted from the widget's Ticket Form fallback, shown instead of the pre-chat form while the org is OFFLINE. */
 export class CreateWidgetTicketDto {
   @IsString()

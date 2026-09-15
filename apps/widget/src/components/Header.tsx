@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { LogOut, MessageSquarePlus, PowerOff, X } from "lucide-react";
+import { LogOut, MessageSquarePlus, X } from "lucide-react";
 import { sendToParent } from "../lib/postmessage";
 import type { SiteConfig, SitePresenceStatus } from "../hooks/use-widget-session";
 

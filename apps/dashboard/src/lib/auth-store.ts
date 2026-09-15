@@ -10,6 +10,8 @@ export interface AuthUser {
   roles: string[];
   permissions: string[];
   accountSettings: UserAccountSettings;
+  /** Cache-bust key for the avatar image URL; null means no photo has been uploaded. */
+  avatarStorageKey: string | null;
 }
 
 interface AuthState {

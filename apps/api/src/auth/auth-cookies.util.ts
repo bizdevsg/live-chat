@@ -22,7 +22,7 @@ export function clearAuthCookies(req: Request, res: Response, config: ConfigServ
   res.clearCookie(REFRESH_COOKIE, { ...common, path: "/api/v1/auth" });
 }
 
-export function resolveCookieOptions(req: Request, config: ConfigService): CookieOptions {
+function resolveCookieOptions(req: Request, config: ConfigService): CookieOptions {
   const configuredDomain = normalizeCookieDomain(config.get<string>("COOKIE_DOMAIN"));
   const requestHost = (req.hostname || "").toLowerCase();
   const forwardedProto = typeof req.headers["x-forwarded-proto"] === "string" ? req.headers["x-forwarded-proto"].split(",")[0]?.trim().toLowerCase() : undefined;

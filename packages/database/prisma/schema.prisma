@@ -126,6 +126,9 @@ model User {
   /// Stable `sub` (UUID) of this agent's Clara account, captured on first Clara SSO login.
   /// Never chosen by Live Chat; never re-derived from name/email (Kebutuhan API Live Chat §4A.1).
   claraUserId       String?   @unique @map("clara_user_id")
+  /// MinIO object key for the agent's profile photo (never a public URL — always signed on read).
+  /// A fresh key is written on every re-upload, so it also doubles as the client's cache-bust key.
+  avatarStorageKey  String?   @map("avatar_storage_key")
   createdAt         DateTime  @default(now()) @map("created_at")
   updatedAt         DateTime  @updatedAt @map("updated_at")
 

@@ -27,13 +27,12 @@ declare global {
 }
 
 const FLOATING_BOTTOM_OFFSET = 20;
-const BUBBLE_SIZE = 120;
+// Keep the desktop chat compact even when the browser window is very tall.
 const PANEL_BOTTOM_OFFSET = 15;
 const PANEL_MAX_HEIGHT = 720;
-// Desktop panels shrink for short viewports but do not grow beyond a comfortable reading height.
-// At mobile widths they switch to a true edge-to-edge view, including browser responsive-mode
-// previews that lack a coarse pointer.
-const MOBILE_MEDIA_QUERY = "(max-width: 767.98px)";
+// A narrow desktop browser must remain a floating panel. Full-screen mode is reserved for actual
+// touch devices, which avoids treating a resized desktop window as a phone.
+const MOBILE_MEDIA_QUERY = "(max-width: 767.98px) and (pointer: coarse)";
 
 function supportsRequiredFeatures(): boolean {
   return (
@@ -92,7 +91,7 @@ function init() {
   const style = document.createElement("style");
   style.textContent = `
     .bubble { position: fixed; bottom: ${FLOATING_BOTTOM_OFFSET}px; ${config.position === "bottom-left" ? "left: 20px;" : "right: 20px;"}
-      width: ${BUBBLE_SIZE}px; height: ${BUBBLE_SIZE}px; border: none; cursor: pointer; padding: 0;
+      width: 88px; height: 88px; border: none; cursor: pointer; padding: 0;
       background: transparent; color: #0b0b0c; font-size: 26px; box-shadow: none;
       display: flex; align-items: center; justify-content: center; transition: transform .15s ease; }
     .bubble:hover { transform: scale(1.05); }
@@ -109,7 +108,7 @@ function init() {
       100% { box-shadow: 0 0 0 0 rgba(229,72,77,0); }
     }
     .panel { position: fixed; bottom: ${PANEL_BOTTOM_OFFSET}px; ${config.position === "bottom-left" ? "left: 20px;" : "right: 20px;"}
-       width: 440px; height: min(${PANEL_MAX_HEIGHT}px, calc(100vh - ${PANEL_BOTTOM_OFFSET * 2}px)); height: min(${PANEL_MAX_HEIGHT}px, calc(100dvh - ${PANEL_BOTTOM_OFFSET * 2}px)); max-width: calc(100vw - 40px); border: none; border-radius: 16px;
+      width: 440px; height: min(${PANEL_MAX_HEIGHT}px, calc(100vh - 40px)); max-width: calc(100vw - 40px); border: none; border-radius: 16px;
       box-shadow: 0 10px 40px rgba(0,0,0,.45); display: none; background: #2e2e2e; }
     .panel.open { display: block; }
     @media ${MOBILE_MEDIA_QUERY} {
@@ -118,11 +117,6 @@ function init() {
         width: auto; height: 100vh; height: 100dvh;
         max-height: none; border-radius: 0; box-shadow: none;
       }
-    }
-    .panel.mobile-fullscreen {
-      top: 0; left: 0; right: 0; bottom: auto;
-      width: auto; height: 100vh; height: 100dvh;
-      max-width: none; max-height: none; border-radius: 0; box-shadow: none;
     }
   `;
   shadow.appendChild(style);
@@ -185,9 +179,7 @@ function init() {
   }
 
   function isMobileViewport(): boolean {
-    // `screen.width` covers embedded sites that omit a viewport meta tag. In that case the CSS
-    // viewport can report a desktop-like width even though the visitor is on a phone.
-    return window.matchMedia(MOBILE_MEDIA_QUERY).matches || window.screen.width <= 767.98;
+    return window.matchMedia(MOBILE_MEDIA_QUERY).matches;
   }
 
   // On a phone the panel is full-screen. iOS Safari keeps `100dvh` spanning *behind* the
@@ -197,9 +189,7 @@ function init() {
   function syncMobilePanelSize() {
     if (!iframe) return;
     const vv = window.visualViewport;
-    const shouldUseMobileFullscreen = isOpen && isMobileViewport();
-    iframe.classList.toggle("mobile-fullscreen", shouldUseMobileFullscreen);
-    if (!shouldUseMobileFullscreen || !vv) {
+    if (!isOpen || !isMobileViewport() || !vv) {
       iframe.style.width = "";
       iframe.style.height = "";
       iframe.style.top = "";

@@ -1,17 +1,18 @@
-import { BadRequestException, Body, Controller, Get, HttpCode, HttpStatus, Param, Post, Put, Req, Res, UploadedFile, UseInterceptors } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Post, Put, Req, Res, UploadedFile, UseInterceptors } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { FileInterceptor } from "@nestjs/platform-express";
 import type { Request, Response } from "express";
 import { ApiTags } from "@nestjs/swagger";
 import { AuthService } from "./auth.service";
-import { ForgotPasswordDto, LoginDto, RefreshDto, ResetPasswordDto, UpdateAccountSettingsDto, UploadNotificationSoundDto } from "./dto/auth.dto";
+import { ForgotPasswordDto, LoginDto, RefreshDto, ResetPasswordDto, UpdateAccountSettingsDto, UpdateProfileDto, UploadNotificationSoundDto } from "./dto/auth.dto";
 import { Public } from "../common/decorators/public.decorator";
 import { CurrentUser } from "../common/decorators/current-user.decorator";
 import type { JwtAccessPayload } from "@solidchat/shared";
-import { ACCESS_COOKIE, REFRESH_COOKIE, clearAuthCookies, setAuthCookies } from "./auth-cookies.util";
+import { REFRESH_COOKIE, clearAuthCookies, setAuthCookies } from "./auth-cookies.util";
 import { AgentService } from "../agent/agent.service";
 
 const MAX_NOTIFICATION_SOUND_BYTES = 5 * 1024 * 1024;
+const MAX_AVATAR_BYTES = 3 * 1024 * 1024;
 const ALLOWED_NOTIFICATION_SOUND_MIME_TYPES = new Set([
   "audio/mpeg",
   "audio/mp3",
@@ -135,4 +136,31 @@ export class AuthController {
     return res.redirect(downloadUrl);
   }
 
+  @Put("profile")
+  async updateProfile(@CurrentUser() user: JwtAccessPayload, @Body() dto: UpdateProfileDto) {
+    return { success: true, data: await this.authService.updateProfile(user.sub, dto) };
+  }
+
+  @Post("profile/avatar")
+  @UseInterceptors(FileInterceptor("file", { limits: { fileSize: MAX_AVATAR_BYTES } }))
+  async uploadAvatar(@CurrentUser() user: JwtAccessPayload, @UploadedFile() file: Express.Multer.File) {
+    if (!file) throw new BadRequestException("File foto tidak ditemukan pada request.");
+    return { success: true, data: await this.authService.uploadAvatar(user.sub, file) };
+  }
+
+  // Returns the signed URL as JSON rather than redirecting: a plain <img src> can't attach the
+  // dashboard's Bearer token (it authenticates via header, not the access-token cookie — the
+  // notification-sound GET above relies on that cookie and is not a safe pattern to copy). The
+  // client fetches this authenticated endpoint first, then points <img> at the resulting MinIO
+  // URL directly, same as chat image attachments already do.
+  @Get("profile/avatar")
+  async avatar(@CurrentUser() user: JwtAccessPayload) {
+    const url = await this.authService.getAvatarDownloadUrl(user.sub);
+    return { success: true, data: { url } };
+  }
+
+  @Delete("profile/avatar")
+  async removeAvatar(@CurrentUser() user: JwtAccessPayload) {
+    return { success: true, data: await this.authService.removeAvatar(user.sub) };
+  }
 }

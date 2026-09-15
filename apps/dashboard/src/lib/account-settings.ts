@@ -8,7 +8,7 @@ export interface NotificationSoundOption {
   src: string;
 }
 
-export interface CustomNotificationSound {
+interface CustomNotificationSound {
   id: string;
   name: string;
   storageKey: string;
