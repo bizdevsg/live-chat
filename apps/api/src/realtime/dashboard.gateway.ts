@@ -9,7 +9,6 @@ import {
 } from "@nestjs/websockets";
 import { ConfigService } from "@nestjs/config";
 import { JwtService } from "@nestjs/jwt";
-import { Logger } from "@nestjs/common";
 import type { Server, Socket } from "socket.io";
 import { MessageType, SenderType, type JwtAccessPayload } from "@solidchat/shared";
 import { Public } from "../common/decorators/public.decorator";
@@ -31,8 +30,6 @@ interface DashboardSocket extends Socket {
 @Public()
 @WebSocketGateway({ namespace: "/dashboard", cors: { origin: true, credentials: true } })
 export class DashboardGateway implements OnGatewayInit, OnGatewayConnection {
-  private readonly logger = new Logger(DashboardGateway.name);
-
   @WebSocketServer()
   server!: Server;
 

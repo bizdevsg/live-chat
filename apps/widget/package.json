@@ -11,7 +11,6 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@solidchat/shared": "workspace:*",
     "emoji-mart": "^5.6.0",
     "lucide-react": "^1.32.0",
     "react": "^18.3.1",

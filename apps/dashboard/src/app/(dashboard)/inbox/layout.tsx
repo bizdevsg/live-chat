@@ -8,11 +8,13 @@ import { apiClient } from "@/lib/api-client";
 import { useConversationRealtimeStore } from "@/lib/conversation-realtime-store";
 import { getDashboardSocket } from "@/lib/socket";
 import type { ConversationSummary } from "@/lib/types";
+import { useAuthStore } from "@/lib/auth-store";
+import { isSuperAdminRole } from "@/lib/is-super-admin";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/components/ui/cn";
 import { AutoReturnCountdown } from "@/components/inbox/auto-return-countdown";
 
-type Tab = "waiting" | "mine" | "closed";
+type Tab = "waiting" | "mine" | "closed" | "all";
 
 /** A visitor asked for a human (or the AI handed off) and no agent has picked it up yet. */
 const WAITING_FOR_AGENT = new Set(["QUEUED", "WAITING_AGENT"]);
@@ -57,6 +59,8 @@ export default function InboxLayout({ children }: { children: ReactNode }) {
   const params = useParams<{ conversationId?: string }>();
   const [tab, setTab] = useState<Tab>("waiting");
   const queryClient = useQueryClient();
+  const user = useAuthStore((state) => state.user);
+  const isSuperAdmin = isSuperAdminRole(user?.roles);
   const unreadByConversationId = useConversationRealtimeStore((s) => s.unreadByConversationId);
   const activeConversationId = useConversationRealtimeStore((s) => s.activeConversationId);
 
@@ -75,6 +79,7 @@ export default function InboxLayout({ children }: { children: ReactNode }) {
     queryFn: () => apiClient.get<ConversationSummary[]>("/api/v1/agent/conversations"),
     refetchInterval: 15000,
     refetchIntervalInBackground: true,
+    enabled: !isSuperAdmin,
   });
 
   const closedQuery = useQuery({
@@ -82,6 +87,15 @@ export default function InboxLayout({ children }: { children: ReactNode }) {
     queryFn: () => apiClient.get<ConversationSummary[]>("/api/v1/agent/closed"),
     refetchInterval: 15000,
     refetchIntervalInBackground: true,
+    enabled: !isSuperAdmin,
+  });
+
+  const allQuery = useQuery({
+    queryKey: ["agent", "conversations", "all"],
+    queryFn: () => apiClient.get<ConversationSummary[]>("/api/v1/agent/conversations/all"),
+    refetchInterval: 15000,
+    refetchIntervalInBackground: true,
+    enabled: isSuperAdmin,
   });
 
   useEffect(() => {
@@ -106,7 +120,14 @@ export default function InboxLayout({ children }: { children: ReactNode }) {
     };
   }, [queryClient]);
 
-  const rawList = tab === "waiting" ? (waitingQuery.data ?? []) : tab === "mine" ? (mineQuery.data ?? []) : (closedQuery.data ?? []);
+  const rawList =
+    tab === "waiting"
+      ? (waitingQuery.data ?? [])
+      : tab === "mine"
+        ? (mineQuery.data ?? [])
+        : tab === "closed"
+          ? (closedQuery.data ?? [])
+          : (allQuery.data ?? []);
   // In the Waiting tab, float conversations that need a human to the top (server order —
   // lastMessageAt desc — is preserved within each group since Array.sort is stable).
   const list =
@@ -119,7 +140,9 @@ export default function InboxLayout({ children }: { children: ReactNode }) {
     waiting: waitingQuery.data?.filter((conversation) => ONGOING_STATUSES.has(conversation.status)).length ?? 0,
     mine: mineQuery.data?.length ?? 0,
     closed: closedQuery.data?.length ?? 0,
+    all: allQuery.data?.length ?? 0,
   };
+  const tabs: Tab[] = isSuperAdmin ? ["waiting", "all"] : ["waiting", "mine", "closed"];
 
   return (
     <div className="flex min-w-0 flex-1 flex-col overflow-hidden md:flex-row">
@@ -127,14 +150,14 @@ export default function InboxLayout({ children }: { children: ReactNode }) {
         className="flex max-h-[42vh] min-h-[240px] w-full min-w-0 flex-col border-b border-ink-600 bg-ink-800/40 md:max-h-none md:min-h-0 md:w-72 md:shrink-0 md:border-b-0 md:border-r"
       >
         <div className="flex border-b border-ink-600 text-xs">
-          {(["waiting", "mine", "closed"] as Tab[]).map((t) => (
+          {tabs.map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
               className={cn("flex-1 py-3 font-medium uppercase tracking-wide", tab === t ? "border-b-2 border-gold-500 text-gold-500" : "text-zinc-500")}
             >
               <span className="inline-flex items-center gap-2">
-                <span>{t === "waiting" ? "Waiting" : t === "mine" ? "My Chats" : "Closed"}</span>
+                <span>{t === "waiting" ? "Waiting" : t === "all" ? "All Chats" : t === "mine" ? "My Chats" : "Closed"}</span>
                 <span className={cn("rounded-full px-1.5 py-0.5 text-[10px] leading-none", tab === t ? "bg-gold-500/20 text-gold-500" : "bg-zinc-800 text-zinc-400")}>
                   {tabCounts[t]}
                 </span>

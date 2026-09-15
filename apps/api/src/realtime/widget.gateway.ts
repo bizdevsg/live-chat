@@ -98,12 +98,12 @@ export class WidgetGateway implements OnGatewayInit, OnGatewayConnection {
   }
 
   @SubscribeMessage("typing:start")
-  async onTypingStart(@ConnectedSocket() client: WidgetSocket, @MessageBody() body: { conversationId: string }) {
+  async onTypingStart(@MessageBody() body: { conversationId: string }) {
     this.realtime.toConversation(body.conversationId, "typing:updated", { from: "VISITOR", typing: true });
   }
 
   @SubscribeMessage("typing:stop")
-  async onTypingStop(@ConnectedSocket() client: WidgetSocket, @MessageBody() body: { conversationId: string }) {
+  async onTypingStop(@MessageBody() body: { conversationId: string }) {
     this.realtime.toConversation(body.conversationId, "typing:updated", { from: "VISITOR", typing: false });
   }
 

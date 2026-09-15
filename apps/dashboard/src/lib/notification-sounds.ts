@@ -141,7 +141,7 @@ export function prepareNotificationSounds(settings?: UserAccountSettings | null)
   return () => undefined;
 }
 
-export function playNotificationSound(category: NotificationSoundCategory, soundId: string, settings?: UserAccountSettings | null) {
+function playNotificationSound(category: NotificationSoundCategory, soundId: string, settings?: UserAccountSettings | null) {
   if (typeof window === "undefined") return;
 
   const option = resolveSoundOption(category, soundId, settings);
@@ -154,7 +154,7 @@ export function playNotificationSound(category: NotificationSoundCategory, sound
   });
 }
 
-export function resolveNotificationSoundCategory(type: string | undefined): NotificationSoundCategory | null {
+function resolveNotificationSoundCategory(type: string | undefined): NotificationSoundCategory | null {
   if (type === "NEW_WAITING_CONVERSATION" || type === "NEW_INBOX_CONVERSATION") return "newMessages";
   if (type === "NEW_CUSTOMER_MESSAGE") return "onConversation";
   return null;

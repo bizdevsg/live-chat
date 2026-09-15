@@ -1,6 +1,6 @@
 import { InjectQueue } from "@nestjs/bullmq";
 import { Injectable, Logger } from "@nestjs/common";
-import { AgentAvailability, ConversationStatus, ErrorCode, HandlerType, MessageType, QUEUE_NAMES, SenderType, type ConversationInactivityJobData, type ConversationInactivityJobKind, type ConversationTimeoutJobData, type HandoffReason } from "@solidchat/shared";
+import { AgentAvailability, ConversationStatus, ErrorCode, HandlerType, MessageType, QUEUE_NAMES, SenderType, type ConversationTimeoutJobData, type HandoffReason } from "@solidchat/shared";
 import { Prisma } from "@solidchat/database";
 import type { Queue } from "bullmq";
 import { PrismaService } from "../prisma/prisma.service";
@@ -14,13 +14,8 @@ import { ApiException, ForbiddenApiException, NotFoundApiException } from "../co
 import { HttpStatus } from "@nestjs/common";
 import {
   AGENT_REPLY_TIMEOUT_JOB_NAME,
-  AI_INACTIVITY_CLOSE_DELAY_MS,
-  AI_INACTIVITY_CLOSING_WARNING_DELAY_MS,
-  AI_INACTIVITY_REMINDER_DELAY_MS,
-  CONVERSATION_INACTIVITY_JOB_NAME,
   DEFAULT_AGENT_REPLY_TIMEOUT_SECONDS,
   MIN_AGENT_REPLY_TIMEOUT_SECONDS,
-  getConversationInactivityJobId,
   getAgentReplyTimeoutJobId,
 } from "./conversation-timeout.constants";
 
@@ -107,7 +102,7 @@ export class ConversationsService {
 
   private async getExistingAgentReplyTimeoutStart(conversationId: string) {
     const existing = await this.conversationTimeoutQueue.getJob(getAgentReplyTimeoutJobId(conversationId));
-    const startedAt = existing?.data && "timeoutStartedAt" in existing.data ? existing.data.timeoutStartedAt : undefined;
+    const startedAt = existing?.data?.timeoutStartedAt;
     if (!startedAt) return null;
     const parsed = new Date(startedAt);
     return Number.isNaN(parsed.getTime()) ? null : parsed;
@@ -186,49 +181,6 @@ export class ConversationsService {
           error instanceof Error ? error.message : "unknown error"
         }`,
       );
-    });
-  }
-
-  /** Resets the AI-only inactivity lifecycle whenever the visitor sends a new message. */
-  private async refreshAiInactivityTimeout(conversationId: string, activityStartedAt: Date) {
-    const jobs: Array<{ kind: ConversationInactivityJobKind; delay: number }> = [
-      { kind: "reminder", delay: AI_INACTIVITY_REMINDER_DELAY_MS },
-      { kind: "closing-warning", delay: AI_INACTIVITY_CLOSING_WARNING_DELAY_MS },
-      { kind: "close", delay: AI_INACTIVITY_CLOSE_DELAY_MS },
-    ];
-
-    await Promise.all(
-      jobs.map(async ({ kind, delay }) => {
-        const jobId = getConversationInactivityJobId(conversationId, kind);
-        const existing = await this.conversationTimeoutQueue.getJob(jobId);
-        await existing?.remove().catch(() => undefined);
-        await this.conversationTimeoutQueue.add(
-          CONVERSATION_INACTIVITY_JOB_NAME,
-          { conversationId, activityStartedAt: activityStartedAt.toISOString(), kind } satisfies ConversationInactivityJobData,
-          { jobId, delay, removeOnComplete: true, removeOnFail: 1000 },
-        );
-      }),
-    );
-  }
-
-  private async safelyRefreshAiInactivityTimeout(conversationId: string, activityStartedAt: Date) {
-    await this.refreshAiInactivityTimeout(conversationId, activityStartedAt).catch((error: unknown) => {
-      this.logger.warn(`Gagal menjadwalkan timeout tidak aktif untuk conversation ${conversationId}: ${error instanceof Error ? error.message : "unknown error"}`);
-    });
-  }
-
-  private async cancelAiInactivityTimeout(conversationId: string) {
-    await Promise.all(
-      (["reminder", "closing-warning", "close"] as const).map(async (kind) => {
-        const existing = await this.conversationTimeoutQueue.getJob(getConversationInactivityJobId(conversationId, kind));
-        await existing?.remove().catch(() => undefined);
-      }),
-    );
-  }
-
-  private async safelyCancelAiInactivityTimeout(conversationId: string) {
-    await this.cancelAiInactivityTimeout(conversationId).catch((error: unknown) => {
-      this.logger.warn(`Gagal membatalkan timeout tidak aktif untuk conversation ${conversationId}: ${error instanceof Error ? error.message : "unknown error"}`);
     });
   }
 
@@ -519,13 +471,6 @@ export class ConversationsService {
     }
 
     const enrichedMessage = await this.enrichSenderName(message);
-    if (isCustomerFacingSender) {
-      if (conversation.handlerType === HandlerType.AI && conversation.status === ConversationStatus.AI_ACTIVE) {
-        await this.safelyRefreshAiInactivityTimeout(input.conversationId, message.createdAt);
-      } else {
-        await this.safelyCancelAiInactivityTimeout(input.conversationId);
-      }
-    }
     if (input.senderType === SenderType.AGENT && !(input.isInternal ?? false)) {
       await this.safelyCancelAgentReplyTimeout(input.conversationId);
     }
@@ -604,7 +549,6 @@ export class ConversationsService {
 
   async requestAgent(conversationId: string, reason: HandoffReason = "CUSTOMER_REQUESTED_HUMAN") {
     const conversation = await this.getConversationOrThrow(conversationId);
-    await this.safelyCancelAiInactivityTimeout(conversationId);
     const targetTeam = await this.resolveTeamForHandoff(conversation.siteId, reason, conversation.intent, conversation.assignedTeamId);
 
     // Record the resolved team + reason, but do NOT queue yet. The visitor only ever sees a
@@ -842,7 +786,6 @@ export class ConversationsService {
     opts: { slotAlreadyReserved?: boolean; conversationAlreadyClaimed?: boolean } = {},
   ) {
     const conversation = await this.getConversationOrThrow(conversationId);
-    await this.safelyCancelAiInactivityTimeout(conversationId);
     if (
       !opts.conversationAlreadyClaimed &&
       conversation.assignedAgentId === agentId &&
@@ -1119,7 +1062,6 @@ export class ConversationsService {
         await this.assignToAgent(conversationId, target.toAgentId, "MANUAL");
       }
     } else if (target.toTeamId) {
-      await this.safelyCancelAiInactivityTimeout(conversationId);
       await this.prisma.conversation.update({
         where: { id: conversationId },
         data: { assignedTeamId: target.toTeamId, assignedAgentId: null, status: ConversationStatus.QUEUED, handlerType: HandlerType.NONE },
@@ -1179,7 +1121,6 @@ export class ConversationsService {
   async close(conversationId: string, actorType: "VISITOR" | "SYSTEM" | "USER" = "VISITOR", actorId?: string) {
     const conversation = await this.getConversationOrThrow(conversationId);
     await this.safelyCancelAgentReplyTimeout(conversationId);
-    await this.safelyCancelAiInactivityTimeout(conversationId);
     if (this.shouldReleaseAgent(conversation)) {
       const assignedAgentId = conversation.assignedAgentId!;
       await this.prisma.agentProfile.update({ where: { userId: assignedAgentId }, data: { activeChatCount: { decrement: 1 } } }).catch(() => undefined);
@@ -1191,47 +1132,6 @@ export class ConversationsService {
     await this.logEvent(conversationId, "conversation.closed", actorType, actorId ?? null, {});
     this.realtime.toConversation(conversationId, "conversation:updated", { conversationId, status: ConversationStatus.CLOSED });
     return updated;
-  }
-
-  /** Executes one step of the AI visitor-inactivity lifecycle, ignoring stale delayed jobs. */
-  async handleAiInactivity(conversationId: string, activityStartedAt: Date, kind: ConversationInactivityJobKind) {
-    const conversation = await this.prisma.conversation.findUnique({
-      where: { id: conversationId },
-      select: { id: true, status: true, handlerType: true },
-    });
-    if (!conversation || conversation.status !== ConversationStatus.AI_ACTIVE || conversation.handlerType !== HandlerType.AI) return false;
-
-    const newerVisitorMessage = await this.prisma.message.findFirst({
-      where: {
-        conversationId,
-        deletedAt: null,
-        senderType: { in: [SenderType.VISITOR, SenderType.CUSTOMER] },
-        createdAt: { gt: activityStartedAt },
-      },
-      select: { id: true },
-    });
-    if (newerVisitorMessage) return false;
-
-    if (kind === "reminder") {
-      await this.postMessage({
-        conversationId,
-        senderType: SenderType.AI,
-        content: "Apakah masih ada hal yang ingin Anda tanyakan atau diskusikan?",
-      });
-      return true;
-    }
-
-    if (kind === "closing-warning") {
-      await this.postMessage({
-        conversationId,
-        senderType: SenderType.AI,
-        content: "Apabila tidak ada pertanyaan lainnya, sesi percakapan ini akan saya akhiri. Terima kasih telah menghubungi kami.",
-      });
-      return true;
-    }
-
-    await this.close(conversationId, "SYSTEM");
-    return true;
   }
 
   async submitFeedback(conversationId: string, score: number, comment?: string) {

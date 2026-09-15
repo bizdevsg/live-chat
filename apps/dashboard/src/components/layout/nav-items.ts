@@ -17,7 +17,7 @@ export type NavIcon =
   | "shield"
   | "file";
 
-export interface NavItem {
+interface NavItem {
   href: string;
   label: string;
   icon: NavIcon;
