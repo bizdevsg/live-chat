@@ -3,9 +3,10 @@
 Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
-- Belum ada perubahan terdeteksi.
+### Changed
+- Memperbarui `package.json`.
 
-## [0.9.1] - 2026-09-15
+## [0.9.2] - 2026-09-15
 ### Added
 - Menambahkan `scripts/deploy.sh`.
 - Menambahkan `apps/dashboard/src/components/inbox/rich-text.tsx`.
@@ -419,8 +420,8 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 - Memperbarui `apps/dashboard/src/app/(dashboard)/knowledge/page.tsx`.
 - Memperbarui `package.json`.
 
-[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.9.1...HEAD
-[0.9.1]: https://github.com/bizdevsg/live-chat/compare/v0.9.0...v0.9.1
+[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.9.2...HEAD
+[0.9.2]: https://github.com/bizdevsg/live-chat/compare/v0.9.0...v0.9.2
 [0.9.0]: https://github.com/bizdevsg/live-chat/compare/v0.8.2...v0.9.0
 [0.8.2]: https://github.com/bizdevsg/live-chat/compare/v0.8.1...v0.8.2
 [0.8.1]: https://github.com/bizdevsg/live-chat/compare/v0.8.0...v0.8.1
