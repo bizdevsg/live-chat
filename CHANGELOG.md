@@ -4,6 +4,10 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
 ### Changed
+- Memperbarui `package.json`.
+
+## [0.9.5] - 2026-09-15
+### Changed
 - Memperbarui `apps/api/src/conversations/conversations.service.spec.ts`.
 - Memperbarui `apps/api/src/conversations/conversations.service.ts`.
 - Memperbarui `package.json`.
@@ -450,7 +454,8 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 - Memperbarui `apps/dashboard/src/app/(dashboard)/knowledge/page.tsx`.
 - Memperbarui `package.json`.
 
-[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.9.4...HEAD
+[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.9.5...HEAD
+[0.9.5]: https://github.com/bizdevsg/live-chat/compare/v0.9.4...v0.9.5
 [0.9.4]: https://github.com/bizdevsg/live-chat/compare/v0.9.3...v0.9.4
 [0.9.3]: https://github.com/bizdevsg/live-chat/compare/v0.9.2...v0.9.3
 [0.9.2]: https://github.com/bizdevsg/live-chat/compare/v0.9.0...v0.9.2
