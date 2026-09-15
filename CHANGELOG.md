@@ -4,7 +4,10 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
 ### Changed
+- Memperbarui `apps/api/src/conversations/conversations.service.spec.ts`.
+- Memperbarui `apps/api/src/conversations/conversations.service.ts`.
 - Memperbarui `package.json`.
+- Mengubah handoff dari widget menjadi antrean manual: chat tidak lagi auto-assigned ke agent mana pun, sehingga agent mengambilnya sendiri dari inbox.
 
 ## [0.9.4] - 2026-09-15
 ### Added

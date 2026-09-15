@@ -571,15 +571,6 @@ export class ConversationsService {
       data: { handoffReason: reason, assignedTeamId: targetTeam?.id },
     });
 
-    const assigned = targetTeam ? await this.tryAutoAssign(conversationId) : false;
-
-    if (assigned) {
-      // assignToAgent already broadcast AGENT_ACTIVE + posted the "agent bergabung" notice.
-      await this.logEvent(conversationId, "handoff.requested", "SYSTEM", null, { reason, teamId: targetTeam?.id, outcome: "assigned" });
-      this.realtime.toSite(conversation.siteId, "queue:updated", { conversationId });
-      return this.getConversationOrThrow(conversationId);
-    }
-
     // No team resolved at all — nothing to queue against, so keep the AI on the conversation
     // rather than stranding the visitor.
     if (!targetTeam) {
@@ -599,14 +590,15 @@ export class ConversationsService {
       return this.getConversationOrThrow(conversationId);
     }
 
-    // No agent is free right now. Hold the visitor in the queue with a "connecting you to an agent"
+    // Widget handoffs are accepted manually from the dashboard queue. Do not auto-assign a visitor.
+    // Hold the visitor in the queue with a "connecting you to an agent"
     // state (QUEUED) so whichever agent frees up first can pick the conversation up — plain
     // first-come-first-served. It stays in every dashboard queue for the target team.
     await this.prisma.conversation.update({
       where: { id: conversationId },
       data: { status: ConversationStatus.QUEUED, handlerType: HandlerType.NONE, assignedAgentId: null },
     });
-    // Start the pickup clock: if no agent Accepts within agentReplyTimeoutSeconds the conversation
+    // Start the pickup clock: if no agent manually accepts within agentReplyTimeoutSeconds the conversation
     // auto-returns to the AI (autoReturnToAiOnAgentTimeout), and the agent dashboard shows the
     // matching "Kembali ke AI dalam …" countdown.
     await this.safelyRefreshAgentReplyTimeout(conversationId);

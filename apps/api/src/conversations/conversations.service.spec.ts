@@ -264,7 +264,7 @@ describe("ConversationsService.requestAgent (agents handle up to 5 concurrent ch
     return { service, prisma, realtime, notifications };
   }
 
-  it("assigns to a free ONLINE agent and atomically claims the slot", async () => {
+  it("queues a visitor for manual pickup even when an agent is free", async () => {
     const { service, prisma } = createService({
       onlineAgents: [{ userId: "agent-1", activeChatCount: 0, maxConcurrentChats: 5 }],
       reserveCount: 1,
@@ -272,14 +272,15 @@ describe("ConversationsService.requestAgent (agents handle up to 5 concurrent ch
 
     await service.requestAgent("conv-1", "CUSTOMER_REQUESTED_HUMAN");
 
-    expect(prisma.agentProfile.updateMany).toHaveBeenCalledWith({
-      where: { userId: "agent-1", activeChatCount: { lt: 5 } },
-      data: { activeChatCount: { increment: 1 } },
+    expect(prisma.conversation.update).toHaveBeenCalledWith({
+      where: { id: "conv-1" },
+      data: { status: ConversationStatus.QUEUED, handlerType: HandlerType.NONE, assignedAgentId: null },
     });
+    expect(prisma.agentProfile.updateMany).not.toHaveBeenCalled();
     expect(service.logEvent).toHaveBeenCalledWith("conv-1", "handoff.requested", "SYSTEM", null, {
       reason: "CUSTOMER_REQUESTED_HUMAN",
       teamId: "team-1",
-      outcome: "assigned",
+      outcome: "queued",
     });
   });
 
@@ -298,7 +299,7 @@ describe("ConversationsService.requestAgent (agents handle up to 5 concurrent ch
     expect(prisma.conversation.update).not.toHaveBeenCalled();
   });
 
-  it("queues the visitor for first-come-first-served pickup when every agent is at capacity", async () => {
+  it("queues the visitor for manual pickup when every agent is at capacity", async () => {
     const { service, prisma, notifications } = createService({
       onlineAgents: [{ userId: "agent-1", activeChatCount: 5, maxConcurrentChats: 5 }],
     });
