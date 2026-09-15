@@ -1,34 +1,20 @@
 import { useEffect, useRef, useState } from "react";
 import { LogOut, MessageSquarePlus, X } from "lucide-react";
 import { sendToParent } from "../lib/postmessage";
-import type { SiteConfig, SitePresenceStatus } from "../hooks/use-widget-session";
-
-const PRESENCE_LABEL: Record<SitePresenceStatus, string> = {
-  ONLINE: "Online",
-  BUSY: "Sedang sibuk",
-  OFFLINE: "Offline",
-};
-
-const PRESENCE_DOT: Record<SitePresenceStatus, string> = {
-  ONLINE: "bg-emerald-400",
-  BUSY: "bg-amber-400",
-  OFFLINE: "bg-zinc-500",
-};
+import type { SiteConfig } from "../hooks/use-widget-session";
 
 const WIDGET_SURFACE_BACKGROUND = "linear-gradient(135deg, #3a3a3a 0%, #2e2e2e 55%, #222222 100%)";
 
 export function Header({
   config,
-  connected,
-  presenceStatus,
+  liveChatOnline,
   canStartNew,
   canEndConversation,
   onStartNewConversation,
   onEndConversation,
 }: {
   config: SiteConfig;
-  connected: boolean;
-  presenceStatus?: SitePresenceStatus;
+  liveChatOnline: boolean;
   canStartNew: boolean;
   canEndConversation: boolean;
   onStartNewConversation: () => void;
@@ -37,8 +23,10 @@ export function Header({
   const [confirmEnd, setConfirmEnd] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const headerName = config.name === "Solid Gold — Website Utama" ? "Customer Service SGB" : config.name;
-  const statusLabel = !connected ? "Menyambungkan..." : presenceStatus ? PRESENCE_LABEL[presenceStatus] : "Online";
-  const statusDot = !connected ? "bg-zinc-500" : presenceStatus ? PRESENCE_DOT[presenceStatus] : "bg-emerald-400";
+  // Live Chat status is controlled manually from Widget Settings. Individual
+  // agent availability remains exclusive to handoff and ticket routing.
+  const statusLabel = liveChatOnline ? "Live Chat Online" : "Live Chat Offline";
+  const statusDot = liveChatOnline ? "bg-emerald-400" : "bg-zinc-500";
 
   useEffect(() => {
     if (!confirmEnd) return;

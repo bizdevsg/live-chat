@@ -549,6 +549,19 @@ export class ConversationsService {
 
   async requestAgent(conversationId: string, reason: HandoffReason = "CUSTOMER_REQUESTED_HUMAN") {
     const conversation = await this.getConversationOrThrow(conversationId);
+
+    // Live Chat remains available through AI even if every human agent is offline.
+    // Keep the visitor out of an empty queue and acknowledge the request immediately.
+    const onlineAgent = await this.prisma.agentProfile.findFirst({
+      where: { availability: AgentAvailability.ONLINE, user: { organizationId: conversation.organizationId } },
+      select: { userId: true },
+    });
+    if (!onlineAgent) {
+      await this.postSystemMessage(conversationId, "Saat ini tidak ada agent yang sedang online. AI tetap siap membantu Anda.");
+      await this.logEvent(conversationId, "handoff.unavailable_no_agent", "SYSTEM", null, { reason });
+      return conversation;
+    }
+
     const targetTeam = await this.resolveTeamForHandoff(conversation.siteId, reason, conversation.intent, conversation.assignedTeamId);
 
     // Record the resolved team + reason, but do NOT queue yet. The visitor only ever sees a

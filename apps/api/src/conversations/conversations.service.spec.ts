@@ -205,6 +205,7 @@ describe("ConversationsService.requestAgent (agents handle up to 5 concurrent ch
       status: ConversationStatus.AI_ACTIVE,
       handlerType: HandlerType.AI,
     };
+    const onlineAgent = opts?.onlineAgents?.[0];
 
     const prisma = {
       conversation: {
@@ -229,6 +230,7 @@ describe("ConversationsService.requestAgent (agents handle up to 5 concurrent ch
         ),
       },
       agentProfile: {
+        findFirst: jest.fn().mockResolvedValue(onlineAgent ? { userId: onlineAgent.userId } : null),
         updateMany: jest.fn().mockResolvedValue({ count: opts?.reserveCount ?? 1 }),
         update: jest.fn().mockResolvedValue({}),
         upsert: jest.fn().mockResolvedValue({}),
@@ -279,6 +281,21 @@ describe("ConversationsService.requestAgent (agents handle up to 5 concurrent ch
       teamId: "team-1",
       outcome: "assigned",
     });
+  });
+
+  it("keeps the AI conversation active and notifies the visitor when no agent is online", async () => {
+    const { service, prisma } = createService();
+
+    await service.requestAgent("conv-1", "CUSTOMER_REQUESTED_HUMAN");
+
+    expect(service.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        conversationId: "conv-1",
+        senderType: "SYSTEM",
+        content: "Saat ini tidak ada agent yang sedang online. AI tetap siap membantu Anda.",
+      }),
+    );
+    expect(prisma.conversation.update).not.toHaveBeenCalled();
   });
 
   it("queues the visitor for first-come-first-served pickup when every agent is at capacity", async () => {

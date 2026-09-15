@@ -21,6 +21,20 @@ import { RealtimeEmitterService } from "../realtime/realtime-emitter.service";
 import { MarketDataService } from "../market-data/market-data.service";
 import { ApiException } from "../common/errors/api.exception";
 
+// Visitors often ask casually, e.g. "Bisa kirim gambar gak sih?". Any
+// image-related request gets the handoff guidance instead of a generic answer.
+const IMAGE_UPLOAD_REQUEST_PATTERN = /\b(?:gambar|foto|photo|image|screenshot|screen\s*shot|ss)\b/i;
+const HANDOFF_CONFIRMATION_PATTERN = /^(?:ya|iya|iya+|ya+|yes|yep|boleh|ok|oke|okay|mau|silakan|tolong)(?:\s+(?:dong|ya|aja|please))?[.!?\s]*$/i;
+const IMAGE_UPLOAD_HANDOFF_OFFER_PATTERN = /gambar.+(?:terhubung|hubungkan).+agent|(?:terhubung|hubungkan).+agent.+gambar/i;
+
+function getImageUploadGuidance(message: string, language: string): string | null {
+  if (!IMAGE_UPLOAD_REQUEST_PATTERN.test(message)) return null;
+  if (language.toLowerCase().startsWith("en")) {
+    return "Images can only be sent after your conversation is connected to an agent. Would you like me to connect you with an available agent?";
+  }
+  return "Gambar hanya dapat dikirim setelah percakapan Anda terhubung dengan agent. Apakah Anda ingin saya hubungkan dengan agent yang tersedia?";
+}
+
 @Injectable()
 export class AiOrchestratorService {
   /** Guards against double-answering when a visitor fires several messages in quick succession. */
@@ -109,8 +123,17 @@ export class AiOrchestratorService {
     ]);
     const evidence = [...marketEvidence, ...knowledgeEvidence];
     const realtimePriceAnswer = this.marketData.getRealtimePriceAnswer(trimmedMessage);
+    const imageUploadGuidance = getImageUploadGuidance(trimmedMessage, site.language);
 
-    const answer = forcedHandoffReason
+    const answer = imageUploadGuidance
+      ? {
+          answer: imageUploadGuidance,
+          confidence: 0.99,
+          intent: classification.intent,
+          handoffRequired: false,
+          sources: [],
+        }
+      : forcedHandoffReason
       ? null
       : realtimePriceAnswer
         ? {
@@ -192,6 +215,12 @@ export class AiOrchestratorService {
     const lastVisitorMessage = [...ordered].reverse().find((m) => m.senderType === SenderType.VISITOR || m.senderType === SenderType.CUSTOMER);
     if (!lastVisitorMessage) return;
 
+    const previousMessage = ordered[ordered.indexOf(lastVisitorMessage) - 1];
+    const confirmedImageUploadHandoff =
+      HANDOFF_CONFIRMATION_PATTERN.test(lastVisitorMessage.content.trim()) &&
+      previousMessage?.senderType === SenderType.AI &&
+      IMAGE_UPLOAD_HANDOFF_OFFER_PATTERN.test(previousMessage.content);
+
     const history: ChatTurn[] = ordered.map((m) => ({
       senderType: m.senderType as ChatTurn["senderType"],
       content: m.content,
@@ -203,6 +232,11 @@ export class AiOrchestratorService {
     // thrown/handed-off turn never leaves the indicator stuck on for the visitor.
     this.realtime.toConversation(conversationId, "typing:updated", { from: "AI", typing: true });
     try {
+      if (confirmedImageUploadHandoff) {
+        await this.respondBeforeHandoff(conversationId, HandoffReason.CUSTOMER_REQUESTED_HUMAN);
+        return;
+      }
+
       const { provider, config } = await this.aiProviderFactory.getProviderForSite(conversation.siteId);
 
       const classifyStart = Date.now();
@@ -246,6 +280,7 @@ export class AiOrchestratorService {
         lastVisitorMessage.content,
         history.map((turn) => turn.content).join("\n"),
       );
+      const imageUploadGuidance = getImageUploadGuidance(lastVisitorMessage.content, conversation.language);
       const answerPrompt = await this.prisma.aiPrompt.findFirst({
         where: {
           aiConfigurationId: config.id,
@@ -256,7 +291,15 @@ export class AiOrchestratorService {
       });
 
       const answerStart = Date.now();
-      const answer = realtimePriceAnswer
+      const answer = imageUploadGuidance
+        ? {
+            answer: imageUploadGuidance,
+            confidence: 0.99,
+            intent: classification.intent,
+            handoffRequired: false,
+            sources: [],
+          }
+        : realtimePriceAnswer
         ? {
             answer: realtimePriceAnswer,
             confidence: 0.98,

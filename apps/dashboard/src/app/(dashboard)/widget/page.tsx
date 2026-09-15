@@ -149,20 +149,28 @@ export default function WidgetSettingsPage() {
               [
                 ["widgetEnabled", "Widget aktif"],
                 ["aiEnabled", "AI aktif"],
-                ["humanChatEnabled", "Human chat aktif"],
+                ["humanChatEnabled", "Live Chat Online"],
                 ["showAgentButton", "Tampilkan tombol hubungi agent"],
                 ["allowAttachments", "Izinkan lampiran file"],
                 ["ratingFormEnabled", "Tampilkan form rating"],
               ] as const
             ).map(([key, label]) => (
-              <label key={key} className="flex items-center gap-3 rounded-2xl border border-ink-600 bg-ink-800/70 px-4 py-3 text-sm text-zinc-300">
-                <input
-                  type="checkbox"
-                  checked={settings[key]}
-                  onChange={(e) => setSettings({ ...settings, [key]: e.target.checked })}
-                  className="h-4 w-4 rounded accent-gold-500"
-                />
-                {label}
+              <label key={key} className="flex cursor-pointer items-center justify-between gap-4 rounded-2xl border border-ink-600 bg-ink-800/70 px-4 py-3 text-sm text-zinc-300 transition hover:border-ink-500">
+                <span className="font-medium">{label}</span>
+                <span className="inline-flex items-center gap-2 text-xs text-zinc-400">
+                  <span>{settings[key] ? "On" : "Off"}</span>
+                  <span className="relative inline-flex h-6 w-11 shrink-0 items-center">
+                    <input
+                      type="checkbox"
+                      role="switch"
+                      checked={settings[key]}
+                      onChange={(e) => setSettings({ ...settings, [key]: e.target.checked })}
+                      className="peer sr-only"
+                    />
+                    <span className="absolute inset-0 rounded-full bg-ink-600 transition peer-checked:bg-gold-500" />
+                    <span className="absolute left-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition peer-checked:translate-x-5" />
+                  </span>
+                </span>
               </label>
             ))}
           </div>

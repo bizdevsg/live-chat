@@ -16,14 +16,6 @@ function isReplyMessage(senderType: string) {
   return senderType === "AI" || senderType === "AGENT";
 }
 
-function BusyNotice() {
-  return (
-    <div className="mx-4 mt-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs leading-relaxed text-amber-300">
-      Saat ini lalu lintas chat kami sedang cukup padat. Silakan tunggu sebentar, pesan Anda berada dalam antrean prioritas kami.
-    </div>
-  );
-}
-
 function TicketSubmissionNotice({ ticketNumber, onSendAnother }: { ticketNumber: string; onSendAnother: () => void }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 bg-ink px-6 text-center">
@@ -49,7 +41,6 @@ export default function App() {
     messages,
     lastIncomingReply,
     connected,
-    presenceStatus,
     agentTyping,
     agentTypingName,
     aiTyping,
@@ -75,8 +66,9 @@ export default function App() {
   const [leadConversationId, setLeadConversationId] = useState(() => widgetStorage.getLeadConversationId());
   const [ticketInfo, setTicketInfo] = useState(() => widgetStorage.getTicketInfo());
 
-  const isOffline = presenceStatus === "OFFLINE";
-  const isBusy = presenceStatus === "BUSY";
+  // Live Chat availability is a manual Widget Settings choice. Agent presence
+  // must not turn an AI conversation into a ticket flow when nobody is online.
+  const isOffline = config?.settings?.humanChatEnabled === false;
 
   async function handlePreChatSubmit(values: PreChatValues) {
     if (!conversation || !visitorToken) {
@@ -205,8 +197,7 @@ export default function App() {
       <div className="flex h-screen min-h-0 flex-col overflow-hidden rounded-2xl border border-zinc-800 shadow-2xl">
         <Header
           config={config}
-          connected={connected}
-          presenceStatus={presenceStatus}
+          liveChatOnline={config.settings?.humanChatEnabled ?? false}
           canStartNew={false}
           canEndConversation={false}
           onStartNewConversation={() => undefined}
@@ -231,14 +222,12 @@ export default function App() {
       <div className="flex h-screen min-h-0 flex-col overflow-hidden rounded-2xl border border-zinc-800 shadow-2xl">
         <Header
           config={config}
-          connected={connected}
-          presenceStatus={presenceStatus}
+          liveChatOnline={config.settings?.humanChatEnabled ?? false}
           canStartNew={false}
           canEndConversation={false}
           onStartNewConversation={() => undefined}
           onEndConversation={() => undefined}
         />
-        {isBusy ? <BusyNotice /> : null}
         <div className="min-h-0 flex-1 overflow-y-auto">
           <PreChatForm
             widgetColor={config.widgetColor}
@@ -254,8 +243,7 @@ export default function App() {
       <div className="flex h-screen min-h-0 flex-col overflow-hidden rounded-2xl border border-zinc-800 shadow-2xl">
         <Header
           config={config}
-          connected={connected}
-          presenceStatus={presenceStatus}
+          liveChatOnline={config.settings?.humanChatEnabled ?? false}
           canStartNew={false}
           canEndConversation={false}
           onStartNewConversation={() => undefined}
@@ -281,8 +269,7 @@ export default function App() {
     <div className="relative flex h-screen min-h-0 flex-col overflow-hidden rounded-2xl border border-zinc-800 shadow-2xl">
       <Header
         config={config}
-        connected={connected}
-        presenceStatus={presenceStatus}
+        liveChatOnline={config.settings?.humanChatEnabled ?? false}
         canStartNew={conversationEnded}
         canEndConversation={!conversationEnded && !!conversation}
         onStartNewConversation={() => {
@@ -293,7 +280,6 @@ export default function App() {
         }}
         onEndConversation={closeConversation}
       />
-      {isBusy && !conversationEnded ? <BusyNotice /> : null}
       <div className="relative flex min-h-0 flex-1 flex-col">
         <MessageList
           messages={messages}

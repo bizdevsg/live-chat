@@ -3,16 +3,27 @@
 Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
-
 ### Added
 - Menambahkan pengeditan nama, upload, tampil, dan hapus foto profil pengguna pada Dashboard, termasuk penyimpanan avatar privat dan URL unduhan bertanda tangan.
+- Menambahkan respons AI khusus untuk permintaan kirim gambar: gambar hanya dapat dikirim setelah agent menangani percakapan, dengan tawaran menghubungkan user ke agent yang tersedia.
 
 ### Changed
+- Memisahkan status Live Chat dari availability agent: indikator header kini mengikuti toggle `Live Chat Online` di Widget Settings, sedangkan status agent tetap khusus mengatur alur handoff dan tiket.
+- Memperbarui `apps/api/src/ai/ai-orchestrator.service.ts`.
+- Memperbarui `apps/api/src/conversations/conversations.service.spec.ts`.
+- Memperbarui `apps/api/src/conversations/conversations.service.ts`.
+- Memperbarui `apps/dashboard/src/app/(dashboard)/widget/page.tsx`.
+- Memperbarui `apps/widget/src/App.tsx`.
+- Memperbarui `apps/widget/src/components/Header.tsx`.
+- Memperbarui `package.json`.
+- Memperluas deteksi pertanyaan kirim gambar/foto agar bahasa santai seperti “Bisa kirim gambar gak?” selalu menawarkan koneksi ke agent, termasuk pada preview knowledge AI.
+- Menambahkan validasi permintaan agent: bila tidak ada agent online, widget menampilkan notifikasi bahwa AI tetap siap membantu dan percakapan tidak masuk antrean kosong.
+- Mengganti seluruh checkbox perilaku pada Widget Settings menjadi toggle On/Off agar status setiap pengaturan lebih jelas dan mudah dikendalikan.
+- Mengubah alur offline widget agar hanya toggle `Live Chat Online` yang memunculkan form tiket; availability agent tidak lagi mengalihkan percakapan AI menjadi tiket.
 - Mengunci launcher icon widget dengan `clamp(100px, 8vw, 135px)` agar responsif tanpa pernah mengecil di bawah 100px atau membesar melewati 135px.
+- Menjalankan handoff agent otomatis saat user mengonfirmasi tawaran koneksi untuk kirim gambar, sehingga jawaban seperti “iya” tidak lagi berhenti sebagai respons teks AI.
 - Menyederhanakan queue timeout percakapan menjadi timeout balasan agent dan menonaktifkan lifecycle penutupan otomatis saat AI tidak aktif.
 - Menyesuaikan Inbox Superadmin agar menggunakan tab Waiting dan All Chats, serta memperbarui aset dan dependensi workspace terkait.
-### Changed
-- Memperbarui `package.json`.
 
 ## [0.9.3] - 2026-09-15
 ### Changed
