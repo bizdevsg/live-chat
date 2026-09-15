@@ -6,6 +6,10 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 ### Changed
 - Memperbarui `package.json`.
 
+## [0.9.3] - 2026-09-15
+### Changed
+- Memperbarui `package.json`.
+
 ## [0.9.2] - 2026-09-15
 ### Added
 - Menambahkan `scripts/deploy.sh`.
@@ -420,7 +424,8 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 - Memperbarui `apps/dashboard/src/app/(dashboard)/knowledge/page.tsx`.
 - Memperbarui `package.json`.
 
-[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.9.2...HEAD
+[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.9.3...HEAD
+[0.9.3]: https://github.com/bizdevsg/live-chat/compare/v0.9.2...v0.9.3
 [0.9.2]: https://github.com/bizdevsg/live-chat/compare/v0.9.0...v0.9.2
 [0.9.0]: https://github.com/bizdevsg/live-chat/compare/v0.8.2...v0.9.0
 [0.8.2]: https://github.com/bizdevsg/live-chat/compare/v0.8.1...v0.8.2
