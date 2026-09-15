@@ -3,8 +3,7 @@
 Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
-### Changed
-- Memperbarui `package.json`.
+- Belum ada perubahan terdeteksi.
 
 ## [0.9.1] - 2026-09-15
 ### Added
@@ -12,10 +11,14 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 - Menambahkan `apps/dashboard/src/components/inbox/rich-text.tsx`.
 
 ### Changed
+- Memperbarui `.githooks/commit-msg`.
+- Memperbarui `.githooks/pre-commit`.
 - Memperbarui `apps/api/src/ai/ai-orchestrator.service.ts`.
 - Memperbarui `apps/api/src/market-data/market-data.service.ts`.
 - Memperbarui `apps/dashboard/src/app/(dashboard)/inbox/[conversationId]/page.tsx`.
+- Memperbarui `apps/widget-loader/build.mjs`.
 - Memperbarui `package.json`.
+- Memperbarui `packages/ai-core/src/providers/openai-provider.spec.ts`.
 - Memperbarui `packages/ai-core/src/providers/openai-provider.ts`.
 - Memperbarui `packages/ai-core/src/retrieval/knowledge-retriever.ts`.
 - Menghapus dua instance `Logger` dan dua parameter socket yang tidak digunakan pada API, tanpa mengubah alur orkestrasi AI maupun event typing widget.
@@ -40,15 +43,6 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 - Menjaga quote WebSocket tetap valid berdasarkan waktu snapshot diterima, serta membawa konteks percakapan untuk pertanyaan lanjutan seperti “detail yang tadi”; AI kini wajib memberi Bid/Ask/Last dan menambahkan Open/High/Low/Spread saat customer meminta rincian harga.
 - Menjawab harga market live secara deterministik dari snapshot WebSocket agar angka quote `HKK50_BBJ` tidak dapat keliru ditolak oleh grounding-review AI; respons kini selalu menampilkan Bid, Ask, Last, Open, High, Low, Spread, dan waktu pembaruan yang tersedia.
 - Merapatkan jarak antarparagraf rich text pada bubble Inbox agar pesan berformat tidak memiliki ruang kosong berlebihan.
-
-## [0.9.1] - 2026-09-14
-### Changed
-- Memperbarui `.githooks/commit-msg`.
-- Memperbarui `.githooks/pre-commit`.
-- Memperbarui `apps/widget-loader/build.mjs`.
-- Memperbarui `package.json`.
-- Memperbarui `packages/ai-core/src/providers/openai-provider.spec.ts`.
-- Memperbarui `packages/ai-core/src/providers/openai-provider.ts`.
 - Memperbarui instruksi AI agar jawaban mengikuti bahasa utama pada pesan terakhir customer, menggunakan bahasa situs hanya sebagai fallback, dan menangani pesan campuran secara natural.
 
 ## [0.9.0] - 2026-09-14
