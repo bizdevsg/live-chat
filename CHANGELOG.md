@@ -3,6 +3,10 @@
 Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
+### Changed
+- Memperbarui `package.json`.
+
+## [0.9.4] - 2026-09-15
 ### Added
 - Menambahkan pengeditan nama, upload, tampil, dan hapus foto profil pengguna pada Dashboard, termasuk penyimpanan avatar privat dan URL unduhan bertanda tangan.
 - Menambahkan respons AI khusus untuk permintaan kirim gambar: gambar hanya dapat dikirim setelah agent menangani percakapan, dengan tawaran menghubungkan user ke agent yang tersedia.
@@ -443,7 +447,8 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 - Memperbarui `apps/dashboard/src/app/(dashboard)/knowledge/page.tsx`.
 - Memperbarui `package.json`.
 
-[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.9.3...HEAD
+[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.9.4...HEAD
+[0.9.4]: https://github.com/bizdevsg/live-chat/compare/v0.9.3...v0.9.4
 [0.9.3]: https://github.com/bizdevsg/live-chat/compare/v0.9.2...v0.9.3
 [0.9.2]: https://github.com/bizdevsg/live-chat/compare/v0.9.0...v0.9.2
 [0.9.0]: https://github.com/bizdevsg/live-chat/compare/v0.8.2...v0.9.0
