@@ -91,7 +91,7 @@ function init() {
   const style = document.createElement("style");
   style.textContent = `
     .bubble { position: fixed; bottom: ${FLOATING_BOTTOM_OFFSET}px; ${config.position === "bottom-left" ? "left: 20px;" : "right: 20px;"}
-      width: 88px; height: 88px; border: none; cursor: pointer; padding: 0;
+      width: 96px; height: 96px; border: none; cursor: pointer; padding: 0;
       background: transparent; color: #0b0b0c; font-size: 26px; box-shadow: none;
       display: flex; align-items: center; justify-content: center; transition: transform .15s ease; }
     .bubble:hover { transform: scale(1.05); }

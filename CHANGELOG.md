@@ -8,6 +8,7 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 - Menambahkan pengeditan nama, upload, tampil, dan hapus foto profil pengguna pada Dashboard, termasuk penyimpanan avatar privat dan URL unduhan bertanda tangan.
 
 ### Changed
+- Membesarkan launcher icon widget dari 88px menjadi 96px agar lebih mudah terlihat dan diketuk.
 - Menyederhanakan queue timeout percakapan menjadi timeout balasan agent dan menonaktifkan lifecycle penutupan otomatis saat AI tidak aktif.
 - Menyesuaikan Inbox Superadmin agar menggunakan tab Waiting dan All Chats, serta memperbarui aset dan dependensi workspace terkait.
 ### Changed
