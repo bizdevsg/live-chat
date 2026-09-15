@@ -22,12 +22,33 @@ type JsonRecord = Record<string, unknown>;
 const MAX_SYNTHETIC_EVIDENCE = 3;
 const DEFAULT_RECONNECT_DELAY_MS = 5_000;
 const DEFAULT_MAX_QUOTE_AGE_MS = 30_000;
-const PRICE_LOOKUP_PATTERN = /\b(?:harga|price|quote|bid|ask|spread|rate|kurs|berapa|cek|info|lihat|live|current|latest|terbaru|sekarang|saat ini)\b|\?/i;
+const PRICE_LOOKUP_PATTERN = /\b(?:harga|price|quote|bid|ask|spread|rate|kurs|cek|info|lihat|live|current|latest|terbaru|sekarang|saat ini)\b/i;
+const CURRENT_PRICE_QUESTION_PATTERN = /\bberapa\b(?=[\s\S]*\b(?:harganya|saat ini|sekarang|terbaru|terkini)\b)/i;
+const DETAIL_FOLLOW_UP_PATTERN = /\b(?:detail|rincian|lengkap|yang tadi|harga tadi|lebih lanjut|selengkapnya)\b|\b(?:itu|yang itu)\s+(?:berapa|harganya)\b/i;
+const MARKET_FOLLOW_UP_PATTERN = /^\s*(?:kalau|kalo|bagaimana|gimana|untuk|dan)\b/i;
+const EXCLUDED_MARKET_SYMBOL_PATTERN = /-NC$/i;
+
+const MARKET_DISPLAY_NAMES: Record<string, string> = {
+  HKK50_BBJ: "Hang Seng",
+  HKK5U_BBJ: "Hang Seng",
+  JPK50_BBJ: "Nikkei 225",
+  JPK5U_BBJ: "Nikkei 225",
+  BCO10_BBJ: "Brent Oil",
+  BCOF_BBJ: "Brent Oil",
+};
 
 const MARKET_SYMBOL_ALIASES: Array<{ pattern: RegExp; preferredSymbols: string[] }> = [
   { pattern: /\b(?:xauusd|xau|gold|emas|loco london)\b/i, preferredSymbols: ["XAUUSD", "XUL10", "XULF", "XUL"] },
   { pattern: /\b(?:xagusd|xag|silver|perak)\b/i, preferredSymbols: ["XAGUSD", "XAG10_BBJ", "XAGF_BBJ", "XAG"] },
   { pattern: /\b(?:brent|oil|crude|bco)\b/i, preferredSymbols: ["BCO10_BBJ", "BCOF_BBJ", "BCO"] },
+  {
+    pattern: /\b(?:hang\s*seng|hangseng|hong\s*kong|hsi|hk50|hkk50|hkk5u)\b/i,
+    preferredSymbols: ["HKK50_BBJ", "HKK5U_BBJ", "HKK50", "HKK5U", "HSI", "HK50"],
+  },
+  {
+    pattern: /\b(?:nikkei|nikkei\s*225|japan\s*225|jp225|jpk50|jpk5u)\b/i,
+    preferredSymbols: ["JPK50_BBJ", "JPK5U_BBJ", "JPK50", "JPK5U", "NK225", "JP225"],
+  },
   { pattern: /\b(?:eurusd|eur usd|euro usd|eu1010|eu10f)\b/i, preferredSymbols: ["EURUSD", "EU1010_BBJ", "EU10F_BBJ"] },
   { pattern: /\b(?:gbpusd|gbp usd|pound usd|gu1010|gu10f)\b/i, preferredSymbols: ["GBPUSD", "GU1010_BBJ", "GU10F_BBJ"] },
   { pattern: /\b(?:usdjpy|usd jpy|uj1010|uj10f)\b/i, preferredSymbols: ["USDJPY", "UJ1010_BBJ", "UJ10F_BBJ"] },
@@ -73,7 +94,8 @@ function pickNumber(record: JsonRecord, keys: string[]): number | undefined {
 }
 
 function normalizeTimestamp(record: JsonRecord): string {
-  const raw = pickString(record, ["updatedAt", "updateTime", "timestamp", "time", "datetime", "date"]);
+  const marketFeedTimestamp = pickString(record, ["date_time"]);
+  const raw = marketFeedTimestamp ?? pickString(record, ["updatedAt", "updateTime", "timestamp", "datetime", "time", "date"]);
   if (!raw) return new Date().toISOString();
 
   const asNumber = Number(raw);
@@ -82,7 +104,14 @@ function normalizeTimestamp(record: JsonRecord): string {
     return new Date(millis).toISOString();
   }
 
-  const parsed = Date.parse(raw);
+  // The market feed sends date_time without an offset and uses WIB. Without the explicit
+  // offset, Node parses it in the container's timezone and can incorrectly keep a stale
+  // quote fresh for hours.
+  const normalizedDateTime =
+    marketFeedTimestamp && /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(raw)
+      ? `${raw.replace(" ", "T")}+07:00`
+      : raw;
+  const parsed = Date.parse(normalizedDateTime);
   return Number.isNaN(parsed) ? new Date().toISOString() : new Date(parsed).toISOString();
 }
 
@@ -103,12 +132,12 @@ function normalizeQuoteCandidate(candidate: JsonRecord): MarketQuote | null {
   const symbol = normalizeSymbol(pickString(candidate, ["symbol", "sym", "instrument", "product", "code", "ticker"]));
   if (!symbol) return null;
 
-  const bid = pickNumber(candidate, ["bid", "Bid", "buy", "Buy"]);
-  const ask = pickNumber(candidate, ["ask", "Ask", "offer", "Offer", "sell", "Sell"]);
+  const bid = pickNumber(candidate, ["bid", "Bid", "sell", "Sell"]);
+  const ask = pickNumber(candidate, ["ask", "Ask", "offer", "Offer", "buy", "Buy"]);
   const last = pickNumber(candidate, ["last", "Last", "price", "Price", "close", "Close"]);
-  const open = pickNumber(candidate, ["open", "Open"]);
-  const high = pickNumber(candidate, ["high", "High"]);
-  const low = pickNumber(candidate, ["low", "Low"]);
+  const open = pickNumber(candidate, ["open", "Open", "oprice"]);
+  const high = pickNumber(candidate, ["high", "High", "hprice"]);
+  const low = pickNumber(candidate, ["low", "Low", "lprice"]);
   if (bid === undefined && ask === undefined && last === undefined) return null;
 
   return {
@@ -157,7 +186,9 @@ function collectQuoteCandidates(payload: unknown): JsonRecord[] {
 }
 
 function formatQuoteNumber(value: number | undefined) {
-  return value === undefined ? "-" : value.toString();
+  if (value === undefined) return "-";
+  if (Number.isInteger(value)) return value.toString();
+  return value.toFixed(10).replace(/\.?0+$/, "");
 }
 
 @Injectable()
@@ -199,14 +230,8 @@ export class MarketDataService implements OnModuleInit, OnModuleDestroy {
     this.socket = null;
   }
 
-  getRealtimePriceEvidence(message: string): KnowledgeEvidence[] {
-    const requestedSymbols = this.resolveRequestedSymbols(message);
-    if (requestedSymbols.length === 0 || !PRICE_LOOKUP_PATTERN.test(message)) return [];
-
-    return requestedSymbols
-      .map((symbol) => this.quotes.get(symbol))
-      .filter((quote): quote is MarketQuote => !!quote && this.isFreshQuote(quote))
-      .slice(0, MAX_SYNTHETIC_EVIDENCE)
+  getRealtimePriceEvidence(message: string, conversationContext = ""): KnowledgeEvidence[] {
+    return this.getRequestedQuotes(message, conversationContext)
       .map((quote) => ({
         chunkId: `market-quote:${quote.symbol}`,
         documentId: `market-feed:${quote.symbol}`,
@@ -215,6 +240,7 @@ export class MarketDataService implements OnModuleInit, OnModuleDestroy {
         audience: KnowledgeAudience.PUBLIC,
         content: [
           "Realtime market price snapshot.",
+          "Ini adalah data live yang otoritatif untuk pertanyaan harga saat ini. Jawab langsung memakai nilainya; jangan menyatakan harga tidak tersedia atau mengarahkan ke petugas.",
           `Symbol: ${quote.symbol}`,
           quote.displayName ? `Display name: ${quote.displayName}` : null,
           `Bid: ${formatQuoteNumber(quote.bid)}`,
@@ -230,6 +256,43 @@ export class MarketDataService implements OnModuleInit, OnModuleDestroy {
           .filter((line): line is string => !!line)
           .join("\n"),
       }));
+  }
+
+  /**
+   * Live quotes are factual snapshots, so answer them deterministically instead of letting an
+   * LLM or its grounding review accidentally discard numbers that are already in the feed.
+   */
+  getRealtimePriceAnswer(message: string, conversationContext = ""): string | null {
+    const quotes = this.getRequestedQuotes(message, conversationContext);
+    if (quotes.length === 0) return null;
+
+    return quotes
+      .map((quote) => {
+        const label = quote.displayName ?? MARKET_DISPLAY_NAMES[quote.symbol] ?? quote.symbol;
+        const updatedAt = new Intl.DateTimeFormat("id-ID", {
+          day: "2-digit",
+          month: "long",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+          timeZone: "Asia/Jakarta",
+        }).format(new Date(quote.updatedAt));
+        const lines = [
+          `Harga **${label}** (${quote.symbol}) saat ini:`,
+          `- **Bid:** ${formatQuoteNumber(quote.bid)}`,
+          `- **Ask:** ${formatQuoteNumber(quote.ask)}`,
+          quote.last !== undefined ? `- **Last:** ${formatQuoteNumber(quote.last)}` : null,
+          quote.open !== undefined ? `- **Open:** ${formatQuoteNumber(quote.open)}` : null,
+          quote.high !== undefined ? `- **High:** ${formatQuoteNumber(quote.high)}` : null,
+          quote.low !== undefined ? `- **Low:** ${formatQuoteNumber(quote.low)}` : null,
+          quote.spread !== undefined ? `- **Spread:** ${formatQuoteNumber(quote.spread)}` : null,
+          `Diperbarui: ${updatedAt} WIB.`,
+        ];
+
+        return lines.filter((line): line is string => !!line).join("\n");
+      })
+      .join("\n\n");
   }
 
   private connect() {
@@ -294,6 +357,7 @@ export class MarketDataService implements OnModuleInit, OnModuleDestroy {
     const resolved = new Set<string>();
 
     for (const symbol of this.quotes.keys()) {
+      if (EXCLUDED_MARKET_SYMBOL_PATTERN.test(symbol)) continue;
       const pattern = new RegExp(`\\b${escapeRegex(symbol).replace(/_/g, "[_ ]?")}\\b`, "i");
       if (pattern.test(message)) {
         resolved.add(symbol);
@@ -314,9 +378,33 @@ export class MarketDataService implements OnModuleInit, OnModuleDestroy {
     return [...resolved];
   }
 
+  private getRequestedQuotes(message: string, conversationContext: string) {
+    // Prefer symbols explicitly named in the newest message. Context is only a fallback for
+    // references such as "detail yang tadi", so "kalau oil" cannot also repeat Hang Seng.
+    const currentSymbols = this.resolveRequestedSymbols(message);
+    const requestedSymbols = currentSymbols.length > 0 ? currentSymbols : this.resolveRequestedSymbols(conversationContext);
+    const continuesPriceQuestion = PRICE_LOOKUP_PATTERN.test(conversationContext) && MARKET_FOLLOW_UP_PATTERN.test(message);
+    // A symbol mention alone is not a price request: for example, "berapa minimum lot XUL10?"
+    // and "legalitas PT Solid Gold?" both contain a market alias but must be answered from KB.
+    // Route to a live quote only when the message actually expresses a price intent (or is a
+    // recognised follow-up to a preceding price question).
+    const isPriceQuestion =
+      PRICE_LOOKUP_PATTERN.test(message) ||
+      CURRENT_PRICE_QUESTION_PATTERN.test(message) ||
+      DETAIL_FOLLOW_UP_PATTERN.test(message) ||
+      continuesPriceQuestion;
+    if (requestedSymbols.length === 0 || !isPriceQuestion) return [];
+
+    return requestedSymbols
+      .map((symbol) => this.quotes.get(symbol))
+      .filter((quote): quote is MarketQuote => !!quote && this.isFreshQuote(quote))
+      .slice(0, MAX_SYNTHETIC_EVIDENCE);
+  }
+
   private findAvailableSymbol(target: string) {
     const normalizedTarget = normalizeSymbol(target);
     for (const symbol of this.quotes.keys()) {
+      if (EXCLUDED_MARKET_SYMBOL_PATTERN.test(symbol)) continue;
       if (symbol === normalizedTarget || symbol.includes(normalizedTarget) || normalizedTarget.includes(symbol)) {
         return symbol;
       }
@@ -325,8 +413,11 @@ export class MarketDataService implements OnModuleInit, OnModuleDestroy {
   }
 
   private isFreshQuote(quote: MarketQuote) {
-    const updatedAtMs = Date.parse(quote.updatedAt);
-    return !Number.isNaN(updatedAtMs) && Date.now() - updatedAtMs <= this.maxQuoteAgeMs;
+    // Full-snapshot feeds can keep publishing the last traded price while the exchange timestamp
+    // stays unchanged. Freshness must therefore follow when the snapshot reached this service,
+    // not only the exchange's last-update timestamp.
+    const receivedAtMs = Date.parse(quote.receivedAt);
+    return !Number.isNaN(receivedAtMs) && Date.now() - receivedAtMs <= this.maxQuoteAgeMs;
   }
 
   private scheduleReconnect() {

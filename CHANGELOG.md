@@ -3,8 +3,38 @@
 Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
+### Added
+- Menambahkan `apps/dashboard/src/components/inbox/rich-text.tsx`.
+
 ### Changed
+- Memperbarui `apps/api/src/ai/ai-orchestrator.service.ts`.
+- Memperbarui `apps/api/src/market-data/market-data.service.ts`.
+- Memperbarui `apps/dashboard/src/app/(dashboard)/inbox/[conversationId]/page.tsx`.
 - Memperbarui `package.json`.
+- Memperbarui `packages/ai-core/src/providers/openai-provider.ts`.
+- Memperbarui `packages/ai-core/src/retrieval/knowledge-retriever.ts`.
+- Menghapus dua instance `Logger` dan dua parameter socket yang tidak digunakan pada API, tanpa mengubah alur orkestrasi AI maupun event typing widget.
+- Menyesuaikan Inbox Superadmin agar hanya menampilkan tab `Waiting` dan `All Chats`; tab `All Chats` memuat seluruh percakapan dalam organisasi, sedangkan `My Chats` dan `Closed` tetap khusus untuk role lain.
+- Merender balasan AI dan agent di detail Inbox memakai renderer rich text ringkas yang sama dengan Widget, sehingga bold, italic, inline code, dan list tampil rapi tanpa jarak paragraf berlebih.
+
+### Fixed
+- Memahami follow-up harga antar-instrumen seperti “Kalau oil” dari konteks pertanyaan harga sebelumnya dan memprioritaskan simbol yang disebut di pesan terbaru, sehingga quote Brent (`BCO10_BBJ`) ditampilkan tanpa mengulang instrumen sebelumnya.
+- Membaca field payload market feed `date_time`, `oprice`, `hprice`, dan `lprice` agar evidence harga AI memuat waktu quote serta nilai open, high, dan low yang akurat.
+- Membatasi konteks harga market agar tanda tanya umum tidak lagi memicu quote sebelumnya; pertanyaan non-market seperti “perusahaan apa?” kini kembali diproses oleh AI knowledge sesuai topiknya.
+- Membetulkan arah harga feed menjadi Bid=`sell` dan Ask=`buy` sehingga spread quote tidak lagi bernilai negatif, serta menafsirkan `date_time` sebagai WIB untuk mencegah quote stale dianggap masih baru.
+- Memetakan istilah Hang Seng/Hong Kong dan Nikkei/Japan 225 ke simbol quote WebSocket (`HKK50_BBJ`/`HKK5U_BBJ` dan `JPK50_BBJ`/`JPK5U_BBJ`) agar AI dapat menyertakan harga real-time saat customer menanyakannya.
+- Memisahkan dokumen peta knowledge dan catatan Compliance yang bertanda INTERNAL dari retrieval customer agar hanya fakta publik yang menjadi evidence jawaban AI.
+- Memperbaiki badge verifikasi pada avatar halaman Profile yang sebelumnya terpotong oleh `overflow-hidden`.
+- Memperbaiki routing intent harga agar penyebutan simbol atau nama "Solid Gold" pada pertanyaan legalitas, spesifikasi kontrak, maupun knowledge lain tidak lagi otomatis dibalas quote market.
+- Memperbaiki validasi grounding knowledge agar klaim yang sebenarnya tersalin dari evidence tidak salah ditolak oleh reviewer AI; jawaban CDD dan fakta KB terverifikasi tetap dapat diberikan.
+- Mempersempit intent quote realtime: pertanyaan kuantitatif seperti ukuran kontrak atau minimum lot tidak lagi keliru dianggap pertanyaan harga hanya karena memakai kata "berapa".
+- Mempertahankan chunk knowledge dengan kecocokan istilah langsung meski skor embedding rendah, dan menginstruksikan AI untuk menjawab seluruh fakta evidence yang relevan alih-alih menyatakan data tidak tersedia hanya karena detail tambahan tidak ada.
+- Menampilkan nama Brent Oil untuk simbol `BCO10_BBJ`/`BCOF_BBJ` dan merapikan presisi desimal spread quote agar hasil WebSocket mudah dibaca customer.
+- Mencegah jawaban knowledge menambahkan klaim yang mengecilkan risiko trading; respons kini wajib netral dan berbasis evidence saat membahas Akun Mini maupun CDD.
+- Mengabaikan simbol non-kontrak `*-NC` dari evidence AI dan mewajibkan AI menjawab langsung menggunakan evidence quote market live seperti `HKK50_BBJ`.
+- Menjaga quote WebSocket tetap valid berdasarkan waktu snapshot diterima, serta membawa konteks percakapan untuk pertanyaan lanjutan seperti “detail yang tadi”; AI kini wajib memberi Bid/Ask/Last dan menambahkan Open/High/Low/Spread saat customer meminta rincian harga.
+- Menjawab harga market live secara deterministik dari snapshot WebSocket agar angka quote `HKK50_BBJ` tidak dapat keliru ditolak oleh grounding-review AI; respons kini selalu menampilkan Bid, Ask, Last, Open, High, Low, Spread, dan waktu pembaruan yang tersedia.
+- Merapatkan jarak antarparagraf rich text pada bubble Inbox agar pesan berformat tidak memiliki ruang kosong berlebihan.
 
 ## [0.9.1] - 2026-09-14
 ### Changed

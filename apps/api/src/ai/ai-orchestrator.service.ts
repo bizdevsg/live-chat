@@ -1,4 +1,4 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable } from "@nestjs/common";
 import { extractCustomerServiceQuery } from "@solidchat/ai-core";
 import {
   DEFAULT_CONFIDENCE_THRESHOLD,
@@ -23,7 +23,6 @@ import { ApiException } from "../common/errors/api.exception";
 
 @Injectable()
 export class AiOrchestratorService {
-  private readonly logger = new Logger(AiOrchestratorService.name);
   /** Guards against double-answering when a visitor fires several messages in quick succession. */
   private readonly inFlightTurns = new Set<string>();
 
@@ -109,9 +108,24 @@ export class AiOrchestratorService {
       }),
     ]);
     const evidence = [...marketEvidence, ...knowledgeEvidence];
+    const realtimePriceAnswer = this.marketData.getRealtimePriceAnswer(trimmedMessage);
 
     const answer = forcedHandoffReason
       ? null
+      : realtimePriceAnswer
+        ? {
+            answer: realtimePriceAnswer,
+            confidence: 0.98,
+            intent: classification.intent,
+            handoffRequired: false,
+            sources: marketEvidence.map((item) => ({
+              documentId: item.documentId,
+              chunkId: item.chunkId,
+              title: item.title,
+              version: item.version,
+              score: 0.98,
+            })),
+          }
       : await provider.generateAnswer({
           message: trimmedMessage,
           history,
@@ -224,10 +238,14 @@ export class AiOrchestratorService {
 
       const retrievalQuery = extractCustomerServiceQuery(lastVisitorMessage.content, classification.intent);
       const [marketEvidence, knowledgeEvidence] = await Promise.all([
-        Promise.resolve(this.marketData.getRealtimePriceEvidence(lastVisitorMessage.content)),
+        Promise.resolve(this.marketData.getRealtimePriceEvidence(lastVisitorMessage.content, history.map((turn) => turn.content).join("\n"))),
         this.retrieval.retrieveForCustomer(conversation.siteId, retrievalQuery),
       ]);
       const evidence = [...marketEvidence, ...knowledgeEvidence];
+      const realtimePriceAnswer = this.marketData.getRealtimePriceAnswer(
+        lastVisitorMessage.content,
+        history.map((turn) => turn.content).join("\n"),
+      );
       const answerPrompt = await this.prisma.aiPrompt.findFirst({
         where: {
           aiConfigurationId: config.id,
@@ -238,17 +256,31 @@ export class AiOrchestratorService {
       });
 
       const answerStart = Date.now();
-      const answer = await provider.generateAnswer({
-        message: lastVisitorMessage.content,
-        history,
-        language: conversation.language,
-        intent: classification.intent,
-        evidence,
-        aiName: site.aiName,
-        customerName: conversation.customer?.name,
-        organizationName: "PT Solid Gold Berjangka",
-        systemPrompt: answerPrompt?.content ?? null,
-      });
+      const answer = realtimePriceAnswer
+        ? {
+            answer: realtimePriceAnswer,
+            confidence: 0.98,
+            intent: classification.intent,
+            handoffRequired: false,
+            sources: marketEvidence.map((item) => ({
+              documentId: item.documentId,
+              chunkId: item.chunkId,
+              title: item.title,
+              version: item.version,
+              score: 0.98,
+            })),
+          }
+        : await provider.generateAnswer({
+            message: lastVisitorMessage.content,
+            history,
+            language: conversation.language,
+            intent: classification.intent,
+            evidence,
+            aiName: site.aiName,
+            customerName: conversation.customer?.name,
+            organizationName: "PT Solid Gold Berjangka",
+            systemPrompt: answerPrompt?.content ?? null,
+          });
       const shouldAutoHandoffForKnowledge = answer.handoffRequired && this.shouldAutoHandoffAfterAnswer(answer);
       const hasLowConfidence = answer.confidence < DEFAULT_CONFIDENCE_THRESHOLD;
       const shouldAutoHandoffForLowConfidence =

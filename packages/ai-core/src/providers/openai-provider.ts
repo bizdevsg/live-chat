@@ -9,6 +9,7 @@ import {
   type ClassificationResult,
   type ConversationSummaryResult,
   type EmbeddingInput,
+  type KnowledgeEvidence,
   type SummaryInput,
   type SuggestedReplyInput,
   type SuggestedReplyResult,
@@ -300,6 +301,25 @@ function evaluateArithmeticExpression(expression: string): number | null {
 function nearlyEqual(left: number, right: number): boolean {
   const scale = Math.max(1, Math.abs(left), Math.abs(right));
   return Math.abs(left - right) <= scale * 1e-9;
+}
+
+function normalizeGroundingText(value: string): string {
+  return value
+    .toLocaleLowerCase("id-ID")
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * The reviewer occasionally flags a fact by copying it from the evidence verbatim. That is a
+ * false rejection, not a hallucination. Reject only claims that cannot be found in the supplied
+ * evidence after normalising whitespace and punctuation.
+ */
+function isClaimUnsupportedByEvidence(claim: string, evidence: KnowledgeEvidence[]): boolean {
+  const normalizedClaim = normalizeGroundingText(claim);
+  if (!normalizedClaim) return false;
+  return !evidence.some((item) => normalizeGroundingText(item.content).includes(normalizedClaim));
 }
 
 /**
@@ -600,6 +620,9 @@ export class OpenAiProvider implements AiProvider {
       "Format teks yang didukung dan akan ditampilkan rapi ke customer: **tebal** untuk penekanan, serta list dengan '- ' (bullet) atau '1. ' (bernomor) untuk langkah-langkah/beberapa poin. Pakai list HANYA saat memang ada beberapa poin/langkah berurutan — jangan dipaksakan untuk jawaban satu kalimat.",
       "Jika dokumen referensi tidak cukup, katakan secara jujur bahwa informasinya belum tersedia dan arahkan ke petugas manusia — tanpa menyebut kata 'dokumen' atau 'artikel'.",
       "Jangan pernah menjanjikan profit, memberi rekomendasi buy atau sell personal, atau meminta OTP, PIN, atau password.",
+      "Jangan pernah menggambarkan produk, akun, atau trading sebagai 'risiko rendah', 'tanpa risiko besar', aman, atau cocok belajar karena risikonya kecil. Jika menyebut risiko, sampaikan secara netral bahwa trading berisiko dan jangan menambahkan penilaian risiko yang tidak tertulis di evidence.",
+      "Jika evidence memuat satu atau lebih fakta yang menjawab pertanyaan, evidence SUDAH CUKUP untuk dijawab. Sampaikan seluruh fakta relevan yang tersedia secara langsung. Jangan menolak, mengatakan informasi belum tersedia, atau mengarahkan ke petugas hanya karena evidence tidak memuat detail tambahan yang tidak ditanyakan. Jika customer meminta detail lebih banyak daripada yang tersedia, jawab dulu data yang ada lalu jelaskan singkat bagian mana yang belum tercantum.",
+      "PRIORITAS DATA LIVE: bila dokumen referensi berjudul 'Realtime Market Price - ...', itu adalah quote market live yang secara langsung menjawab pertanyaan harga saat ini. Untuk pertanyaan harga, WAJIB sebutkan Bid, Ask, dan Last yang tersedia beserta waktu pembaruannya. Jika customer meminta detail/rincian/lebih lanjut, WAJIB tambahkan Open, High, Low, dan Spread yang tersedia. Jangan mengatakan harga tidak tersedia, jangan meminta customer menghubungi petugas, dan jangan memakai angka selain yang ada pada quote tersebut.",
       ...(mixedScopeRequest
         ? [
             "PENTING: jika pesan customer mencampur pertanyaan layanan Solid Gold dengan permintaan lain yang tidak terkait customer service broker (misalnya minta dibuatkan script/kode/program atau bantuan teknis umum), WAJIB prioritaskan dan jawab bagian layanan Solid Gold-nya saja.",
@@ -671,7 +694,10 @@ export class OpenAiProvider implements AiProvider {
     // figures without validation" policy notes that sway a low-temperature judge into rejecting
     // its own correct, KB-sourced numbers. Only honour the rejection when the reviewer actually
     // named something the draft invented.
-    const citedFabrications = (review.fabricatedClaims ?? []).map((claim) => claim.trim()).filter(Boolean);
+    const citedFabrications = (review.fabricatedClaims ?? [])
+      .map((claim) => claim.trim())
+      .filter(Boolean)
+      .filter((claim) => isClaimUnsupportedByEvidence(claim, input.evidence));
     const rejected = review.grounded === false && citedFabrications.length > 0;
 
     // Debug visibility — `docker compose logs api` shows exactly what the draft said, whether

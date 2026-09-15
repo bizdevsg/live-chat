@@ -193,9 +193,12 @@ export class KnowledgeRetriever {
         // Semantic similarity leads (it's what makes rephrased/casual questions still match),
         // lexical overlap is just a tiebreaker/bonus — never a hard gate.
         const combined = semanticScore * 0.75 + lexicalScore * 0.25;
-        return { row, combined };
+        return { row, combined, lexicalScore };
       })
-      .filter(({ combined }) => combined >= MIN_RELEVANCE_SCORE)
+      // Preserve literal KB matches even when an embedding is weak (for example, an acronym,
+      // product code, or a short Indonesian follow-up). The model's grounding pass still decides
+      // whether the retrieved passage actually supports its answer.
+      .filter(({ combined, lexicalScore }) => combined >= MIN_RELEVANCE_SCORE || lexicalScore >= 0.25)
       .sort((a, b) => b.combined - a.combined);
 
     // Debug visibility into ranking — `docker compose logs api` after a test question shows
@@ -204,7 +207,12 @@ export class KnowledgeRetriever {
     console.log(
       `[KnowledgeRetriever] query="${options.query}" scanned=${allRows.length} top5=` +
         JSON.stringify(
-          ranked.slice(0, 5).map((c) => ({ title: c.row.title, chunk: c.row.chunkIndex, score: Number(c.combined.toFixed(3)) })),
+          ranked.slice(0, 5).map((c) => ({
+            title: c.row.title,
+            chunk: c.row.chunkIndex,
+            score: Number(c.combined.toFixed(3)),
+            lexical: Number(c.lexicalScore.toFixed(3)),
+          })),
         ),
     );
 
