@@ -4,6 +4,7 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
 ### Added
+- Menambahkan `scripts/deploy.sh`.
 - Menambahkan `apps/dashboard/src/components/inbox/rich-text.tsx`.
 
 ### Changed
@@ -38,6 +39,9 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [0.9.1] - 2026-09-14
 ### Changed
+- Memperbarui `.githooks/commit-msg`.
+- Memperbarui `.githooks/pre-commit`.
+- Memperbarui `apps/widget-loader/build.mjs`.
 - Memperbarui `package.json`.
 - Memperbarui `packages/ai-core/src/providers/openai-provider.spec.ts`.
 - Memperbarui `packages/ai-core/src/providers/openai-provider.ts`.

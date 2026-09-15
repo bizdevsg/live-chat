@@ -1,4 +1,19 @@
+import { readFileSync } from "node:fs";
+
 import { build, context } from "esbuild";
+
+// Build-time config (API_URL / WIDGET_URL) is inlined into widget.js as fallbacks.
+// Load a local .env if present so production builds don't silently fall back to localhost.
+try {
+  for (const line of readFileSync(new URL(".env", import.meta.url), "utf8").split("\n")) {
+    const match = line.match(/^\s*([A-Z_][A-Z0-9_]*)\s*=\s*(.*)\s*$/);
+    if (match && process.env[match[1]] === undefined) {
+      process.env[match[1]] = match[2].replace(/^["']|["']$/g, "");
+    }
+  }
+} catch {
+  // no .env — fall through to defaults below
+}
 
 const watch = process.argv.includes("--watch");
 
