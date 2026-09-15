@@ -71,7 +71,10 @@ function init() {
   const script = currentScript();
   if (!script) return;
   const config = readConfig(script);
-  const widgetOrigin = new URL(script.src || __WIDGET_URL__, window.location.href).origin;
+  const widgetOrigin = new URL(
+    script.src || __WIDGET_URL__,
+    window.location.href,
+  ).origin;
   if (!config.siteId) {
     console.warn(
       "[SolidChat] data-site-id is required on the widget.js <script> tag.",
@@ -91,7 +94,7 @@ function init() {
   const style = document.createElement("style");
   style.textContent = `
     .bubble { position: fixed; bottom: ${FLOATING_BOTTOM_OFFSET}px; ${config.position === "bottom-left" ? "left: 20px;" : "right: 20px;"}
-      width: 150px; height: 150px; border: none; cursor: pointer; padding: 0;
+      width: clamp(100px, 8vw, 135px); height: clamp(100px, 8vw, 135px); border: none; cursor: pointer; padding: 0;
       background: transparent; color: #0b0b0c; font-size: 26px; box-shadow: none;
       display: flex; align-items: center; justify-content: center; transition: transform .15s ease; }
     .bubble:hover { transform: scale(1.05); }
@@ -216,7 +219,8 @@ function init() {
     if (!iframe) return;
     const queue = queuedMessages;
     queuedMessages = [];
-    for (const message of queue) iframe.contentWindow?.postMessage(message, widgetOrigin);
+    for (const message of queue)
+      iframe.contentWindow?.postMessage(message, widgetOrigin);
   }
 
   function open() {
