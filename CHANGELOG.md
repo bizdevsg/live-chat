@@ -3,6 +3,9 @@
 Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
+- Belum ada perubahan terdeteksi.
+
+## [0.11.0] - 2026-09-16
 ### Added
 - Memakai nama user pada header dan pengirim pesan transkrip Inbox, bukan label generik “Customer”.
 - Menambahkan fitur transkrip chat pada detail Inbox untuk melihat dan mengunduh riwayat percakapan sebagai file `.txt`.
@@ -544,7 +547,8 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 - Memperbarui `apps/dashboard/src/app/(dashboard)/knowledge/page.tsx`.
 - Memperbarui `package.json`.
 
-[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.10.4...HEAD
+[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.11.0...HEAD
+[0.11.0]: https://github.com/bizdevsg/live-chat/compare/v0.10.4...v0.11.0
 [0.10.4]: https://github.com/bizdevsg/live-chat/compare/v0.10.3...v0.10.4
 [0.10.3]: https://github.com/bizdevsg/live-chat/compare/v0.10.2...v0.10.3
 [0.10.2]: https://github.com/bizdevsg/live-chat/compare/v0.10.1...v0.10.2
