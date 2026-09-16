@@ -304,6 +304,35 @@ describe("OpenAiProvider", () => {
     expect(result.answer).not.toContain("bertambah sebesar 800 dolar");
   });
 
+  it("compares a top-up amount with the knowledge base minimum in the same currency", async () => {
+    const provider = createProvider();
+    jest
+      .spyOn(provider as any, "respond")
+      .mockResolvedValueOnce('{"answer":"Untuk top-up USD 200, silakan pastikan nominalnya sesuai ketentuan.","confidence":0.88,"handoffRequired":false}')
+      .mockResolvedValueOnce('{"fabricatedClaims":[],"grounded":true,"revisedAnswer":"","confidence":0.88,"handoffRequired":false}')
+      .mockResolvedValueOnce(
+        '{"calculationNeeded":true,"calculationValid":false,"assumptionsDetected":false,"missingInputs":[],"omittedFactors":["perbandingan dengan minimum top-up"],"expression":"200 - 500","statedResult":"","verifiedResult":"-300","revisedAnswer":"Top-up USD 200 belum memenuhi minimum top-up USD 500."}',
+      );
+
+    const result = await provider.generateAnswer({
+      ...baseInput,
+      message: "Kalau saya top up $200 bisa gak?",
+      intent: AiIntent.DEPOSIT,
+      evidence: [
+        {
+          chunkId: "chunk_1",
+          documentId: "doc_1",
+          title: "Minimum Top-up",
+          version: 1,
+          content: "Minimum top-up untuk akun Mini adalah USD 500.",
+          audience: "PUBLIC",
+        },
+      ],
+    });
+
+    expect(result.answer).toBe("Top-up USD 200 belum memenuhi minimum top-up USD 500.");
+  });
+
   it("never leaks unresolved {{placeholders}} from a site-configured system prompt", async () => {
     const provider = createProvider();
     const respondSpy = jest.spyOn(provider as any, "respond");

@@ -18,7 +18,7 @@ import { AutoReturnCountdown } from "@/components/inbox/auto-return-countdown";
 import { RichText } from "@/components/inbox/rich-text";
 import { Permission } from "@/lib/permissions";
 import type { ConversationDetail, MessageItem, MessageReceiptItem } from "@/lib/types";
-import { ImagePlus, Send, X } from "lucide-react";
+import { Download, FileText, ImagePlus, Send, X } from "lucide-react";
 
 const ALLOWED_IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp"];
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
@@ -72,6 +72,35 @@ function formatMessageTime(value: string) {
     hour: "2-digit",
     minute: "2-digit",
   }).format(date);
+}
+
+function formatTranscriptTime(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat("id-ID", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(date);
+}
+
+function getTranscriptSender(message: MessageItem, visitorName?: string | null) {
+  if (message.isInternal) return "Catatan Internal";
+  if (isIncomingCustomerMessage(message)) return visitorName?.trim() || "Customer";
+  if (message.senderType === "AI") return "Solid Prime AI";
+  if (message.senderType === "SYSTEM") return "Sistem";
+  return message.senderName?.trim() || "Agent";
+}
+
+function buildTranscript(messages: MessageItem[], visitorName?: string | null) {
+  return messages
+    .map((message) => {
+      const attachmentText = message.attachments?.length
+        ? `\n[Lampiran: ${message.attachments.map((attachment) => attachment.fileName).join(", ")}]`
+        : "";
+      const content = message.content.trim() || (attachmentText ? "[Pesan tanpa teks]" : "");
+      return `[${formatTranscriptTime(message.createdAt)}] ${getTranscriptSender(message, visitorName)}${message.isInternal ? " (internal)" : ""}: ${content}${attachmentText}`;
+    })
+    .join("\n\n");
 }
 
 function appendRealtimeMessage(detail: ConversationDetail | undefined, message: MessageItem) {
@@ -210,6 +239,7 @@ export default function ConversationDetailPage() {
   const [note, setNote] = useState("");
   const [transferOpen, setTransferOpen] = useState(false);
   const [ticketOpen, setTicketOpen] = useState(false);
+  const [transcriptOpen, setTranscriptOpen] = useState(false);
   const [visitorTyping, setVisitorTyping] = useState(false);
   const [aiTyping, setAiTyping] = useState(false);
   const [pendingImage, setPendingImage] = useState<{ file: File; previewUrl: string } | null>(null);
@@ -435,6 +465,24 @@ export default function ConversationDetailPage() {
   const { conversation, summary, recentAiRuns, agentReplyDeadlineAt } = detailQuery.data;
   const visitorName = conversation.customer?.name?.trim() || conversation.leads?.[0]?.name?.trim() || undefined;
   const customerDisplayName = visitorName ?? "Visitor anonim";
+  const transcript = buildTranscript(visibleMessages, visitorName);
+  const downloadTranscript = () => {
+    const safeName = customerDisplayName.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "") || "customer";
+    const transcriptHeader = [
+      "TRANSKRIP PERCAKAPAN",
+      `Nama: ${customerDisplayName}`,
+      `Conversation ID: ${conversationId}`,
+      `Diekspor: ${formatTranscriptTime(new Date().toISOString())}`,
+      "",
+    ].join("\n");
+    const url = URL.createObjectURL(new Blob([`${transcriptHeader}\n${transcript}`], { type: "text/plain;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `transkrip-${safeName}-${conversationId.slice(-6)}.txt`;
+    link.click();
+    URL.revokeObjectURL(url);
+    toast.push("Transkrip chat berhasil diunduh.", "success");
+  };
   const isMine = isHydrated && conversation.assignedAgentId === user?.userId;
   const isQueued =
     conversation.status === "QUEUED" ||
@@ -520,6 +568,10 @@ export default function ConversationDetailPage() {
             )}
             <Button size="sm" variant="secondary" onClick={() => setTicketOpen(true)}>
               Buat Ticket
+            </Button>
+            <Button size="sm" variant="secondary" onClick={() => setTranscriptOpen(true)}>
+              <FileText className="mr-1.5 h-4 w-4" />
+              Transkrip
             </Button>
             {!isInactive ? (
               <Button
@@ -760,6 +812,18 @@ export default function ConversationDetailPage() {
       />
       <Modal open={ticketOpen} title="Buat Ticket" onClose={() => setTicketOpen(false)}>
         <TicketForm onSubmit={(v) => createTicket.mutate(v)} pending={createTicket.isPending} />
+      </Modal>
+      <Modal open={transcriptOpen} title="Transkrip Chat" onClose={() => setTranscriptOpen(false)} panelClassName="max-w-3xl">
+        <div className="space-y-4">
+          <p className="text-sm text-zinc-400">Transkrip mencakup pesan customer, AI, agent, sistem, dan catatan internal.</p>
+          <Textarea readOnly value={transcript} rows={18} className="min-h-[360px] font-mono text-xs leading-6" />
+          <div className="flex justify-end">
+            <Button onClick={downloadTranscript} disabled={!transcript.trim()}>
+              <Download className="mr-1.5 h-4 w-4" />
+              Unduh .txt
+            </Button>
+          </div>
+        </div>
       </Modal>
     </>
   );

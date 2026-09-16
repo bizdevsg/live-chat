@@ -3,7 +3,17 @@
 Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
-- Belum ada perubahan terdeteksi.
+### Added
+- Memakai nama user pada header dan pengirim pesan transkrip Inbox, bukan label generik “Customer”.
+- Menambahkan fitur transkrip chat pada detail Inbox untuk melihat dan mengunduh riwayat percakapan sebagai file `.txt`.
+
+### Changed
+- Memperbarui `apps/dashboard/src/app/(dashboard)/inbox/[conversationId]/page.tsx`.
+- Memperbarui `packages/ai-core/src/providers/openai-provider.spec.ts`.
+- Memperbarui `packages/ai-core/src/providers/openai-provider.ts`.
+
+### Fixed
+- Memperluas calculation reviewer agar AI membandingkan nominal customer dengan batas minimum/maksimum yang tersedia di Knowledge, termasuk memverifikasi mata uang sebelum membuat kesimpulan kelayakan transaksi.
 
 ## [0.10.4] - 2026-09-16
 ### Changed
