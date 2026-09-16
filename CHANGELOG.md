@@ -3,6 +3,10 @@
 Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
+### Changed
+- Memperbarui `package.json`.
+
+## [0.9.6] - 2026-09-16
 ### Added
 - Menambahkan `apps/api/src/market-data/market-data.service.spec.ts`.
 - Menambahkan `packages/database/prisma/migrations/20260916064500_expand_ai_prompt_content_to_longtext/migration.sql`.
@@ -495,7 +499,8 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 - Memperbarui `apps/dashboard/src/app/(dashboard)/knowledge/page.tsx`.
 - Memperbarui `package.json`.
 
-[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.9.5...HEAD
+[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.9.6...HEAD
+[0.9.6]: https://github.com/bizdevsg/live-chat/compare/v0.9.5...v0.9.6
 [0.9.5]: https://github.com/bizdevsg/live-chat/compare/v0.9.4...v0.9.5
 [0.9.4]: https://github.com/bizdevsg/live-chat/compare/v0.9.3...v0.9.4
 [0.9.3]: https://github.com/bizdevsg/live-chat/compare/v0.9.2...v0.9.3
