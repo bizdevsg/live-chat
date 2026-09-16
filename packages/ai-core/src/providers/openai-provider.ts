@@ -150,12 +150,11 @@ function aiHasAlreadySpoken(history: ChatTurn[]): boolean {
 }
 
 /**
- * Anything a customer reads is generated fresh at a high temperature, so two visitors asking the
- * same thing get genuinely different wording rather than a recognisable stock sentence. Staying
- * inside the knowledge base is enforced separately (evidence-only prompting + the grounding
- * review), so loosening the wording here does not loosen the facts.
+ * Keep customer-facing prose natural, but deliberately low-variance. Official answers may contain
+ * figures, eligibility decisions, and calculations; a high temperature made identical questions
+ * occasionally reach conflicting conclusions even when the retrieved evidence was the same.
  */
-const CUSTOMER_TEXT_TEMPERATURE = 0.9;
+const CUSTOMER_TEXT_TEMPERATURE = 0.25;
 
 /** Verdicts, not prose: the same draft against the same evidence must be judged the same way. */
 const REVIEW_TEMPERATURE = 0.1;
@@ -328,14 +327,39 @@ function normalizeGroundingText(value: string): string {
 }
 
 /**
- * The reviewer occasionally flags a fact by copying it from the evidence verbatim. That is a
- * false rejection, not a hallucination. Reject only claims that cannot be found in the supplied
- * evidence after normalising whitespace and punctuation.
+ * Grouped digit runs (e.g. "5.000.000", "10,000") kept intact rather than split on every
+ * separator — normalizeGroundingText's word-splitting would turn "5.000.000" into three
+ * unrelated tokens ("5", "000", "000"), too coarse to compare figures reliably.
+ */
+function extractNumbers(text: string): string[] {
+  return text.match(/\d[\d.,]*/g)?.map((n) => n.replace(/[.,]/g, "")) ?? [];
+}
+
+/**
+ * The reviewer occasionally flags a fact by copying it from the evidence verbatim, which is a
+ * false rejection, not a hallucination — but just as often it quotes a *paraphrase* of the draft
+ * ("minimal deposit awal adalah IDR 5.000.000") rather than the source's literal wording ("Minimum
+ * Deposit | IDR 5.000.000 / USD 500" in a KB table cell). An exact substring match then never
+ * fires even though the figure is genuinely grounded, and a correct answer gets discarded for a
+ * "please contact support" fallback (observed in production logs for real deposit-amount
+ * questions). Numbers are the actual hallucination risk this function guards against — the
+ * grounding rules already tell the reviewer that rewording around a real figure is fine — so for
+ * a claim containing digits, only treat it as unsupported when some number it states doesn't
+ * appear anywhere in the evidence at all. Claims with no digits (invented product/feature names,
+ * URLs) keep the stricter verbatim-substring check, since those are expected to be copied exactly.
  */
 function isClaimUnsupportedByEvidence(claim: string, evidence: KnowledgeEvidence[]): boolean {
   const normalizedClaim = normalizeGroundingText(claim);
   if (!normalizedClaim) return false;
-  return !evidence.some((item) => normalizeGroundingText(item.content).includes(normalizedClaim));
+  if (evidence.some((item) => normalizeGroundingText(item.content).includes(normalizedClaim))) return false;
+
+  const claimNumbers = extractNumbers(claim);
+  if (claimNumbers.length > 0) {
+    const evidenceNumbers = new Set(evidence.flatMap((item) => extractNumbers(item.content)));
+    return !claimNumbers.every((n) => evidenceNumbers.has(n));
+  }
+
+  return true;
 }
 
 /**
@@ -652,7 +676,8 @@ export class OpenAiProvider implements AiProvider {
       "Hanya jawab bagian yang relevan dengan pertanyaan customer saat ini — jangan tempel/dump seluruh isi dokumen referensi kalau customer cuma menanyakan satu hal spesifik.",
       "Jaga jawaban singkat dan padat (idealnya 2-5 kalimat, kecuali customer minta detail lengkap atau berupa daftar langkah).",
       "PENTING soal angka/data: kalau dokumen referensi di bawah berisi angka, nominal, tabel, atau data spesifik yang menjawab pertanyaan (misalnya minimal deposit, biaya, spread, margin, jam trading), WAJIB sebutkan angka/data persis itu apa adanya di jawabanmu — jangan diringkas jadi kalimat umum seperti 'sesuai ketentuan yang berlaku', 'cukup terjangkau', atau 'bervariasi'. Angka yang ada di dokumen referensi adalah fakta resmi, bukan sesuatu yang perlu disamarkan atau digeneralisir.",
-      "Untuk pertanyaan perhitungan matematika seperti P/L, margin, nilai kontrak, lot, atau harga, WAJIB ikuti rumus yang tertulis pada dokumen referensi apa adanya. Jangan mengubah rumus, jangan menghilangkan faktor, dan jangan mengasumsikan angka yang tidak diberikan customer atau dokumen.",
+       "Sebelum menyimpulkan, telaah SEMUA dokumen referensi yang diberikan sebagai satu set fakta. Jika jawaban membutuhkan lebih dari satu fakta—contohnya nominal USD, fixed rate USD-IDR, dan batas minimum IDR—gabungkan fakta-fakta eksplisit itu secara konsisten. Jangan membandingkan nominal dengan mata uang berbeda secara langsung. Jika rate konversi tidak tersedia di referensi, jangan menyatakan transaksi memenuhi atau tidak memenuhi batas minimum tersebut.",
+       "Untuk pertanyaan perhitungan matematika seperti P/L, margin, nilai kontrak, lot, atau harga, WAJIB ikuti rumus yang tertulis pada dokumen referensi apa adanya. Jangan mengubah rumus, jangan menghilangkan faktor, dan jangan mengasumsikan angka yang tidak diberikan customer atau dokumen.",
       "Jika rumus melibatkan Contract Size dan n Lot, WAJIB hitung penuh Contract Size × n Lot sebagai bagian dari perhitungan akhir. Jika ada nilai yang belum diberikan, katakan nilai mana yang masih dibutuhkan dan jangan berikan hasil akhir numerik.",
       "Format teks yang didukung dan akan ditampilkan rapi ke customer: **tebal** untuk penekanan, serta list dengan '- ' (bullet) atau '1. ' (bernomor) untuk langkah-langkah/beberapa poin. Pakai list HANYA saat memang ada beberapa poin/langkah berurutan — jangan dipaksakan untuk jawaban satu kalimat.",
       "Jika dokumen referensi tidak cukup, katakan secara jujur bahwa informasinya belum tersedia dan arahkan ke petugas manusia — tanpa menyebut kata 'dokumen' atau 'artikel'.",
@@ -679,7 +704,7 @@ export class OpenAiProvider implements AiProvider {
       name: "customer_answer",
       schema: ANSWER_SCHEMA as unknown as Record<string, unknown>,
     },
-    // Every visitor should get freshly worded prose, never a recognisable stock sentence.
+    // Keep official facts stable; natural wording is secondary to a repeatable conclusion.
     CUSTOMER_TEXT_TEMPERATURE);
     // Belt-and-braces: with Structured Outputs the response is already guaranteed to match the
     // schema, but if a future model/API change ever returns prose again, treat that prose as the

@@ -3,7 +3,13 @@
 Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
-- Belum ada perubahan terdeteksi.
+### Changed
+- Memperbarui `apps/api/src/ai/ai-orchestrator.service.ts`.
+- Memperbarui `packages/ai-core/src/providers/openai-provider.ts`.
+
+### Fixed
+- Menambahkan fallback handoff yang memberi respons ketika proses AI gagal total, sehingga customer tidak mengalami chat tanpa balasan.
+- Menstabilkan jawaban AI berbasis Knowledge dengan temperature rendah, validasi grounding angka yang lebih akurat, serta instruksi agar seluruh evidence dinilai bersama sebelum menyimpulkan konversi lintas mata uang atau batas minimum.
 
 ## [0.10.2] - 2026-09-16
 ### Changed

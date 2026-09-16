@@ -329,7 +329,17 @@ export class AiOrchestratorService {
         aiRunId: aiRun.id,
         metadata: { confidence: answer.confidence, intent: answer.intent, sources: answer.sources },
       });
-
+    } catch (error) {
+      // Every step above (classification, handoff decision, retrieval, the answer call itself)
+      // can throw on a transient provider/DB hiccup. Both callers of scheduleVisitorTurn/
+      // processVisitorTurn swallow rejections from this method (widget.controller.ts,
+      // widget.gateway.ts) so that a failure never crashes the request — but that also meant a
+      // thrown error here left the visitor with dead air: typing indicator off, no reply, no
+      // handoff. Always give the visitor something and route them to a human instead.
+      console.error(`[AiOrchestratorService] visitor turn failed for conversation ${conversationId}:`, error);
+      await this.respondBeforeHandoff(conversationId, HandoffReason.AI_FAILED_TWICE).catch((handoffError) =>
+        console.error(`[AiOrchestratorService] fallback handoff also failed for conversation ${conversationId}:`, handoffError),
+      );
     } finally {
       this.realtime.toConversation(conversationId, "typing:updated", { from: "AI", typing: false });
     }
