@@ -166,6 +166,8 @@ export default function KnowledgePage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const previewEndRef = useRef<HTMLDivElement>(null);
   const [deletingDoc, setDeletingDoc] = useState<KnowledgeDoc | null>(null);
+  const [isBatchDeleteConfirmOpen, setIsBatchDeleteConfirmOpen] = useState(false);
+  const [selectedDocumentIds, setSelectedDocumentIds] = useState<string[]>([]);
   const [downloadingDocId, setDownloadingDocId] = useState<string | null>(null);
   const [pendingToggleId, setPendingToggleId] = useState<string | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
@@ -248,6 +250,33 @@ export default function KnowledgePage() {
       toast.push(err instanceof ApiError ? err.message : "Gagal menjalankan test AI.", "error");
     },
   });
+  const batchStatus = useMutation({
+    mutationFn: async ({ ids, nextStatus }: { ids: string[]; nextStatus: "ACTIVE" | "NON_ACTIVE" }) => {
+      await Promise.all(
+        ids.map((id) => apiClient.post(`/api/v1/knowledge/documents/${id}/${nextStatus === "ACTIVE" ? "activate" : "deactivate"}`)),
+      );
+    },
+    onSuccess: (_, variables) => {
+      toast.push(`${variables.ids.length} artikel berhasil ${variables.nextStatus === "ACTIVE" ? "diaktifkan" : "dinonaktifkan"}.`, "success");
+      setSelectedDocumentIds([]);
+      queryClient.invalidateQueries({ queryKey: ["knowledge"] });
+      queryClient.invalidateQueries({ queryKey: ["knowledge-overview"] });
+    },
+    onError: (err) => toast.push(err instanceof ApiError ? err.message : "Gagal mengubah status artikel terpilih.", "error"),
+  });
+  const batchRemove = useMutation({
+    mutationFn: async (ids: string[]) => {
+      await Promise.all(ids.map((id) => apiClient.delete(`/api/v1/knowledge/documents/${id}`)));
+    },
+    onSuccess: (_, ids) => {
+      toast.push(`${ids.length} artikel berhasil dihapus.`, "success");
+      setSelectedDocumentIds([]);
+      setIsBatchDeleteConfirmOpen(false);
+      queryClient.invalidateQueries({ queryKey: ["knowledge"] });
+      queryClient.invalidateQueries({ queryKey: ["knowledge-overview"] });
+    },
+    onError: (err) => toast.push(err instanceof ApiError ? err.message : "Gagal menghapus artikel terpilih.", "error"),
+  });
 
   async function downloadMarkdown(doc: KnowledgeDoc) {
     setDownloadingDocId(doc.id);
@@ -276,6 +305,14 @@ export default function KnowledgePage() {
     nonActive: overviewItems.filter((item) => item.status === "NON_ACTIVE").length,
   };
   const activeFilterCount = [status, audience, categoryId, search.trim()].filter(Boolean).length;
+  const selectedVisibleDocumentIds = docs.filter((doc) => selectedDocumentIds.includes(doc.id)).map((doc) => doc.id);
+  const allVisibleDocumentsSelected = docs.length > 0 && selectedVisibleDocumentIds.length === docs.length;
+  const toggleDocumentSelection = (id: string) => {
+    setSelectedDocumentIds((current) => (current.includes(id) ? current.filter((item) => item !== id) : [...current, id]));
+  };
+  const toggleAllVisibleDocuments = () => {
+    setSelectedDocumentIds(allVisibleDocumentsSelected ? [] : docs.map((doc) => doc.id));
+  };
   const selectedPreviewMessage =
     previewMessages.find((message) => message.id === selectedMessageId && message.result) ??
     [...previewMessages].reverse().find((message) => message.result) ??
@@ -761,11 +798,8 @@ export default function KnowledgePage() {
               <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-zinc-400">Status</label>
               <Select value={status} onChange={(e) => setStatus(e.target.value)}>
                 <option value="">Semua status</option>
-                {["ACTIVE", "NON_ACTIVE"].map((item) => (
-                  <option key={item} value={item}>
-                    {item}
-                  </option>
-                ))}
+                <option value="ACTIVE">ACTIVE</option>
+                <option value="NON_ACTIVE">NON_ACTIVE</option>
               </Select>
             </div>
             <div>
@@ -782,9 +816,7 @@ export default function KnowledgePage() {
               <Select value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
                 <option value="">Semua kategori</option>
                 {categories.data?.map((category) => (
-                  <option key={category.id} value={category.id}>
-                    {category.name}
-                  </option>
+                  <option key={category.id} value={category.id}>{category.name}</option>
                 ))}
               </Select>
             </div>
@@ -801,24 +833,51 @@ export default function KnowledgePage() {
               <h3 className="text-sm font-semibold text-zinc-100">Daftar Artikel</h3>
               <p className="mt-1 text-sm text-zinc-500">Ringkasan, kategori, audience, dan status review dalam satu tabel kerja.</p>
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setStatus("");
-                setAudience("");
-                setCategoryId("");
-                setSearch("");
-              }}
-            >
-              Reset Filter
-            </Button>
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              {isSuperAdmin && selectedVisibleDocumentIds.length > 0 && (
+                <>
+                  <span className="text-xs text-gold-300">{selectedVisibleDocumentIds.length} dipilih</span>
+                  <Button variant="ghost" size="sm" onClick={() => batchStatus.mutate({ ids: selectedVisibleDocumentIds, nextStatus: "ACTIVE" })} disabled={batchStatus.isPending || batchRemove.isPending}>
+                    Aktifkan terpilih
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => batchStatus.mutate({ ids: selectedVisibleDocumentIds, nextStatus: "NON_ACTIVE" })} disabled={batchStatus.isPending || batchRemove.isPending}>
+                    Nonaktifkan terpilih
+                  </Button>
+                  <Button variant="danger" size="sm" onClick={() => setIsBatchDeleteConfirmOpen(true)} disabled={batchStatus.isPending || batchRemove.isPending}>
+                    Hapus terpilih
+                  </Button>
+                </>
+              )}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setStatus("");
+                  setAudience("");
+                  setCategoryId("");
+                  setSearch("");
+                }}
+              >
+                Reset Filter
+              </Button>
+            </div>
           </div>
 
           <div className="overflow-x-auto">
             <table className="w-full min-w-[980px] text-sm">
               <thead className="bg-ink-700/50 text-left text-xs uppercase tracking-wide text-zinc-500">
                 <tr>
+                  {isSuperAdmin && (
+                    <th className="w-12 px-4 py-3">
+                      <input
+                        type="checkbox"
+                        checked={allVisibleDocumentsSelected}
+                        onChange={toggleAllVisibleDocuments}
+                        aria-label="Pilih semua artikel yang tampil"
+                        className="h-4 w-4 cursor-pointer accent-gold-500"
+                      />
+                    </th>
+                  )}
                   <th className="px-4 py-3">Artikel</th>
                   <th className="px-4 py-3">Kategori</th>
                   <th className="px-4 py-3">Audience</th>
@@ -831,6 +890,17 @@ export default function KnowledgePage() {
               <tbody>
                 {docs.map((doc) => (
                   <tr key={doc.id} className="border-t border-ink-700 hover:bg-ink-700/30">
+                    {isSuperAdmin && (
+                      <td className="px-4 py-4 align-top">
+                        <input
+                          type="checkbox"
+                          checked={selectedDocumentIds.includes(doc.id)}
+                          onChange={() => toggleDocumentSelection(doc.id)}
+                          aria-label={`Pilih ${doc.title}`}
+                          className="h-4 w-4 cursor-pointer accent-gold-500"
+                        />
+                      </td>
+                    )}
                     <td className="px-4 py-4">
                       <Link href={`/knowledge/${doc.id}`} className="text-sm font-medium text-zinc-100 hover:text-gold-500">
                         {doc.title}
@@ -857,13 +927,13 @@ export default function KnowledgePage() {
                                 nextStatus: doc.status === "ACTIVE" ? "NON_ACTIVE" : "ACTIVE",
                               })
                             }
-                            disabled={pendingToggleId === doc.id || removeArticle.isPending}
+                            disabled={pendingToggleId === doc.id || removeArticle.isPending || batchStatus.isPending || batchRemove.isPending}
                             className={cn(
                               "relative inline-flex h-7 w-12 shrink-0 items-center rounded-full border transition-colors",
                               doc.status === "ACTIVE"
                                 ? "border-emerald-400/40 bg-emerald-500"
                                 : "border-ink-500 bg-zinc-600",
-                              pendingToggleId === doc.id || removeArticle.isPending ? "cursor-wait opacity-60" : "cursor-pointer",
+                              pendingToggleId === doc.id || removeArticle.isPending || batchStatus.isPending || batchRemove.isPending ? "cursor-wait opacity-60" : "cursor-pointer",
                             )}
                           >
                             <span
@@ -889,7 +959,7 @@ export default function KnowledgePage() {
                           {downloadingDocId === doc.id ? "Mengunduh..." : "Download .md"}
                         </Button>
                         {isSuperAdmin && (
-                          <Button variant="danger" size="sm" onClick={() => setDeletingDoc(doc)} disabled={removeArticle.isPending}>
+                          <Button variant="danger" size="sm" onClick={() => setDeletingDoc(doc)} disabled={removeArticle.isPending || batchRemove.isPending}>
                             Hapus
                           </Button>
                         )}
@@ -899,7 +969,7 @@ export default function KnowledgePage() {
                 ))}
                 {docs.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="px-4 py-12 text-center">
+                    <td colSpan={isSuperAdmin ? 8 : 7} className="px-4 py-12 text-center">
                       <div className="mx-auto max-w-md">
                         <p className="text-base font-medium text-zinc-200">Belum ada artikel yang cocok dengan filter saat ini.</p>
                         <p className="mt-2 text-sm leading-6 text-zinc-500">Coba reset filter atau tambahkan artikel markdown baru agar knowledge siap dipakai tim dan AI.</p>
@@ -1199,6 +1269,17 @@ export default function KnowledgePage() {
         }}
         onClose={() => {
           if (!removeArticle.isPending) setDeletingDoc(null);
+        }}
+      />
+      <ConfirmModal
+        open={isBatchDeleteConfirmOpen}
+        title={`Hapus ${selectedVisibleDocumentIds.length} artikel knowledge?`}
+        description="Artikel yang dipilih akan dihapus permanen bersama source markdown dan chunk index-nya. Tindakan ini tidak dapat dibatalkan."
+        confirmLabel={batchRemove.isPending ? "Menghapus..." : "Hapus Permanen"}
+        danger
+        onConfirm={() => batchRemove.mutate(selectedVisibleDocumentIds)}
+        onClose={() => {
+          if (!batchRemove.isPending) setIsBatchDeleteConfirmOpen(false);
         }}
       />
     </>

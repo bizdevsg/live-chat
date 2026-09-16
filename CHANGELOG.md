@@ -3,7 +3,11 @@
 Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
+### Added
+- Menambahkan batch select pada tabel Dashboard Knowledge, termasuk pilih semua artikel yang tampil serta aksi massal aktifkan, nonaktifkan, dan hapus dengan konfirmasi.
+
 ### Changed
+- Memperbarui `apps/dashboard/src/app/(dashboard)/knowledge/page.tsx`.
 - Memperbarui `package.json`.
 
 ## [0.9.6] - 2026-09-16
