@@ -3,6 +3,10 @@
 Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
+### Changed
+- Memperbarui `package.json`.
+
+## [0.10.0] - 2026-09-16
 ### Added
 - Menambahkan batch select pada tabel Dashboard Knowledge, termasuk pilih semua artikel yang tampil serta aksi massal aktifkan, nonaktifkan, dan hapus dengan konfirmasi.
 
@@ -503,7 +507,8 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 - Memperbarui `apps/dashboard/src/app/(dashboard)/knowledge/page.tsx`.
 - Memperbarui `package.json`.
 
-[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.9.6...HEAD
+[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.10.0...HEAD
+[0.10.0]: https://github.com/bizdevsg/live-chat/compare/v0.9.6...v0.10.0
 [0.9.6]: https://github.com/bizdevsg/live-chat/compare/v0.9.5...v0.9.6
 [0.9.5]: https://github.com/bizdevsg/live-chat/compare/v0.9.4...v0.9.5
 [0.9.4]: https://github.com/bizdevsg/live-chat/compare/v0.9.3...v0.9.4
