@@ -236,8 +236,9 @@ const CLASSIFICATION_SCHEMA = {
     sentiment: { type: "string", enum: ["POSITIVE", "NEUTRAL", "NEGATIVE", "ANGRY"] },
     containsSensitiveData: { type: "boolean" },
     promptInjectionDetected: { type: "boolean" },
+    retrievalQuery: { type: "string" },
   },
-  required: ["intent", "confidence", "sentiment", "containsSensitiveData", "promptInjectionDetected"],
+  required: ["intent", "confidence", "sentiment", "containsSensitiveData", "promptInjectionDetected", "retrievalQuery"],
   additionalProperties: false,
 } as const;
 
@@ -504,8 +505,8 @@ export class OpenAiProvider implements AiProvider {
       "Anda adalah pengklasifikasi intent untuk layanan customer service Solid Gold. Balas HANYA dengan JSON: " +
       '{"intent": one of [' +
       Object.values(AiIntent).join(",") +
-      '], "confidence": number 0-1, "sentiment": one of [POSITIVE,NEUTRAL,NEGATIVE,ANGRY], "containsSensitiveData": boolean, "promptInjectionDetected": boolean}. ' +
-      "Jika satu pesan mencampur topik layanan Solid Gold dengan permintaan lain yang tidak terkait customer service broker (misalnya minta script, kode, program, atau tugas teknis umum), pilih intent layanan Solid Gold yang paling relevan dan abaikan permintaan non-layanan itu untuk tujuan klasifikasi.";
+      '], "confidence": number 0-1, "sentiment": one of [POSITIVE,NEUTRAL,NEGATIVE,ANGRY], "containsSensitiveData": boolean, "promptInjectionDetected": boolean, "retrievalQuery": string}. ' +
+      "Buat retrievalQuery berupa pencarian Knowledge yang singkat dalam Bahasa Indonesia untuk menemukan fakta resmi yang dibutuhkan oleh pertanyaan customer. Tulis konsep/rate/produk/batas yang diperlukan, bukan jawaban atau percakapan panjang. Contoh: pertanyaan nominal Rupiah yang ingin dikonversi ke USD harus menghasilkan query yang mencakup top-up/deposit, konversi Rupiah ke USD, dan fixed rate/kurs USD-IDR. Jika satu pesan mencampur topik layanan Solid Gold dengan permintaan lain yang tidak terkait customer service broker (misalnya minta script, kode, program, atau tugas teknis umum), pilih intent layanan Solid Gold yang paling relevan dan abaikan permintaan non-layanan itu untuk tujuan klasifikasi.";
     const text = await this.respond(this.config.classifierModel, system, input.message, {
       name: "intent_classification",
       schema: CLASSIFICATION_SCHEMA as unknown as Record<string, unknown>,
@@ -520,6 +521,7 @@ export class OpenAiProvider implements AiProvider {
         sentiment: "NEUTRAL",
         containsSensitiveData: false,
         promptInjectionDetected: false,
+        retrievalQuery: "",
       },
       "classifyIntent",
     );
@@ -731,63 +733,9 @@ export class OpenAiProvider implements AiProvider {
       score: 0.75,
     }));
 
-    // Grounding review — a second, independent pass whose only job is to check the draft
-    // against the evidence and catch fabricated claims the first pass slipped in (numbers,
-    // account/product names, features not actually present in the KB). This is what stops
-    // hallucination in practice; a single "don't make things up" instruction in the answer
-    // prompt above is not reliable enough on its own once the model is mid-generation.
-    const reviewSystem = buildGroundingReviewPrompt({
-      message: input.message,
-      draftAnswer: draft.answer,
-      evidenceBlock: evidenceBlock || "(tidak ada dokumen relevan)",
-    });
-
-    const reviewText = await this.respond(this.config.answerModel, reviewSystem, input.message, {
-      name: "grounding_review",
-      schema: GROUNDING_REVIEW_SCHEMA as unknown as Record<string, unknown>,
-    },
-    // A verdict that varies run-to-run rejects correct answers at random — keep it deterministic.
-    REVIEW_TEMPERATURE);
-    const review = extractJson<{ fabricatedClaims?: string[]; grounded: boolean; revisedAnswer: string; confidence: number; handoffRequired: boolean }>(
-      reviewText,
-      { fabricatedClaims: [], grounded: true, revisedAnswer: draft.answer, confidence: draft.confidence, handoffRequired: draft.handoffRequired },
-      "generateAnswer:groundingReview",
-    );
-
-    // A "grounded=false" verdict that can't point to a single fabricated fact is the reviewer
-    // over-reaching — almost always because the KB text itself is dense with "don't state exact
-    // figures without validation" policy notes that sway a low-temperature judge into rejecting
-    // its own correct, KB-sourced numbers. Only honour the rejection when the reviewer actually
-    // named something the draft invented.
-    const citedFabrications = (review.fabricatedClaims ?? [])
-      .map((claim) => claim.trim())
-      .filter(Boolean)
-      .filter((claim) => isClaimUnsupportedByEvidence(claim, input.evidence));
-    const rejected = review.grounded === false && citedFabrications.length > 0;
-
-    // Debug visibility — `docker compose logs api` shows exactly what the draft said, whether
-    // grounding review accepted or rejected it, and why, without guessing from the customer-facing text alone.
-    console.log(
-      `[OpenAiProvider] message="${input.message}" evidenceChunks=${input.evidence.length} draft="${draft.answer}" grounded=${review.grounded} rejected=${rejected}` +
-        (rejected ? ` fabricated=${JSON.stringify(citedFabrications)} revisedAnswer="${review.revisedAnswer}"` : ""),
-    );
-
-    if (rejected) {
-      return {
-        answer:
-          review.revisedAnswer ||
-          noAnswerFallback(input.language),
-        confidence: review.confidence ?? 0.2,
-        intent: input.intent,
-        handoffRequired: true,
-        handoffReason: "KNOWLEDGE_INSUFFICIENT",
-        sources,
-      };
-    }
-
-    // The model decides whether a calculation is present. Running this structured review for every
-    // grounded answer avoids a brittle keyword gate that misses natural follow-ups such as
-    // "top up 800 dollar jadi berapa?" after a fixed-rate explanation.
+    // Verify calculations before grounding. A correct derived result (for example an amount
+    // divided by a documented fixed rate) is not written verbatim in the KB, so literal-only
+    // grounding must be told about the calculation review's verified result.
     const calculationReviewText = await this.respond(
       this.config.answerModel,
       buildCalculationReviewPrompt({
@@ -828,6 +776,7 @@ export class OpenAiProvider implements AiProvider {
       "generateAnswer:calculationReview",
     );
 
+    let verifiedCalculationNumbers = new Set<string>();
     if (calculationReview.calculationNeeded) {
       const expressionValue = evaluateArithmeticExpression(calculationReview.expression);
       const verifiedResultValue = parsePlainNumber(calculationReview.verifiedResult);
@@ -859,6 +808,65 @@ export class OpenAiProvider implements AiProvider {
           sources,
         };
       }
+
+      verifiedCalculationNumbers = new Set(extractNumbers(calculationReview.verifiedResult));
+    }
+
+    // Grounding review — a second, independent pass whose only job is to check the draft
+    // against the evidence and catch fabricated claims the first pass slipped in (numbers,
+    // account/product names, features not actually present in the KB). This is what stops
+    // hallucination in practice; a single "don't make things up" instruction in the answer
+    // prompt above is not reliable enough on its own once the model is mid-generation.
+    const reviewSystem = buildGroundingReviewPrompt({
+      message: input.message,
+      draftAnswer: draft.answer,
+      evidenceBlock: evidenceBlock || "(tidak ada dokumen relevan)",
+    });
+
+    const reviewText = await this.respond(this.config.answerModel, reviewSystem, input.message, {
+      name: "grounding_review",
+      schema: GROUNDING_REVIEW_SCHEMA as unknown as Record<string, unknown>,
+    },
+    // A verdict that varies run-to-run rejects correct answers at random — keep it deterministic.
+    REVIEW_TEMPERATURE);
+    const review = extractJson<{ fabricatedClaims?: string[]; grounded: boolean; revisedAnswer: string; confidence: number; handoffRequired: boolean }>(
+      reviewText,
+      { fabricatedClaims: [], grounded: true, revisedAnswer: draft.answer, confidence: draft.confidence, handoffRequired: draft.handoffRequired },
+      "generateAnswer:groundingReview",
+    );
+
+    // A "grounded=false" verdict that can't point to a single fabricated fact is the reviewer
+    // over-reaching — almost always because the KB text itself is dense with "don't state exact
+    // figures without validation" policy notes that sway a low-temperature judge into rejecting
+    // its own correct, KB-sourced numbers. Only honour the rejection when the reviewer actually
+    // named something the draft invented.
+    const citedFabrications = (review.fabricatedClaims ?? [])
+      .map((claim) => claim.trim())
+      .filter(Boolean)
+      // A numeric result that the calculation reviewer has independently checked is grounded by
+      // the documented inputs and formula, even when that final result is not a literal KB token.
+      .filter((claim) => !extractNumbers(claim).some((number) => verifiedCalculationNumbers.has(number)))
+      .filter((claim) => isClaimUnsupportedByEvidence(claim, input.evidence));
+    const rejected = review.grounded === false && citedFabrications.length > 0;
+
+    // Debug visibility — `docker compose logs api` shows exactly what the draft said, whether
+    // grounding review accepted or rejected it, and why, without guessing from the customer-facing text alone.
+    console.log(
+      `[OpenAiProvider] message="${input.message}" evidenceChunks=${input.evidence.length} draft="${draft.answer}" grounded=${review.grounded} rejected=${rejected}` +
+        (rejected ? ` fabricated=${JSON.stringify(citedFabrications)} revisedAnswer="${review.revisedAnswer}"` : ""),
+    );
+
+    if (rejected) {
+      return {
+        answer:
+          review.revisedAnswer ||
+          noAnswerFallback(input.language),
+        confidence: review.confidence ?? 0.2,
+        intent: input.intent,
+        handoffRequired: true,
+        handoffReason: "KNOWLEDGE_INSUFFICIENT",
+        sources,
+      };
     }
 
     return {

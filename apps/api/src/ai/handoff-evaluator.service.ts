@@ -4,7 +4,6 @@ import { AiIntent, HandoffReason, type ClassificationResult } from "@solidchat/s
 const RULES: Array<{ reason: HandoffReason; test: (message: string, classification: ClassificationResult) => boolean }> = [
   { reason: HandoffReason.PROMPT_INJECTION_DETECTED, test: (_m, c) => c.promptInjectionDetected },
   { reason: HandoffReason.SENSITIVE_DATA_DETECTED, test: (_m, c) => c.containsSensitiveData },
-  { reason: HandoffReason.CUSTOMER_REQUESTED_HUMAN, test: (_m, c) => c.intent === AiIntent.HUMAN_REQUEST },
   { reason: HandoffReason.SUSPECTED_FRAUD, test: (m) => /(penipuan|fraud|scam|dugaan tipu)/i.test(m) },
   { reason: HandoffReason.LEGAL_THREAT, test: (m) => /(polisi|somasi|tuntut|pengacara|lapor hukum)/i.test(m) },
   { reason: HandoffReason.ACCOUNT_LOCKED, test: (m) => /(akun (saya )?terkunci|tidak bisa login|lupa password)/i.test(m) },

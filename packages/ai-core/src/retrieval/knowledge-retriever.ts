@@ -64,9 +64,17 @@ function expandWithFullContext(selected: ContextRow[], allRows: ContextRow[], ma
   if (totalTokens >= maxTokens) return selected;
 
   const seenChunkIds = new Set(selected.map((row) => row.chunkId));
+  const selectedIndexesByDocument = new Map<string, number[]>();
+  for (const row of selected) {
+    const indexes = selectedIndexesByDocument.get(row.documentId) ?? [];
+    indexes.push(row.chunkIndex);
+    selectedIndexesByDocument.set(row.documentId, indexes);
+  }
+
   const rowsByDocument = new Map<string, ContextRow[]>();
   for (const row of allRows) {
     if (seenChunkIds.has(row.chunkId)) continue;
+    if (!selectedIndexesByDocument.has(row.documentId)) continue;
     const existing = rowsByDocument.get(row.documentId);
     if (existing) {
       existing.push(row);
@@ -75,12 +83,26 @@ function expandWithFullContext(selected: ContextRow[], allRows: ContextRow[], ma
     }
   }
 
-  let layer = 0;
+  // Context must mean neighbouring chunks, not the beginning of a long selected document. The
+  // previous ordering started at chunk 0 and could fill the prompt with distant, unrelated rules
+  // before reaching the section that actually answered the customer.
+  for (const [documentId, rows] of rowsByDocument) {
+    const selectedIndexes = selectedIndexesByDocument.get(documentId) ?? [];
+    rows.sort((a, b) => {
+      const aDistance = Math.min(...selectedIndexes.map((index) => Math.abs(a.chunkIndex - index)));
+      const bDistance = Math.min(...selectedIndexes.map((index) => Math.abs(b.chunkIndex - index)));
+      return aDistance - bDistance || a.chunkIndex - b.chunkIndex;
+    });
+  }
+
+  const offsets = new Map<string, number>();
   let addedInPass = true;
   while (totalTokens < maxTokens && addedInPass) {
     addedInPass = false;
-    for (const rows of rowsByDocument.values()) {
-      const row = rows[layer];
+    for (const [documentId, rows] of rowsByDocument) {
+      const offset = offsets.get(documentId) ?? 0;
+      const row = rows[offset];
+      offsets.set(documentId, offset + 1);
       if (!row || seenChunkIds.has(row.chunkId)) continue;
       if (totalTokens + row.tokenCount > maxTokens) continue;
       selected.push(row);
@@ -89,7 +111,6 @@ function expandWithFullContext(selected: ContextRow[], allRows: ContextRow[], ma
       addedInPass = true;
       if (totalTokens >= maxTokens) break;
     }
-    layer += 1;
   }
 
   return selected;

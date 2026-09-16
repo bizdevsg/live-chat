@@ -3,7 +3,7 @@ import { KnowledgeAudience, type AiProvider } from "@solidchat/shared";
 import { KnowledgeRetriever } from "./knowledge-retriever";
 
 describe("KnowledgeRetriever", () => {
-  it("backfills broader active knowledge when full-context mode is enabled", async () => {
+  it("backfills only neighbouring chunks from the selected knowledge document in full-context mode", async () => {
     const queryRaw = jest.fn().mockResolvedValue([
       {
         chunkId: "chunk_1",
@@ -29,9 +29,17 @@ describe("KnowledgeRetriever", () => {
       },
       {
         id: "chunk_2",
+        documentId: "doc_1",
+        chunkIndex: 1,
+        content: "Penarikan diproses setelah verifikasi akun selesai.",
+        tokenCount: 60,
+        document: { title: "Withdrawal", version: 1, audience: "PUBLIC" },
+      },
+      {
+        id: "chunk_3",
         documentId: "doc_2",
         chunkIndex: 0,
-        content: "Akun harus terverifikasi sebelum penarikan diproses.",
+        content: "Akun harus terverifikasi sebelum transaksi tertentu diproses.",
         tokenCount: 60,
         document: { title: "Verifikasi Akun", version: 2, audience: "PUBLIC" },
       },
@@ -51,10 +59,11 @@ describe("KnowledgeRetriever", () => {
       allowedAudiences: [KnowledgeAudience.PUBLIC],
       includeFullContext: true,
       fullContextMaxTokens: 200,
+      topK: 1,
     });
 
     expect(result).toHaveLength(2);
-    expect(result.map((item) => item.documentId)).toEqual(["doc_1", "doc_2"]);
+    expect(result.map((item) => item.chunkId)).toEqual(["chunk_1", "chunk_2"]);
     expect(findMany).toHaveBeenCalledTimes(1);
   });
 

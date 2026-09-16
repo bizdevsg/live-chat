@@ -77,6 +77,8 @@ export interface ClassificationResult {
   sentiment: "POSITIVE" | "NEUTRAL" | "NEGATIVE" | "ANGRY";
   containsSensitiveData: boolean;
   promptInjectionDetected: boolean;
+  /** AI-generated semantic query for retrieving the official knowledge needed to answer. */
+  retrievalQuery?: string;
 }
 
 export interface ConversationSummaryResult {

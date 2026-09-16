@@ -71,6 +71,7 @@ export class MockAiProvider implements AiProvider {
       sentiment: detectSentiment(input.message),
       containsSensitiveData,
       promptInjectionDetected,
+      retrievalQuery: input.message,
     };
   }
 

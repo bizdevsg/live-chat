@@ -12,14 +12,19 @@ export class RetrievalService {
   ) {}
 
   /** Customer-facing AI may only see PUBLIC knowledge (§19). */
-  async retrieveForCustomer(siteId: string, query: string): Promise<KnowledgeEvidence[]> {
+  async retrieveForCustomer(
+    siteId: string,
+    query: string,
+    options: { topK?: number; includeFullContext?: boolean } = {},
+  ): Promise<KnowledgeEvidence[]> {
     const { provider } = await this.aiProviderFactory.getProviderForSite(siteId);
     const retriever = new KnowledgeRetriever(this.prisma, provider);
     return retriever.retrieve({
       siteId,
       query,
       allowedAudiences: [KnowledgeAudience.PUBLIC],
-      includeFullContext: true,
+      topK: options.topK,
+      includeFullContext: options.includeFullContext ?? true,
     });
   }
 

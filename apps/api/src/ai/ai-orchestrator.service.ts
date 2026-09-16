@@ -93,7 +93,7 @@ export class AiOrchestratorService {
       language: site.language,
     });
     const forcedHandoffReason = this.handoffEvaluator.evaluate(trimmedMessage, classification);
-    const retrievalQuery = extractCustomerServiceQuery(trimmedMessage, classification.intent);
+    const retrievalQuery = classification.retrievalQuery?.trim() || extractCustomerServiceQuery(trimmedMessage, classification.intent);
     const [marketEvidence, knowledgeEvidence, answerPrompt] = await Promise.all([
       Promise.resolve(this.marketData.getRealtimePriceEvidence(trimmedMessage)),
       this.retrieval.retrieveForCustomer(site.id, retrievalQuery),
@@ -256,20 +256,24 @@ export class AiOrchestratorService {
         return;
       }
 
-      // A natural follow-up such as "kalau top up 800 dolar jadi berapa?" often omits the
-      // rate/formula that was established one turn earlier. Include recent conversational context
-      // in retrieval so the model receives the authoritative KB chunk again; history itself still
-      // never becomes a factual source for the final answer.
-      const retrievalQuery = [
-        extractCustomerServiceQuery(lastVisitorMessage.content, classification.intent),
-        ...history.slice(-6).map((turn) => turn.content),
-      ]
+      // Search the explicit latest question first. Embedding the whole recent transcript into one
+      // query made a clear question such as "top up 2095000 jadi berapa" compete with unrelated
+      // older turns and occasionally lose its rate/minimum evidence. Conversation context remains
+      // useful for short follow-ups, but is supplementary evidence rather than the primary query.
+      const focusedRetrievalQuery = classification.retrievalQuery?.trim() || extractCustomerServiceQuery(lastVisitorMessage.content, classification.intent);
+      const contextualRetrievalQuery = [...history.slice(-6).map((turn) => turn.content), focusedRetrievalQuery]
         .filter(Boolean)
         .join("\n");
-      const [marketEvidence, knowledgeEvidence] = await Promise.all([
+      const [marketEvidence, focusedKnowledgeEvidence, contextualKnowledgeEvidence] = await Promise.all([
         Promise.resolve(this.marketData.getRealtimePriceEvidence(lastVisitorMessage.content, history.map((turn) => turn.content).join("\n"))),
-        this.retrieval.retrieveForCustomer(conversation.siteId, retrievalQuery),
+        this.retrieval.retrieveForCustomer(conversation.siteId, focusedRetrievalQuery),
+        this.retrieval.retrieveForCustomer(conversation.siteId, contextualRetrievalQuery, { topK: 3, includeFullContext: false }),
       ]);
+      const focusedChunkIds = new Set(focusedKnowledgeEvidence.map((item) => item.chunkId));
+      const knowledgeEvidence = [
+        ...focusedKnowledgeEvidence,
+        ...contextualKnowledgeEvidence.filter((item) => !focusedChunkIds.has(item.chunkId)),
+      ];
       const evidence = [...marketEvidence, ...knowledgeEvidence];
       const realtimePriceAnswer = this.marketData.getRealtimePriceAnswer(
         lastVisitorMessage.content,

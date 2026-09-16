@@ -123,6 +123,7 @@ describe("OpenAiProvider", () => {
     const respondSpy = jest.spyOn(provider as any, "respond");
     respondSpy
       .mockResolvedValueOnce('{"answer":"Minimal deposit Rp100 juta dan prosesnya instan.","confidence":0.86,"handoffRequired":false}')
+      .mockResolvedValueOnce(noCalculationReview)
       .mockResolvedValueOnce(
         '{"fabricatedClaims":["Minimal deposit Rp100 juta","prosesnya instan"],"grounded":false,"revisedAnswer":"Informasi detail minimal deposit belum tersedia secara jelas. Saya akan menghubungkan Anda dengan petugas kami.","confidence":0.2,"handoffRequired":true}',
       );
@@ -146,7 +147,7 @@ describe("OpenAiProvider", () => {
     expect(result.handoffRequired).toBe(true);
     expect(result.handoffReason).toBe("KNOWLEDGE_INSUFFICIENT");
     expect(result.answer).toContain("petugas");
-    expect(respondSpy).toHaveBeenCalledTimes(2);
+    expect(respondSpy).toHaveBeenCalledTimes(3);
   });
 
   it("keeps the draft when the grounding review says grounded=false but names no fabricated claim", async () => {
@@ -159,10 +160,10 @@ describe("OpenAiProvider", () => {
       .mockResolvedValueOnce(
         '{"answer":"Minimal deposit awal akun Mini adalah USD 500 atau setara IDR 5.000.000.","confidence":0.9,"handoffRequired":false}',
       )
+      .mockResolvedValueOnce(noCalculationReview)
       .mockResolvedValueOnce(
         '{"fabricatedClaims":[],"grounded":false,"revisedAnswer":"Maaf, informasinya belum tersedia. Saya hubungkan ke petugas ya.","confidence":0.3,"handoffRequired":true}',
-      )
-      .mockResolvedValue(noCalculationReview);
+      );
 
     const result = await provider.generateAnswer({
       ...baseInput,
@@ -189,8 +190,9 @@ describe("OpenAiProvider", () => {
     jest
       .spyOn(provider as any, "respond")
       .mockResolvedValueOnce('{"answer":"Minimal deposit akun Mini adalah IDR 5.000.000.","confidence":0.9,"handoffRequired":false}')
+      .mockResolvedValueOnce(noCalculationReview)
       .mockResolvedValueOnce('{"grounded":true,"revisedAnswer":"","confidence":0.9,"handoffRequired":false}')
-      .mockResolvedValue(noCalculationReview);
+      ;
 
     const result = await provider.generateAnswer({
       ...baseInput,
@@ -217,10 +219,10 @@ describe("OpenAiProvider", () => {
     const respondSpy = jest.spyOn(provider as any, "respond");
     respondSpy
       .mockResolvedValueOnce('{"answer":"P/L dihitung dari Contract Size 100 x selisih harga 10, jadi hasilnya 1000.","confidence":0.88,"handoffRequired":false}')
-      .mockResolvedValueOnce('{"fabricatedClaims":[],"grounded":true,"revisedAnswer":"","confidence":0.88,"handoffRequired":false}')
       .mockResolvedValueOnce(
         '{"calculationNeeded":true,"calculationValid":false,"assumptionsDetected":false,"missingInputs":[],"omittedFactors":["n Lot"],"expression":"100 * 2 * 10","statedResult":"1000","verifiedResult":"2000","revisedAnswer":"Perhitungannya mengikuti rumus pada KB: Contract Size 100 x 2 lot x selisih harga 10 = 2000. Jadi estimasi P/L-nya 2000."}',
-      );
+      )
+      .mockResolvedValueOnce('{"fabricatedClaims":[],"grounded":true,"revisedAnswer":"","confidence":0.88,"handoffRequired":false}');
 
     const result = await provider.generateAnswer({
       ...baseInput,
@@ -240,7 +242,8 @@ describe("OpenAiProvider", () => {
 
     expect(result.handoffRequired).toBe(false);
     expect(result.answer).toContain("2000");
-    expect(respondSpy).toHaveBeenCalledTimes(3);
+    // The calculation reviewer returns a corrected answer before grounding needs another call.
+    expect(respondSpy).toHaveBeenCalledTimes(2);
   });
 
   it("refuses to return a numeric P/L result when required inputs are missing", async () => {
@@ -248,10 +251,10 @@ describe("OpenAiProvider", () => {
     jest
       .spyOn(provider as any, "respond")
       .mockResolvedValueOnce('{"answer":"P/L Anda kemungkinan sekitar 1000.","confidence":0.82,"handoffRequired":false}')
-      .mockResolvedValueOnce('{"fabricatedClaims":[],"grounded":true,"revisedAnswer":"","confidence":0.82,"handoffRequired":false}')
       .mockResolvedValueOnce(
         '{"calculationNeeded":true,"calculationValid":false,"assumptionsDetected":true,"missingInputs":["n Lot"],"omittedFactors":[],"expression":"","statedResult":"1000","verifiedResult":"","revisedAnswer":"Untuk menghitung P/L secara akurat, saya masih memerlukan nilai n Lot. Tanpa nilai itu saya tidak bisa memberikan hasil akhir numerik."}',
-      );
+      )
+      .mockResolvedValueOnce('{"fabricatedClaims":[],"grounded":true,"revisedAnswer":"","confidence":0.82,"handoffRequired":false}');
 
     const result = await provider.generateAnswer({
       ...baseInput,
@@ -279,10 +282,10 @@ describe("OpenAiProvider", () => {
     jest
       .spyOn(provider as any, "respond")
       .mockResolvedValueOnce('{"answer":"Dana Anda akan bertambah sebesar 800 dolar.","confidence":0.88,"handoffRequired":false}')
-      .mockResolvedValueOnce('{"fabricatedClaims":[],"grounded":true,"revisedAnswer":"","confidence":0.88,"handoffRequired":false}')
       .mockResolvedValueOnce(
         '{"calculationNeeded":true,"calculationValid":false,"assumptionsDetected":false,"missingInputs":[],"omittedFactors":["konversi USD ke IDR"],"expression":"800 * 10000","statedResult":"800","verifiedResult":"8000000","revisedAnswer":"Dengan fixed rate 1 USD = IDR 10.000, top-up USD 800 setara dengan IDR 8.000.000."}',
-      );
+      )
+      .mockResolvedValueOnce('{"fabricatedClaims":[],"grounded":true,"revisedAnswer":"","confidence":0.88,"handoffRequired":false}');
 
     const result = await provider.generateAnswer({
       ...baseInput,
@@ -309,10 +312,10 @@ describe("OpenAiProvider", () => {
     jest
       .spyOn(provider as any, "respond")
       .mockResolvedValueOnce('{"answer":"Untuk top-up USD 200, silakan pastikan nominalnya sesuai ketentuan.","confidence":0.88,"handoffRequired":false}')
-      .mockResolvedValueOnce('{"fabricatedClaims":[],"grounded":true,"revisedAnswer":"","confidence":0.88,"handoffRequired":false}')
       .mockResolvedValueOnce(
         '{"calculationNeeded":true,"calculationValid":false,"assumptionsDetected":false,"missingInputs":[],"omittedFactors":["perbandingan dengan minimum top-up"],"expression":"200 - 500","statedResult":"","verifiedResult":"-300","revisedAnswer":"Top-up USD 200 belum memenuhi minimum top-up USD 500."}',
-      );
+      )
+      .mockResolvedValueOnce('{"fabricatedClaims":[],"grounded":true,"revisedAnswer":"","confidence":0.88,"handoffRequired":false}');
 
     const result = await provider.generateAnswer({
       ...baseInput,

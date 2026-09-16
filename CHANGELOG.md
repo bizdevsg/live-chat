@@ -3,7 +3,17 @@
 Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
-- Belum ada perubahan terdeteksi.
+### Changed
+- Memperbarui `apps/api/src/ai/ai-orchestrator.service.ts`.
+- Memperbarui `apps/api/src/ai/handoff-evaluator.service.spec.ts`.
+- Memperbarui `apps/api/src/ai/handoff-evaluator.service.ts`.
+- Memperbarui `apps/api/src/knowledge/retrieval.service.ts`.
+- Memperbarui `packages/ai-core/src/providers/mock-provider.ts`.
+- Memperbarui `packages/ai-core/src/providers/openai-provider.spec.ts`.
+- Memperbarui `packages/ai-core/src/providers/openai-provider.ts`.
+- Memperbarui `packages/ai-core/src/retrieval/knowledge-retriever.spec.ts`.
+- Memperbarui `packages/ai-core/src/retrieval/knowledge-retriever.ts`.
+- Memperbarui `packages/shared/src/types.ts`.
 
 ## [0.11.0] - 2026-09-16
 ### Added
@@ -16,7 +26,12 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 - Memperbarui `packages/ai-core/src/providers/openai-provider.ts`.
 
 ### Fixed
+- Stop forcing agent transfer solely from the classifier's `HUMAN_REQUEST` label; the AI now evaluates the full message and conversation context, preventing explanatory questions about agents from being routed away with an empty answer.
+- Preserve AI-verified calculation results during grounding review, so valid conversions such as a Rupiah top-up divided by the documented fixed rate are no longer replaced by an unnecessary fallback response.
 - Memperluas calculation reviewer agar AI membandingkan nominal customer dengan batas minimum/maksimum yang tersedia di Knowledge, termasuk memverifikasi mata uang sebelum membuat kesimpulan kelayakan transaksi.
+- Memprioritaskan retrieval dari pertanyaan customer terbaru, lalu menambahkan konteks riwayat sebagai evidence pendukung agar pertanyaan nominal yang jelas tidak kehilangan rate atau batas resmi karena chat lama yang tidak relevan.
+- Membatasi full context retrieval pada chunk Knowledge yang bertetangga dengan hasil relevan agar jawaban AI tidak tercampur bagian dokumen yang jauh dan tidak terkait.
+- Menambahkan retrieval query yang disusun AI saat klasifikasi intent agar pertanyaan konversi, produk, atau syarat transaksi dapat menemukan konsep Knowledge yang diperlukan meski bahasa customer santai atau nominalnya spesifik.
 
 ## [0.10.4] - 2026-09-16
 ### Changed

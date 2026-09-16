@@ -30,9 +30,9 @@ describe("HandoffEvaluatorService", () => {
     expect(result).toBe(HandoffReason.PROMPT_INJECTION_DETECTED);
   });
 
-  it("routes explicit human requests to CUSTOMER_REQUESTED_HUMAN", () => {
-    const result = evaluator.evaluate("saya mau bicara dengan agent", classification({ intent: AiIntent.HUMAN_REQUEST }));
-    expect(result).toBe(HandoffReason.CUSTOMER_REQUESTED_HUMAN);
+  it("leaves human-request intent to the answer model's full-context decision", () => {
+    const result = evaluator.evaluate("kapan AI perlu mengarahkan pengguna ke agent?", classification({ intent: AiIntent.HUMAN_REQUEST }));
+    expect(result).toBeNull();
   });
 
   it("detects a deposit issue when intent and keyword both match", () => {
