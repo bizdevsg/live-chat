@@ -40,6 +40,17 @@ export interface AnswerInput {
   systemPrompt?: string | null;
 }
 
+export interface HandoffDecisionInput {
+  message: string;
+  history: ChatTurn[];
+  language: string;
+}
+
+export interface HandoffDecisionResult {
+  action: "NONE" | "OFFER" | "TRANSFER" | "OUT_OF_SCOPE";
+  reply: string;
+}
+
 export interface SummaryInput {
   history: ChatTurn[];
   language: string;
@@ -67,6 +78,7 @@ export interface EmbeddingInput {
 export interface AiProvider {
   readonly name: string;
   classifyIntent(input: ClassificationInput): Promise<ClassificationResult>;
+  decideHandoff(input: HandoffDecisionInput): Promise<HandoffDecisionResult>;
   generateAnswer(input: AnswerInput): Promise<AnswerResult>;
   summarizeConversation(input: SummaryInput): Promise<ConversationSummaryResult>;
   generateSuggestedReply(input: SuggestedReplyInput): Promise<SuggestedReplyResult>;

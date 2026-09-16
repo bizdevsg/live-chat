@@ -21,20 +21,6 @@ import { RealtimeEmitterService } from "../realtime/realtime-emitter.service";
 import { MarketDataService } from "../market-data/market-data.service";
 import { ApiException } from "../common/errors/api.exception";
 
-// Visitors often ask casually, e.g. "Bisa kirim gambar gak sih?". Any
-// image-related request gets the handoff guidance instead of a generic answer.
-const IMAGE_UPLOAD_REQUEST_PATTERN = /\b(?:gambar|foto|photo|image|screenshot|screen\s*shot|ss)\b/i;
-const HANDOFF_CONFIRMATION_PATTERN = /^(?:ya|iya|iya+|ya+|yes|yep|boleh|ok|oke|okay|mau|silakan|tolong)(?:\s+(?:dong|ya|aja|please))?[.!?\s]*$/i;
-const IMAGE_UPLOAD_HANDOFF_OFFER_PATTERN = /gambar.+(?:terhubung|hubungkan).+agent|(?:terhubung|hubungkan).+agent.+gambar/i;
-
-function getImageUploadGuidance(message: string, language: string): string | null {
-  if (!IMAGE_UPLOAD_REQUEST_PATTERN.test(message)) return null;
-  if (language.toLowerCase().startsWith("en")) {
-    return "Images can only be sent after your conversation is connected to an agent. Would you like me to connect you with an available agent?";
-  }
-  return "Gambar hanya dapat dikirim setelah percakapan Anda terhubung dengan agent. Apakah Anda ingin saya hubungkan dengan agent yang tersedia?";
-}
-
 @Injectable()
 export class AiOrchestratorService {
   /** Guards against double-answering when a visitor fires several messages in quick succession. */
@@ -123,17 +109,7 @@ export class AiOrchestratorService {
     ]);
     const evidence = [...marketEvidence, ...knowledgeEvidence];
     const realtimePriceAnswer = this.marketData.getRealtimePriceAnswer(trimmedMessage);
-    const imageUploadGuidance = getImageUploadGuidance(trimmedMessage, site.language);
-
-    const answer = imageUploadGuidance
-      ? {
-          answer: imageUploadGuidance,
-          confidence: 0.99,
-          intent: classification.intent,
-          handoffRequired: false,
-          sources: [],
-        }
-      : forcedHandoffReason
+    const answer = forcedHandoffReason
       ? null
       : realtimePriceAnswer
         ? {
@@ -190,7 +166,7 @@ export class AiOrchestratorService {
               site.settings?.showAiSourcesToCustomer ?? false,
             ),
             lowConfidence: answer.confidence < DEFAULT_CONFIDENCE_THRESHOLD,
-            wouldAutoHandoff: answer.handoffRequired && this.shouldAutoHandoffAfterAnswer(answer),
+            wouldAutoHandoff: answer.handoffRequired,
           }
         : null,
     };
@@ -215,12 +191,6 @@ export class AiOrchestratorService {
     const lastVisitorMessage = [...ordered].reverse().find((m) => m.senderType === SenderType.VISITOR || m.senderType === SenderType.CUSTOMER);
     if (!lastVisitorMessage) return;
 
-    const previousMessage = ordered[ordered.indexOf(lastVisitorMessage) - 1];
-    const confirmedImageUploadHandoff =
-      HANDOFF_CONFIRMATION_PATTERN.test(lastVisitorMessage.content.trim()) &&
-      previousMessage?.senderType === SenderType.AI &&
-      IMAGE_UPLOAD_HANDOFF_OFFER_PATTERN.test(previousMessage.content);
-
     const history: ChatTurn[] = ordered.map((m) => ({
       senderType: m.senderType as ChatTurn["senderType"],
       content: m.content,
@@ -232,11 +202,6 @@ export class AiOrchestratorService {
     // thrown/handed-off turn never leaves the indicator stuck on for the visitor.
     this.realtime.toConversation(conversationId, "typing:updated", { from: "AI", typing: true });
     try {
-      if (confirmedImageUploadHandoff) {
-        await this.respondBeforeHandoff(conversationId, HandoffReason.CUSTOMER_REQUESTED_HUMAN);
-        return;
-      }
-
       const { provider, config } = await this.aiProviderFactory.getProviderForSite(conversation.siteId);
 
       const classifyStart = Date.now();
@@ -270,7 +235,36 @@ export class AiOrchestratorService {
         return;
       }
 
-      const retrievalQuery = extractCustomerServiceQuery(lastVisitorMessage.content, classification.intent);
+      const handoffDecision = await provider.decideHandoff({
+        message: lastVisitorMessage.content,
+        history,
+        language: conversation.language,
+      });
+      if (handoffDecision.action !== "NONE") {
+        await this.conversations.postMessage({
+          conversationId,
+          senderType: SenderType.AI,
+          content: handoffDecision.reply,
+          messageType: MessageType.TEXT,
+          metadata: { handoffDecision: handoffDecision.action },
+        });
+        if (handoffDecision.action === "TRANSFER") {
+          await this.conversations.requestAgent(conversationId, HandoffReason.CUSTOMER_REQUESTED_HUMAN);
+          await this.summarize(conversationId, "HANDOFF");
+        }
+        return;
+      }
+
+      // A natural follow-up such as "kalau top up 800 dolar jadi berapa?" often omits the
+      // rate/formula that was established one turn earlier. Include recent conversational context
+      // in retrieval so the model receives the authoritative KB chunk again; history itself still
+      // never becomes a factual source for the final answer.
+      const retrievalQuery = [
+        extractCustomerServiceQuery(lastVisitorMessage.content, classification.intent),
+        ...history.slice(-6).map((turn) => turn.content),
+      ]
+        .filter(Boolean)
+        .join("\n");
       const [marketEvidence, knowledgeEvidence] = await Promise.all([
         Promise.resolve(this.marketData.getRealtimePriceEvidence(lastVisitorMessage.content, history.map((turn) => turn.content).join("\n"))),
         this.retrieval.retrieveForCustomer(conversation.siteId, retrievalQuery),
@@ -280,7 +274,6 @@ export class AiOrchestratorService {
         lastVisitorMessage.content,
         history.map((turn) => turn.content).join("\n"),
       );
-      const imageUploadGuidance = getImageUploadGuidance(lastVisitorMessage.content, conversation.language);
       const answerPrompt = await this.prisma.aiPrompt.findFirst({
         where: {
           aiConfigurationId: config.id,
@@ -291,15 +284,7 @@ export class AiOrchestratorService {
       });
 
       const answerStart = Date.now();
-      const answer = imageUploadGuidance
-        ? {
-            answer: imageUploadGuidance,
-            confidence: 0.99,
-            intent: classification.intent,
-            handoffRequired: false,
-            sources: [],
-          }
-        : realtimePriceAnswer
+      const answer = realtimePriceAnswer
         ? {
             answer: realtimePriceAnswer,
             confidence: 0.98,
@@ -324,7 +309,7 @@ export class AiOrchestratorService {
             organizationName: "PT Solid Gold Berjangka",
             systemPrompt: answerPrompt?.content ?? null,
           });
-      const shouldAutoHandoffForKnowledge = answer.handoffRequired && this.shouldAutoHandoffAfterAnswer(answer);
+      const shouldAutoHandoffForKnowledge = answer.handoffRequired;
       const hasLowConfidence = answer.confidence < DEFAULT_CONFIDENCE_THRESHOLD;
       const shouldAutoHandoffForLowConfidence =
         hasLowConfidence && (await this.hasConsecutiveLowConfidence(conversationId, DEFAULT_CONFIDENCE_THRESHOLD));
@@ -375,24 +360,6 @@ export class AiOrchestratorService {
     if (!showSources || sources.length === 0) return answer;
     const list = sources.map((s) => `• ${s.title}`).join("\n");
     return `${answer}\n\nSumber:\n${list}`;
-  }
-
-  private shouldAutoHandoffAfterAnswer(answer: AnswerResult): boolean {
-    if (answer.sources.length === 0) return true;
-
-    const normalized = answer.answer.toLowerCase();
-    return [
-      "mohon maaf",
-      "belum memiliki informasi",
-      "belum punya informasi",
-      "belum tersedia",
-      "belum dapat memproses",
-      "saya akan menghubungkan anda dengan petugas",
-      "saya hubungkan ke petugas",
-      "petugas kami",
-      "informasinya belum lengkap",
-      "informasi detail untuk pertanyaan ini belum tersedia",
-    ].some((phrase) => normalized.includes(phrase));
   }
 
   private async hasConsecutiveLowConfidence(conversationId: string, threshold: number): Promise<boolean> {

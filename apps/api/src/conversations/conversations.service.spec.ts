@@ -293,7 +293,7 @@ describe("ConversationsService.requestAgent (agents handle up to 5 concurrent ch
       expect.objectContaining({
         conversationId: "conv-1",
         senderType: "SYSTEM",
-        content: "Saat ini tidak ada agent yang sedang online. AI tetap siap membantu Anda.",
+        content: "Mohon maaf, saat ini belum ada agent yang sedang online. AI tetap siap membantu Anda.",
       }),
     );
     expect(prisma.conversation.update).not.toHaveBeenCalled();

@@ -21,6 +21,8 @@ describe("OpenAiProvider", () => {
     aiName: "Asisten Virtual",
     organizationName: "Solid Gold",
   };
+  const noCalculationReview =
+    '{"calculationNeeded":false,"calculationValid":true,"assumptionsDetected":false,"missingInputs":[],"omittedFactors":[],"expression":"","statedResult":"","verifiedResult":"","revisedAnswer":""}';
 
   it("greets without touching the knowledge base, and varies the wording via the model", async () => {
     const provider = createProvider();
@@ -159,7 +161,8 @@ describe("OpenAiProvider", () => {
       )
       .mockResolvedValueOnce(
         '{"fabricatedClaims":[],"grounded":false,"revisedAnswer":"Maaf, informasinya belum tersedia. Saya hubungkan ke petugas ya.","confidence":0.3,"handoffRequired":true}',
-      );
+      )
+      .mockResolvedValue(noCalculationReview);
 
     const result = await provider.generateAnswer({
       ...baseInput,
@@ -186,7 +189,8 @@ describe("OpenAiProvider", () => {
     jest
       .spyOn(provider as any, "respond")
       .mockResolvedValueOnce('{"answer":"Minimal deposit akun Mini adalah IDR 5.000.000.","confidence":0.9,"handoffRequired":false}')
-      .mockResolvedValueOnce('{"grounded":true,"revisedAnswer":"","confidence":0.9,"handoffRequired":false}');
+      .mockResolvedValueOnce('{"grounded":true,"revisedAnswer":"","confidence":0.9,"handoffRequired":false}')
+      .mockResolvedValue(noCalculationReview);
 
     const result = await provider.generateAnswer({
       ...baseInput,
@@ -270,12 +274,43 @@ describe("OpenAiProvider", () => {
     expect(result.answer).not.toContain("kemungkinan sekitar 1000");
   });
 
+  it("corrects a USD top-up conversion from the fixed rate in the knowledge base", async () => {
+    const provider = createProvider();
+    jest
+      .spyOn(provider as any, "respond")
+      .mockResolvedValueOnce('{"answer":"Dana Anda akan bertambah sebesar 800 dolar.","confidence":0.88,"handoffRequired":false}')
+      .mockResolvedValueOnce('{"fabricatedClaims":[],"grounded":true,"revisedAnswer":"","confidence":0.88,"handoffRequired":false}')
+      .mockResolvedValueOnce(
+        '{"calculationNeeded":true,"calculationValid":false,"assumptionsDetected":false,"missingInputs":[],"omittedFactors":["konversi USD ke IDR"],"expression":"800 * 10000","statedResult":"800","verifiedResult":"8000000","revisedAnswer":"Dengan fixed rate 1 USD = IDR 10.000, top-up USD 800 setara dengan IDR 8.000.000."}',
+      );
+
+    const result = await provider.generateAnswer({
+      ...baseInput,
+      message: "Berarti kalau saya top up 800 dolar jadi berapa?",
+      intent: AiIntent.DEPOSIT,
+      evidence: [
+        {
+          chunkId: "chunk_1",
+          documentId: "doc_1",
+          title: "Kurs Top-up",
+          version: 1,
+          content: "Untuk transaksi top-up, fixed rate adalah 1 USD = IDR 10.000.",
+          audience: "PUBLIC",
+        },
+      ],
+    });
+
+    expect(result.answer).toContain("IDR 8.000.000");
+    expect(result.answer).not.toContain("bertambah sebesar 800 dolar");
+  });
+
   it("never leaks unresolved {{placeholders}} from a site-configured system prompt", async () => {
     const provider = createProvider();
     const respondSpy = jest.spyOn(provider as any, "respond");
     respondSpy
       .mockResolvedValueOnce('{"answer":"Halo, ada yang bisa dibantu?","confidence":0.9,"handoffRequired":false}')
-      .mockResolvedValueOnce('{"grounded":true,"revisedAnswer":"","confidence":0.9,"handoffRequired":false}');
+      .mockResolvedValueOnce('{"grounded":true,"revisedAnswer":"","confidence":0.9,"handoffRequired":false}')
+      .mockResolvedValue(noCalculationReview);
 
     await provider.generateAnswer({
       ...baseInput,
@@ -306,10 +341,9 @@ describe("OpenAiProvider", () => {
     const provider = createProvider();
     const respondSpy = jest.spyOn(provider as any, "respond");
     respondSpy
-      // No calculation-trigger characters ("-", "=", "x", "*", "/", "+") in the draft, so this
-      // stays a 2-call sequence (draft + grounding review) like the other grounded-answer tests.
       .mockResolvedValueOnce('{"answer":"Untuk akun Mini, minimal deposit adalah IDR 5.000.000.","confidence":0.9,"handoffRequired":false}')
-      .mockResolvedValueOnce('{"grounded":true,"revisedAnswer":"","confidence":0.9,"handoffRequired":false}');
+      .mockResolvedValueOnce('{"grounded":true,"revisedAnswer":"","confidence":0.9,"handoffRequired":false}')
+      .mockResolvedValue(noCalculationReview);
 
     await provider.generateAnswer({
       ...baseInput,
@@ -338,7 +372,8 @@ describe("OpenAiProvider", () => {
     const respondSpy = jest.spyOn(provider as any, "respond");
     respondSpy
       .mockResolvedValueOnce('{"answer":"Baik.","confidence":0.9,"handoffRequired":false}')
-      .mockResolvedValueOnce('{"grounded":true,"revisedAnswer":"","confidence":0.9,"handoffRequired":false}');
+      .mockResolvedValueOnce('{"grounded":true,"revisedAnswer":"","confidence":0.9,"handoffRequired":false}')
+      .mockResolvedValue(noCalculationReview);
 
     await provider.generateAnswer({
       ...baseInput,
@@ -377,7 +412,8 @@ describe("OpenAiProvider", () => {
     const respondSpy = jest.spyOn(provider as any, "respond");
     respondSpy
       .mockResolvedValueOnce('{"answer":"Untuk deposit akun Gold Futures, silakan ikuti panduan resmi yang tersedia. Saya tidak dapat membantu membuat script Python di chat customer service ini.","confidence":0.88,"handoffRequired":false}')
-      .mockResolvedValueOnce('{"grounded":true,"revisedAnswer":"","confidence":0.88,"handoffRequired":false}');
+      .mockResolvedValueOnce('{"grounded":true,"revisedAnswer":"","confidence":0.88,"handoffRequired":false}')
+      .mockResolvedValue(noCalculationReview);
 
     await provider.generateAnswer({
       ...baseInput,

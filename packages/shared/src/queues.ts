@@ -15,8 +15,12 @@ export interface AgentReplyTimeoutJobData {
   timeoutStartedAt: string;
 }
 
-// The AI-inactivity-timeout feature (reminder/closing-warning/close jobs) was removed; this queue
-// now only ever carries agent-reply-timeout jobs. Kept as an alias (rather than inlining
-// AgentReplyTimeoutJobData at both call sites) so the queue's payload type has one name to change
-// if another timeout job kind is added later.
-export type ConversationTimeoutJobData = AgentReplyTimeoutJobData;
+export type ConversationInactivityJobKind = "reminder" | "closing-warning" | "close";
+
+export interface ConversationInactivityJobData {
+  conversationId: string;
+  activityStartedAt: string;
+  kind: ConversationInactivityJobKind;
+}
+
+export type ConversationTimeoutJobData = AgentReplyTimeoutJobData | ConversationInactivityJobData;

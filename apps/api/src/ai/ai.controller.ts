@@ -100,13 +100,19 @@ export class AiController {
 
     if (systemPrompt !== undefined) {
       const normalizedPrompt = systemPrompt.trim();
-      await this.prisma.aiPrompt.updateMany({
-        where: { aiConfigurationId: id, purpose: ANSWER_PROMPT_PURPOSE, isActive: true },
-        data: { isActive: false },
-      });
+      await this.prisma.$transaction(async (tx) => {
+        if (!normalizedPrompt) {
+          await tx.aiPrompt.updateMany({
+            where: { aiConfigurationId: id, purpose: ANSWER_PROMPT_PURPOSE, isActive: true },
+            data: { isActive: false },
+          });
+          return;
+        }
 
-      if (normalizedPrompt) {
-        await this.prisma.aiPrompt.create({
+        // Create first, then retire the previous version in the same transaction. A database
+        // constraint/error (such as an oversized prompt) must never leave the site without an
+        // active system prompt.
+        const nextPrompt = await tx.aiPrompt.create({
           data: {
             aiConfigurationId: id,
             purpose: ANSWER_PROMPT_PURPOSE,
@@ -115,7 +121,11 @@ export class AiController {
             isActive: true,
           },
         });
-      }
+        await tx.aiPrompt.updateMany({
+          where: { aiConfigurationId: id, purpose: ANSWER_PROMPT_PURPOSE, isActive: true, id: { not: nextPrompt.id } },
+          data: { isActive: false },
+        });
+      });
     }
 
     const afterData = await this.buildConfigurationResponse(user.organizationId);

@@ -837,7 +837,7 @@ model AiPrompt {
   id              String   @id @default(cuid())
   aiConfigurationId String @map("ai_configuration_id")
   purpose         String   // CLASSIFIER | ANSWER | SUMMARY | SUGGESTED_REPLY
-  content         String   @db.Text
+  content         String   @db.LongText
   version         Int      @default(1)
   isActive        Boolean  @default(true) @map("is_active")
   createdAt       DateTime @default(now()) @map("created_at")

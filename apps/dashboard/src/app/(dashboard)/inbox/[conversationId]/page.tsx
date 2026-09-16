@@ -438,8 +438,7 @@ export default function ConversationDetailPage() {
   const isMine = isHydrated && conversation.assignedAgentId === user?.userId;
   const isQueued =
     conversation.status === "QUEUED" ||
-    conversation.status === "WAITING_AGENT" ||
-    (conversation.status === "AI_ACTIVE" && !conversation.assignedAgentId);
+    conversation.status === "WAITING_AGENT";
   const isAiHandled = conversation.handlerType === "AI";
   const isResolved = conversation.status === "RESOLVED";
   const isClosed = conversation.status === "CLOSED";

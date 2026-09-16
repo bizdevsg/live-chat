@@ -3,8 +3,49 @@
 Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
+### Added
+- Menambahkan `apps/api/src/market-data/market-data.service.spec.ts`.
+- Menambahkan `packages/database/prisma/migrations/20260916064500_expand_ai_prompt_content_to_longtext/migration.sql`.
+
 ### Changed
+- Memasukkan konteks percakapan terbaru ke query retrieval knowledge agar pertanyaan lanjutan seperti konversi top-up tetap memuat rate atau rumus resmi yang baru dibahas.
+- Membuat penyimpanan versi System Prompt atomik: prompt lama baru dinonaktifkan setelah prompt baru berhasil dibuat, sehingga kegagalan simpan tidak mengosongkan prompt aktif.
+- Memperbaiki Inbox Dashboard agar chat berstatus `AI_ACTIVE` hanya menampilkan satu tombol `Take Over`, bukan duplikat tombol accept dan takeover.
+- Memperbaiki grounding review agar hasil aritmetika yang diturunkan dari rate atau rumus eksplisit di knowledge base tidak salah ditolak sebagai fakta yang dibuat-buat; validasi hasilnya tetap dilakukan oleh calculation reviewer.
+- Memperbaiki penilaian AI untuk pertanyaan market agar Gold/forex tetap diproses sebagai topik layanan dan respons keputusan mengikuti bahasa customer.
+- Memperbarui `apps/api/src/ai/ai-orchestrator.service.ts`.
+- Memperbarui `apps/api/src/ai/ai.controller.ts`.
+- Memperbarui `apps/api/src/conversations/conversation-timeout.constants.ts`.
+- Memperbarui `apps/api/src/conversations/conversation-timeout.processor.ts`.
+- Memperbarui `apps/api/src/conversations/conversations.service.spec.ts`.
+- Memperbarui `apps/api/src/conversations/conversations.service.ts`.
+- Memperbarui `apps/api/src/market-data/market-data.service.ts`.
+- Memperbarui `apps/dashboard/src/app/(dashboard)/inbox/[conversationId]/page.tsx`.
+- Memperbarui `apps/dashboard/src/app/(dashboard)/knowledge/page.tsx`.
 - Memperbarui `package.json`.
+- Memperbarui `packages/ai-core/src/providers/mock-provider.ts`.
+- Memperbarui `packages/ai-core/src/providers/openai-provider.spec.ts`.
+- Memperbarui `packages/ai-core/src/providers/openai-provider.ts`.
+- Memperbarui `packages/database/prisma/schema.prisma`.
+- Memperbarui `packages/shared/src/ai-provider.ts`.
+- Memperbarui `packages/shared/src/queues.ts`.
+- Memperhalus notifikasi saat tidak ada agent online dengan permohonan maaf yang jelas untuk customer.
+- Memperjelas pembeda semantik antara kebutuhan mengirim gambar dan persetujuan handoff, sehingga AI menawarkan agent terlebih dahulu sebelum memasukkan chat ke antrean.
+- Memperluas kolom `ai_prompts.content` dari MySQL `TEXT` ke `LONGTEXT` agar System Prompt panjang dapat disimpan dari Dashboard tanpa error server 500.
+- Mempersempit routing harga market real-time agar pertanyaan transaksi seperti top-up, deposit, kurs, atau saldo tidak mewarisi simbol market dari konteks chat sebelumnya dan melewati respons AI.
+- Menambahkan dukungan respons Bahasa Inggris: AI kini menjawab sesuai bahasa pesan customer (Indonesia atau Inggris) sambil tetap menggunakan knowledge base berbahasa Indonesia sebagai sumber fakta.
+- Menambahkan keputusan AI `OUT_OF_SCOPE` sebelum generasi jawaban agar permintaan kode atau tugas umum dihentikan secara konsisten tanpa rule berbasis kata kunci.
+- Menambahkan penilaian handoff terstruktur oleh model AI (`NONE`, `OFFER`, atau `TRANSFER`) sebelum jawaban reguler, agar keputusan dan teks pengalihan konsisten dengan konteks percakapan tanpa regex backend.
+- Menambahkan sinyal bahasa output pada pesan ke model agar default situs Indonesia tidak menimpa pertanyaan customer berbahasa Inggris.
+- Menambahkan tombol unduh `.md` pada setiap dokumen di Dashboard Knowledge untuk mengekspor isi knowledge base langsung dari browser.
+- Mencegah AI menghasilkan kode atau bantuan teknis umum di luar scope customer service Solid Gold; permintaan tersebut kini diarahkan kembali ke layanan yang relevan.
+- Mengembalikan lifecycle percakapan AI tidak aktif: reminder pada menit ke-5, peringatan penutupan pada sekitar menit ke-9:40, lalu auto-close pada menit ke-10; timer direset ketika customer mengirim pesan baru dan dibatalkan saat chat dialihkan atau ditutup.
+- Menghapus respons dan handoff berbasis regex untuk permintaan gambar di `AiOrchestratorService`; AI kini menilai konteks percakapan dan menentukan jawaban sendiri, sementara validasi teknis upload tetap berlaku.
+- Mengubah prioritas respons AI agar model menyusun jawaban secara mandiri dari konteks dan fakta knowledge base, sementara aturan stage/CTA/script hanya menjadi guardrail dan tidak lagi dijalankan sebagai template mekanis.
+- Mengubah verifikasi kalkulasi AI menjadi model-driven untuk seluruh jawaban berbasis knowledge, sehingga AI dapat mengenali konversi kurs/top-up dari konteks alami tanpa bergantung pada regex kata kunci; hasil numerik tetap divalidasi oleh code terhadap ekspresi yang diberikan model.
+- Menyerahkan keputusan handoff kepada output model AI, termasuk saat customer ingin mengirim gambar; AI kini menawarkan agent terlebih dahulu dan hanya mengalihkan setelah memahami persetujuan customer dari konteks percakapan.
+- Menyesuaikan instruksi handoff AI agar setelah customer menyetujui pengalihan, respons mengonfirmasi proses transfer tanpa mengulang tawaran agent.
+- Menyesuaikan respons harga market real-time agar label dan waktu pembaruan mengikuti Bahasa Indonesia atau Inggris dari pesan customer.
 
 ## [0.9.5] - 2026-09-15
 ### Changed

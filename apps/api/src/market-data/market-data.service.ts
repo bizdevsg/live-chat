@@ -22,11 +22,16 @@ type JsonRecord = Record<string, unknown>;
 const MAX_SYNTHETIC_EVIDENCE = 3;
 const DEFAULT_RECONNECT_DELAY_MS = 5_000;
 const DEFAULT_MAX_QUOTE_AGE_MS = 30_000;
-const PRICE_LOOKUP_PATTERN = /\b(?:harga|price|quote|bid|ask|spread|rate|kurs|cek|info|lihat|live|current|latest|terbaru|sekarang|saat ini)\b/i;
+const PRICE_LOOKUP_PATTERN = /\b(?:harga|price|quote|bid|ask|spread|live|current|latest|terbaru|sekarang|saat ini)\b/i;
 const CURRENT_PRICE_QUESTION_PATTERN = /\bberapa\b(?=[\s\S]*\b(?:harganya|saat ini|sekarang|terbaru|terkini)\b)/i;
 const DETAIL_FOLLOW_UP_PATTERN = /\b(?:detail|rincian|lengkap|yang tadi|harga tadi|lebih lanjut|selengkapnya)\b|\b(?:itu|yang itu)\s+(?:berapa|harganya)\b/i;
-const MARKET_FOLLOW_UP_PATTERN = /^\s*(?:kalau|kalo|bagaimana|gimana|untuk|dan)\b/i;
+const MARKET_FOLLOW_UP_PATTERN = /^\s*(?:(?:kalau|kalo|bagaimana|gimana|untuk|dan)\s+)?(?:harga(?:nya)?|price|quote|bid|ask|spread|yang tadi|harga tadi|itu\s+(?:berapa|harganya))\b/i;
+// Transaction and currency-conversion questions may be phrased as a casual follow-up ("kalo
+// top up $1 bisa kah?"). They must reach the AI/knowledge path, never inherit a previous market
+// symbol and bypass the model with a deterministic live quote.
+const NON_MARKET_TRANSACTION_PATTERN = /\b(?:top[ -]?up|deposit|withdrawal|tarik dana|transfer|saldo|akun|rupiah|idr|usd|dollar|dolar|kurs|fixed rate)\b/i;
 const EXCLUDED_MARKET_SYMBOL_PATTERN = /-NC$/i;
+const ENGLISH_LANGUAGE_SIGNAL = /\b(?:can|could|would|will|what|when|where|why|how|is|are|do|does|price|today|current|latest|gold|forex|please|help|explain|tell|english|thank|thanks)\b/i;
 
 const MARKET_DISPLAY_NAMES: Record<string, string> = {
   HKK50_BBJ: "Hang Seng",
@@ -265,11 +270,12 @@ export class MarketDataService implements OnModuleInit, OnModuleDestroy {
   getRealtimePriceAnswer(message: string, conversationContext = ""): string | null {
     const quotes = this.getRequestedQuotes(message, conversationContext);
     if (quotes.length === 0) return null;
+    const isEnglish = ENGLISH_LANGUAGE_SIGNAL.test(message);
 
     return quotes
       .map((quote) => {
         const label = quote.displayName ?? MARKET_DISPLAY_NAMES[quote.symbol] ?? quote.symbol;
-        const updatedAt = new Intl.DateTimeFormat("id-ID", {
+        const updatedAt = new Intl.DateTimeFormat(isEnglish ? "en-US" : "id-ID", {
           day: "2-digit",
           month: "long",
           year: "numeric",
@@ -279,7 +285,7 @@ export class MarketDataService implements OnModuleInit, OnModuleDestroy {
           timeZone: "Asia/Jakarta",
         }).format(new Date(quote.updatedAt));
         const lines = [
-          `Harga **${label}** (${quote.symbol}) saat ini:`,
+          isEnglish ? `Current **${label}** (${quote.symbol}) price:` : `Harga **${label}** (${quote.symbol}) saat ini:`,
           `- **Bid:** ${formatQuoteNumber(quote.bid)}`,
           `- **Ask:** ${formatQuoteNumber(quote.ask)}`,
           quote.last !== undefined ? `- **Last:** ${formatQuoteNumber(quote.last)}` : null,
@@ -287,7 +293,7 @@ export class MarketDataService implements OnModuleInit, OnModuleDestroy {
           quote.high !== undefined ? `- **High:** ${formatQuoteNumber(quote.high)}` : null,
           quote.low !== undefined ? `- **Low:** ${formatQuoteNumber(quote.low)}` : null,
           quote.spread !== undefined ? `- **Spread:** ${formatQuoteNumber(quote.spread)}` : null,
-          `Diperbarui: ${updatedAt} WIB.`,
+          isEnglish ? `Updated: ${updatedAt} WIB.` : `Diperbarui: ${updatedAt} WIB.`,
         ];
 
         return lines.filter((line): line is string => !!line).join("\n");
@@ -379,6 +385,7 @@ export class MarketDataService implements OnModuleInit, OnModuleDestroy {
   }
 
   private getRequestedQuotes(message: string, conversationContext: string) {
+    if (NON_MARKET_TRANSACTION_PATTERN.test(message)) return [];
     // Prefer symbols explicitly named in the newest message. Context is only a fallback for
     // references such as "detail yang tadi", so "kalau oil" cannot also repeat Hang Seng.
     const currentSymbols = this.resolveRequestedSymbols(message);

@@ -7,6 +7,8 @@ import {
   type AiProvider,
   type AnswerInput,
   type ClassificationInput,
+  type HandoffDecisionInput,
+  type HandoffDecisionResult,
   type ClassificationResult,
   type EmbeddingInput,
   type AnswerResult,
@@ -70,6 +72,10 @@ export class MockAiProvider implements AiProvider {
       containsSensitiveData,
       promptInjectionDetected,
     };
+  }
+
+  async decideHandoff(_input: HandoffDecisionInput): Promise<HandoffDecisionResult> {
+    return { action: "NONE", reply: "" };
   }
 
   async generateAnswer(input: AnswerInput): Promise<AnswerResult> {

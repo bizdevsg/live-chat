@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import type { ComponentType } from "react";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { RefreshCw, Send } from "lucide-react";
+import { Download, RefreshCw, Send } from "lucide-react";
 import { apiClient, ApiError } from "@/lib/api-client";
 import { useToast } from "@/components/ui/toast";
 import { Topbar } from "@/components/layout/topbar";
@@ -166,6 +166,7 @@ export default function KnowledgePage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const previewEndRef = useRef<HTMLDivElement>(null);
   const [deletingDoc, setDeletingDoc] = useState<KnowledgeDoc | null>(null);
+  const [downloadingDocId, setDownloadingDocId] = useState<string | null>(null);
   const [pendingToggleId, setPendingToggleId] = useState<string | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const previewStateRef = useRef<StoredKnowledgePreviewState>(readKnowledgePreviewState());
@@ -247,6 +248,25 @@ export default function KnowledgePage() {
       toast.push(err instanceof ApiError ? err.message : "Gagal menjalankan test AI.", "error");
     },
   });
+
+  async function downloadMarkdown(doc: KnowledgeDoc) {
+    setDownloadingDocId(doc.id);
+    try {
+      const detail = await apiClient.get<KnowledgeDoc & { content: string }>(`/api/v1/knowledge/documents/${doc.id}`);
+      const safeName = doc.title.trim().replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "") || "knowledge";
+      const url = URL.createObjectURL(new Blob([detail.content], { type: "text/markdown;charset=utf-8" }));
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${safeName}.md`;
+      link.click();
+      URL.revokeObjectURL(url);
+      toast.push("File Markdown berhasil diunduh.", "success");
+    } catch (error) {
+      toast.push(error instanceof ApiError ? error.message : "Gagal mengunduh file Markdown.", "error");
+    } finally {
+      setDownloadingDocId(null);
+    }
+  }
 
   const docs = query.data?.items ?? [];
   const overviewItems = overview.data?.items ?? [];
@@ -864,6 +884,10 @@ export default function KnowledgePage() {
                             {isSuperAdmin ? "Lihat/Edit" : "Lihat"}
                           </Button>
                         </Link>
+                        <Button variant="ghost" size="sm" onClick={() => void downloadMarkdown(doc)} disabled={downloadingDocId === doc.id}>
+                          <Download className="mr-1.5 h-3.5 w-3.5" />
+                          {downloadingDocId === doc.id ? "Mengunduh..." : "Download .md"}
+                        </Button>
                         {isSuperAdmin && (
                           <Button variant="danger" size="sm" onClick={() => setDeletingDoc(doc)} disabled={removeArticle.isPending}>
                             Hapus
