@@ -3,7 +3,11 @@
 Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
-- Belum ada perubahan terdeteksi.
+### Changed
+- Memperbarui `apps/api/src/ai/ai-orchestrator.service.ts`.
+
+### Fixed
+- Mencegah jawaban AI biasa—termasuk jawaban top-up yang valid—secara otomatis memindahkan customer ke antrean agent. Transfer reguler kini hanya terjadi dari keputusan handoff terstruktur `TRANSFER` atau eskalasi keselamatan yang wajib.
 
 ## [0.10.1] - 2026-09-16
 ### Changed

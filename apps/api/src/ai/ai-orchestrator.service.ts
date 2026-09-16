@@ -5,7 +5,6 @@ import {
   ErrorCode,
   HandlerType,
   HandoffReason,
-  MAX_AI_FAILURES_BEFORE_HANDOFF,
   MessageType,
   SenderType,
   type AnswerResult,
@@ -166,7 +165,9 @@ export class AiOrchestratorService {
               site.settings?.showAiSourcesToCustomer ?? false,
             ),
             lowConfidence: answer.confidence < DEFAULT_CONFIDENCE_THRESHOLD,
-            wouldAutoHandoff: answer.handoffRequired,
+            // The answer generator's uncertainty flag is not a transfer decision. In production,
+            // only the earlier structured handoff decision can move a conversation to an agent.
+            wouldAutoHandoff: false,
           }
         : null,
     };
@@ -309,15 +310,15 @@ export class AiOrchestratorService {
             organizationName: "PT Solid Gold Berjangka",
             systemPrompt: answerPrompt?.content ?? null,
           });
-      const shouldAutoHandoffForKnowledge = answer.handoffRequired;
-      const hasLowConfidence = answer.confidence < DEFAULT_CONFIDENCE_THRESHOLD;
-      const shouldAutoHandoffForLowConfidence =
-        hasLowConfidence && (await this.hasConsecutiveLowConfidence(conversationId, DEFAULT_CONFIDENCE_THRESHOLD));
       const aiRun = await this.recordAiRun(conversationId, "ANSWER", provider.name, config.model, {
         latencyMs: Date.now() - answerStart,
         confidence: answer.confidence,
         intent: answer.intent,
-        handoffRequired: shouldAutoHandoffForKnowledge || shouldAutoHandoffForLowConfidence,
+        // A regular answer must never create a queue handoff by itself. Human transfer has
+        // already been decided above by the dedicated structured handoff decision (`TRANSFER`).
+        // `generateAnswer` may still mark a reply as uncertain for wording/audit purposes, but
+        // that is not consent from the customer and must not switch the handler to HUMAN.
+        handoffRequired: false,
       });
 
       await this.conversations.postMessage({
@@ -329,16 +330,6 @@ export class AiOrchestratorService {
         metadata: { confidence: answer.confidence, intent: answer.intent, sources: answer.sources },
       });
 
-      // Immediate handoff is only for explicit AI inability. A merely low-confidence answer
-      // should not yank the conversation away if the AI still produced a usable response.
-      if (shouldAutoHandoffForKnowledge) {
-        await this.conversations.requestAgent(conversationId, HandoffReason.KNOWLEDGE_INSUFFICIENT);
-        return;
-      }
-
-      if (shouldAutoHandoffForLowConfidence) {
-        await this.conversations.requestAgent(conversationId, HandoffReason.AI_FAILED_TWICE);
-      }
     } finally {
       this.realtime.toConversation(conversationId, "typing:updated", { from: "AI", typing: false });
     }
@@ -360,17 +351,6 @@ export class AiOrchestratorService {
     if (!showSources || sources.length === 0) return answer;
     const list = sources.map((s) => `• ${s.title}`).join("\n");
     return `${answer}\n\nSumber:\n${list}`;
-  }
-
-  private async hasConsecutiveLowConfidence(conversationId: string, threshold: number): Promise<boolean> {
-    const recentRuns = await this.prisma.aiRun.findMany({
-      where: { conversationId, purpose: "ANSWER" },
-      orderBy: { createdAt: "desc" },
-      take: MAX_AI_FAILURES_BEFORE_HANDOFF,
-      select: { confidence: true },
-    });
-    if (recentRuns.length < MAX_AI_FAILURES_BEFORE_HANDOFF) return false;
-    return recentRuns.every((run) => (run.confidence ?? 1) < threshold);
   }
 
   async summarize(conversationId: string, trigger: "HANDOFF" | "RESOLVED" | "LENGTH" | "MANUAL") {
