@@ -44,12 +44,10 @@ export const ALLOWED_ATTACHMENT_MIME_TYPES = [
 ] as const;
 
 export const SENSITIVE_DATA_PATTERNS: RegExp[] = [
-  /\b\d{6}\b/, // 6-digit OTP
-  /\bOTP\b/i,
-  /\bPIN\b/i,
-  /\bpassword\b/i,
-  /\bkata sandi\b/i,
-  /\bkode (rahasia|otp|verifikasi)\b/i,
+  // A six-digit amount may be a top-up, price, or account minimum. It is only an OTP/PIN when
+  // the surrounding text explicitly identifies it as a credential.
+  /\b(?:otp|pin|kode\s+(?:rahasia|otp|verifikasi))\b[^\d]{0,24}\b(?:\d[ -]?){6}\b/i,
+  /\b(?:password|kata sandi)(?:\s+(?:akun|saya)){0,2}\s*(?:adalah|:|=)\s*\S{4,}/i,
   /\b(?:\d[ -]*?){13,19}\b/, // card/account-like long digit sequences
 ];
 

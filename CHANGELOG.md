@@ -3,7 +3,12 @@
 Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
-- Belum ada perubahan terdeteksi.
+### Changed
+- Memperbarui `apps/api/src/common/utils/content-guard.spec.ts`.
+- Memperbarui `packages/shared/src/constants.ts`.
+
+### Fixed
+- Memperbaiki content guard agar nominal enam digit untuk top-up atau transaksi tidak lagi dimasking sebagai OTP/PIN dan tidak memicu handoff keliru.
 
 ## [0.10.3] - 2026-09-16
 ### Changed
