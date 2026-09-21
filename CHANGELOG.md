@@ -3,6 +3,10 @@
 Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
+### Changed
+- Memperbarui `package.json`.
+
+## [0.13.0] - 2026-09-21
 ### Added
 - Tombol Upload Knowledge kini membuka modal upload batch Markdown dengan area drag & drop dan progres unggahan.
 
@@ -589,7 +593,8 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 - Memperbarui `apps/dashboard/src/app/(dashboard)/knowledge/page.tsx`.
 - Memperbarui `package.json`.
 
-[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.12.0...HEAD
+[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.13.0...HEAD
+[0.13.0]: https://github.com/bizdevsg/live-chat/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/bizdevsg/live-chat/compare/v0.11.1...v0.12.0
 [0.11.1]: https://github.com/bizdevsg/live-chat/compare/v0.11.0...v0.11.1
 [0.11.0]: https://github.com/bizdevsg/live-chat/compare/v0.10.4...v0.11.0
