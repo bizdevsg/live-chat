@@ -3,6 +3,20 @@
 Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
+### Added
+- Dashboard Knowledge kini mendukung upload batch hingga 50 file Markdown sekaligus, lengkap dengan progres dan laporan file yang gagal.
+
+### Changed
+- Memperbarui `apps/dashboard/src/app/(dashboard)/knowledge/new/page.tsx`.
+- Memperbarui `apps/dashboard/src/app/(dashboard)/knowledge/page.tsx`.
+- Memperbarui `apps/widget-loader/src/loader.ts`.
+- Memperbarui `package.json`.
+- Mengecilkan bubble icon widget menjadi 120px pada desktop dan 90px pada perangkat mobile agar tampil lebih proporsional.
+
+### Fixed
+- Setelah artikel Knowledge baru berhasil dibuat, Dashboard kini kembali ke halaman index Knowledge agar daftar artikel terbaru langsung terlihat.
+
+## [0.11.1] - 2026-09-16
 ### Changed
 - Memperbarui `apps/api/src/ai/ai-orchestrator.service.ts`.
 - Memperbarui `apps/api/src/ai/handoff-evaluator.service.spec.ts`.
@@ -562,7 +576,8 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 - Memperbarui `apps/dashboard/src/app/(dashboard)/knowledge/page.tsx`.
 - Memperbarui `package.json`.
 
-[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.11.0...HEAD
+[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.11.1...HEAD
+[0.11.1]: https://github.com/bizdevsg/live-chat/compare/v0.11.0...v0.11.1
 [0.11.0]: https://github.com/bizdevsg/live-chat/compare/v0.10.4...v0.11.0
 [0.10.4]: https://github.com/bizdevsg/live-chat/compare/v0.10.3...v0.10.4
 [0.10.3]: https://github.com/bizdevsg/live-chat/compare/v0.10.2...v0.10.3

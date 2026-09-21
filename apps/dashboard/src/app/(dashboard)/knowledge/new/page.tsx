@@ -53,9 +53,9 @@ export default function NewKnowledgeArticlePage() {
         effectiveDate: effectiveDate || undefined,
         expiredDate: expiredDate || undefined,
       }),
-    onSuccess: (data) => {
+    onSuccess: () => {
       toast.push("Artikel dibuat sebagai NON_ACTIVE.", "success");
-      router.replace(`/knowledge/${data.id}`);
+      router.replace("/knowledge");
     },
     onError: (err) => toast.push(err instanceof ApiError ? err.message : "Gagal membuat artikel.", "error"),
   });

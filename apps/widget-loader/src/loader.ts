@@ -94,7 +94,7 @@ function init() {
   const style = document.createElement("style");
   style.textContent = `
     .bubble { position: fixed; bottom: ${FLOATING_BOTTOM_OFFSET}px; ${config.position === "bottom-left" ? "left: 20px;" : "right: 20px;"}
-      width: clamp(100px, 8vw, 135px); height: clamp(100px, 8vw, 135px); border: none; cursor: pointer; padding: 0;
+      width: 120px; height: 120px; border: none; cursor: pointer; padding: 0;
       background: transparent; color: #0b0b0c; font-size: 26px; box-shadow: none;
       display: flex; align-items: center; justify-content: center; transition: transform .15s ease; }
     .bubble:hover { transform: scale(1.05); }
@@ -115,6 +115,7 @@ function init() {
       box-shadow: 0 10px 40px rgba(0,0,0,.45); display: none; background: #2e2e2e; }
     .panel.open { display: block; }
     @media ${MOBILE_MEDIA_QUERY} {
+      .bubble { width: 90px; height: 90px; }
       .panel {
         top: 0; left: 0; right: 0; bottom: auto;
         width: auto; height: 100vh; height: 100dvh;

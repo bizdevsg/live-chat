@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import { useEffect, useRef, useState } from "react";
 import type { ComponentType } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Download, RefreshCw, Send } from "lucide-react";
 import { apiClient, ApiError } from "@/lib/api-client";
@@ -97,6 +98,20 @@ const STATUS_TONE: Record<string, "neutral" | "gold" | "green" | "red" | "amber"
   NON_ACTIVE: "neutral",
 };
 
+const MAX_BATCH_UPLOAD_FILES = 50;
+// Auth, permission, or throttle failures would repeat for every remaining file, so the batch stops there.
+const STOP_BATCH_UPLOAD_STATUSES = [401, 403, 429];
+
+interface UploadFailure {
+  name: string;
+  reason: string;
+}
+
+interface UploadReport {
+  succeeded: number;
+  failed: UploadFailure[];
+}
+
 const KNOWLEDGE_PREVIEW_STORAGE_KEY = "solidchat_dashboard_knowledge_preview";
 const PREVIEW_SAMPLE_MESSAGE = "Berapa minimal deposit akun mini dan apakah ada rollover fee?";
 
@@ -156,6 +171,7 @@ function getPreviewGreeting(aiName?: string) {
 }
 
 export default function KnowledgePage() {
+  const router = useRouter();
   const [status, setStatus] = useState("");
   const [audience, setAudience] = useState("");
   const [categoryId, setCategoryId] = useState("");
@@ -170,6 +186,8 @@ export default function KnowledgePage() {
   const [selectedDocumentIds, setSelectedDocumentIds] = useState<string[]>([]);
   const [downloadingDocId, setDownloadingDocId] = useState<string | null>(null);
   const [pendingToggleId, setPendingToggleId] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<{ done: number; total: number } | null>(null);
+  const [uploadReport, setUploadReport] = useState<UploadReport | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const previewStateRef = useRef<StoredKnowledgePreviewState>(readKnowledgePreviewState());
   const [testMessage, setTestMessage] = useState(previewStateRef.current.draft);
@@ -201,16 +219,62 @@ export default function KnowledgePage() {
   });
 
   const upload = useMutation({
-    mutationFn: (file: File) => {
-      const formData = new FormData();
-      formData.append("file", file);
-      return apiClient.upload("/api/v1/knowledge/upload", formData);
+    mutationFn: async (selected: File[]): Promise<UploadReport> => {
+      const failed: UploadFailure[] = [];
+      const markdownFiles: File[] = [];
+      for (const file of selected) {
+        if (file.name.toLowerCase().endsWith(".md")) markdownFiles.push(file);
+        else failed.push({ name: file.name, reason: "Knowledge hanya menerima file Markdown (.md)." });
+      }
+      const queue = markdownFiles.slice(0, MAX_BATCH_UPLOAD_FILES);
+      for (const file of markdownFiles.slice(MAX_BATCH_UPLOAD_FILES)) {
+        failed.push({ name: file.name, reason: `Melebihi batas ${MAX_BATCH_UPLOAD_FILES} file per unggahan.` });
+      }
+
+      // Sequential on purpose: the API slugs titles with check-then-insert, so parallel uploads of
+      // same-named files could collide, and the global throttle allows 120 requests per minute.
+      let succeeded = 0;
+      setUploadProgress({ done: 0, total: queue.length });
+      for (const [index, file] of queue.entries()) {
+        try {
+          const formData = new FormData();
+          formData.append("file", file);
+          await apiClient.upload("/api/v1/knowledge/upload", formData);
+          succeeded += 1;
+        } catch (err) {
+          failed.push({ name: file.name, reason: err instanceof ApiError ? err.message : "Gagal mengunggah dokumen." });
+          if (err instanceof ApiError && STOP_BATCH_UPLOAD_STATUSES.includes(err.status)) {
+            for (const skipped of queue.slice(index + 1)) {
+              failed.push({ name: skipped.name, reason: "Tidak diproses karena unggahan dihentikan." });
+            }
+            break;
+          }
+        }
+        setUploadProgress({ done: index + 1, total: queue.length });
+      }
+      return { succeeded, failed };
     },
-    onSuccess: () => {
-      toast.push("Dokumen markdown berhasil diunggah sebagai NON_ACTIVE.", "success");
-      queryClient.invalidateQueries({ queryKey: ["knowledge"] });
+    onSuccess: (report) => {
+      if (report.succeeded > 0) {
+        queryClient.invalidateQueries({ queryKey: ["knowledge"] });
+        queryClient.invalidateQueries({ queryKey: ["knowledge-overview"] });
+        router.replace("/knowledge");
+      }
+      if (report.failed.length === 0) {
+        toast.push(
+          report.succeeded === 1
+            ? "Dokumen markdown berhasil diunggah sebagai NON_ACTIVE."
+            : `${report.succeeded} dokumen markdown berhasil diunggah sebagai NON_ACTIVE.`,
+          "success",
+        );
+      } else if (report.succeeded === 0 && report.failed.length === 1 && report.failed[0]) {
+        toast.push(report.failed[0].reason, "error");
+      } else {
+        setUploadReport(report);
+      }
     },
     onError: (err) => toast.push(err instanceof ApiError ? err.message : "Gagal mengunggah dokumen.", "error"),
+    onSettled: () => setUploadProgress(null),
   });
 
   const removeArticle = useMutation({
@@ -419,15 +483,12 @@ export default function KnowledgePage() {
           ref={fileInputRef}
           type="file"
           accept=".md,text/markdown"
+          multiple
           className="hidden"
           onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file && !file.name.toLowerCase().endsWith(".md")) {
-              toast.push("Knowledge hanya menerima file Markdown (.md).", "error");
-            } else if (file) {
-              upload.mutate(file);
-            }
+            const files = Array.from(e.target.files ?? []);
             e.target.value = "";
+            if (files.length > 0) upload.mutate(files);
           }}
         />
 
@@ -447,7 +508,7 @@ export default function KnowledgePage() {
             {isSuperAdmin ? (
               <div className="flex flex-wrap gap-2">
                 <Button variant="secondary" onClick={() => fileInputRef.current?.click()} disabled={upload.isPending}>
-                  Upload Markdown
+                  {upload.isPending && uploadProgress ? `Mengunggah ${uploadProgress.done}/${uploadProgress.total}...` : "Upload Markdown"}
                 </Button>
                 <Link href="/knowledge/new">
                   <Button>+ Artikel Baru</Button>
@@ -824,7 +885,7 @@ export default function KnowledgePage() {
         </Card>
 
         <Card className="mb-4 text-sm text-zinc-400">
-          Knowledge disimpan sebagai Markdown. Upload file dibatasi ke <code className="rounded bg-ink-900 px-1.5 py-0.5 text-zinc-200">.md</code>, dan hanya artikel berstatus <code className="rounded bg-ink-900 px-1.5 py-0.5 text-zinc-200">ACTIVE</code> yang dipakai untuk retrieval AI.
+          Knowledge disimpan sebagai Markdown. Upload file dibatasi ke <code className="rounded bg-ink-900 px-1.5 py-0.5 text-zinc-200">.md</code> dan bisa memilih hingga {MAX_BATCH_UPLOAD_FILES} file sekaligus, dan hanya artikel berstatus <code className="rounded bg-ink-900 px-1.5 py-0.5 text-zinc-200">ACTIVE</code> yang dipakai untuk retrieval AI.
         </Card>
 
         <Card className="overflow-hidden !p-0">
@@ -1257,6 +1318,28 @@ export default function KnowledgePage() {
             </div>
           </section>
         </div>
+      </Modal>
+      <Modal open={Boolean(uploadReport)} title="Hasil Upload Markdown" onClose={() => setUploadReport(null)}>
+        {uploadReport && (
+          <>
+            <p className="mb-3 text-sm text-zinc-300">
+              {uploadReport.succeeded} file berhasil diunggah sebagai NON_ACTIVE, {uploadReport.failed.length} file gagal.
+            </p>
+            <ul className="scrollbar-thin mb-4 max-h-64 space-y-2 overflow-y-auto">
+              {uploadReport.failed.map((item, index) => (
+                <li key={`${item.name}-${index}`} className="rounded-lg border border-red-500/25 bg-red-500/10 px-3 py-2">
+                  <p className="break-all text-sm font-medium text-red-200">{item.name}</p>
+                  <p className="mt-0.5 text-xs text-red-300/80">{item.reason}</p>
+                </li>
+              ))}
+            </ul>
+            <div className="flex justify-end">
+              <Button variant="secondary" onClick={() => setUploadReport(null)}>
+                Tutup
+              </Button>
+            </div>
+          </>
+        )}
       </Modal>
       <ConfirmModal
         open={Boolean(deletingDoc)}
