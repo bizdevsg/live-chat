@@ -2,11 +2,11 @@
 
 import dynamic from "next/dynamic";
 import { useEffect, useRef, useState } from "react";
-import type { ComponentType } from "react";
+import type { ComponentType, DragEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Download, RefreshCw, Send } from "lucide-react";
+import { Download, LoaderCircle, RefreshCw, Send, UploadCloud } from "lucide-react";
 import { apiClient, ApiError } from "@/lib/api-client";
 import { useToast } from "@/components/ui/toast";
 import { Topbar } from "@/components/layout/topbar";
@@ -112,6 +112,14 @@ interface UploadReport {
   failed: UploadFailure[];
 }
 
+interface KnowledgeListResponse {
+  items: KnowledgeDoc[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+const KNOWLEDGE_PAGE_SIZE = 20;
 const KNOWLEDGE_PREVIEW_STORAGE_KEY = "solidchat_dashboard_knowledge_preview";
 const PREVIEW_SAMPLE_MESSAGE = "Berapa minimal deposit akun mini dan apakah ada rollover fee?";
 
@@ -176,6 +184,7 @@ export default function KnowledgePage() {
   const [audience, setAudience] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
   const queryClient = useQueryClient();
   const toast = useToast();
   const user = useAuthStore((s) => s.user);
@@ -188,6 +197,9 @@ export default function KnowledgePage() {
   const [pendingToggleId, setPendingToggleId] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState<{ done: number; total: number } | null>(null);
   const [uploadReport, setUploadReport] = useState<UploadReport | null>(null);
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [isDraggingFiles, setIsDraggingFiles] = useState(false);
+  const [selectedUploadFiles, setSelectedUploadFiles] = useState<File[]>([]);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const previewStateRef = useRef<StoredKnowledgePreviewState>(readKnowledgePreviewState());
   const [testMessage, setTestMessage] = useState(previewStateRef.current.draft);
@@ -206,16 +218,18 @@ export default function KnowledgePage() {
   });
 
   const query = useQuery({
-    queryKey: ["knowledge", status, audience, categoryId, search],
+    queryKey: ["knowledge", status, audience, categoryId, search, page],
     queryFn: () => {
       const params = new URLSearchParams();
+      params.set("page", String(page));
+      params.set("pageSize", String(KNOWLEDGE_PAGE_SIZE));
       if (status) params.set("status", status);
       if (audience) params.set("audience", audience);
       if (categoryId) params.set("categoryId", categoryId);
       if (search.trim()) params.set("search", search.trim());
-      const suffix = params.toString() ? `?${params.toString()}` : "";
-      return apiClient.get<{ items: KnowledgeDoc[] }>(`/api/v1/knowledge/documents${suffix}`);
+      return apiClient.get<KnowledgeListResponse>(`/api/v1/knowledge/documents?${params.toString()}`);
     },
+    placeholderData: (previousData) => previousData,
   });
 
   const upload = useMutation({
@@ -255,6 +269,9 @@ export default function KnowledgePage() {
       return { succeeded, failed };
     },
     onSuccess: (report) => {
+      setIsUploadModalOpen(false);
+      setIsDraggingFiles(false);
+      setSelectedUploadFiles([]);
       if (report.succeeded > 0) {
         queryClient.invalidateQueries({ queryKey: ["knowledge"] });
         queryClient.invalidateQueries({ queryKey: ["knowledge-overview"] });
@@ -295,13 +312,15 @@ export default function KnowledgePage() {
     onMutate: ({ id }) => {
       setPendingToggleId(id);
     },
-    onSuccess: (_, variables) => {
+    onSuccess: async (_, variables) => {
       toast.push(
         variables.nextStatus === "ACTIVE" ? "Artikel diaktifkan untuk AI." : "Artikel dinonaktifkan dari AI.",
         "success",
       );
-      queryClient.invalidateQueries({ queryKey: ["knowledge"] });
-      queryClient.invalidateQueries({ queryKey: ["knowledge-overview"] });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["knowledge"] }),
+        queryClient.invalidateQueries({ queryKey: ["knowledge-overview"] }),
+      ]);
     },
     onError: (err) => toast.push(err instanceof ApiError ? err.message : "Gagal mengubah status artikel.", "error"),
     onSettled: () => {
@@ -320,11 +339,13 @@ export default function KnowledgePage() {
         ids.map((id) => apiClient.post(`/api/v1/knowledge/documents/${id}/${nextStatus === "ACTIVE" ? "activate" : "deactivate"}`)),
       );
     },
-    onSuccess: (_, variables) => {
+    onSuccess: async (_, variables) => {
       toast.push(`${variables.ids.length} artikel berhasil ${variables.nextStatus === "ACTIVE" ? "diaktifkan" : "dinonaktifkan"}.`, "success");
       setSelectedDocumentIds([]);
-      queryClient.invalidateQueries({ queryKey: ["knowledge"] });
-      queryClient.invalidateQueries({ queryKey: ["knowledge-overview"] });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["knowledge"] }),
+        queryClient.invalidateQueries({ queryKey: ["knowledge-overview"] }),
+      ]);
     },
     onError: (err) => toast.push(err instanceof ApiError ? err.message : "Gagal mengubah status artikel terpilih.", "error"),
   });
@@ -361,7 +382,44 @@ export default function KnowledgePage() {
     }
   }
 
+  function stageUploadFiles(files: File[]) {
+    if (upload.isPending || files.length === 0) return;
+    setUploadReport(null);
+    const markdownFiles = files.filter((file) => file.name.toLowerCase().endsWith(".md"));
+    const rejectedCount = files.length - markdownFiles.length;
+    const acceptedFiles = markdownFiles.slice(0, MAX_BATCH_UPLOAD_FILES);
+
+    if (rejectedCount > 0) {
+      toast.push(`${rejectedCount} file dilewati karena bukan Markdown (.md).`, "error");
+    }
+    if (markdownFiles.length > MAX_BATCH_UPLOAD_FILES) {
+      toast.push(`Maksimal ${MAX_BATCH_UPLOAD_FILES} file dapat diunggah sekaligus.`, "error");
+    }
+    setSelectedUploadFiles(acceptedFiles);
+  }
+
+  function handleFileDrag(event: DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!upload.isPending && event.dataTransfer.types.includes("Files")) {
+      event.dataTransfer.dropEffect = "copy";
+      setIsDraggingFiles(true);
+    }
+  }
+
+  function handleFileDrop(event: DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    event.stopPropagation();
+    setIsDraggingFiles(false);
+    stageUploadFiles(Array.from(event.dataTransfer.files));
+  }
+
   const docs = query.data?.items ?? [];
+  const totalDocuments = query.data?.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(totalDocuments / KNOWLEDGE_PAGE_SIZE));
+  const displayedPage = query.data?.page ?? page;
+  const firstVisibleDocument = totalDocuments === 0 ? 0 : (displayedPage - 1) * KNOWLEDGE_PAGE_SIZE + 1;
+  const lastVisibleDocument = Math.min(displayedPage * KNOWLEDGE_PAGE_SIZE, totalDocuments);
   const overviewItems = overview.data?.items ?? [];
   const stats = {
     total: overviewItems.length,
@@ -376,6 +434,11 @@ export default function KnowledgePage() {
   };
   const toggleAllVisibleDocuments = () => {
     setSelectedDocumentIds(allVisibleDocumentsSelected ? [] : docs.map((doc) => doc.id));
+  };
+
+  const changePage = (nextPage: number) => {
+    setSelectedDocumentIds([]);
+    setPage(Math.min(Math.max(nextPage, 1), totalPages));
   };
   const selectedPreviewMessage =
     previewMessages.find((message) => message.id === selectedMessageId && message.result) ??
@@ -399,6 +462,10 @@ export default function KnowledgePage() {
   useEffect(() => {
     previewEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [previewMessages.length, aiTester.isPending]);
+
+  useEffect(() => {
+    if (!query.isFetching && page > totalPages) setPage(totalPages);
+  }, [page, query.isFetching, totalPages]);
 
   async function handleAiPreviewSend() {
     const prompt = testMessage.trim();
@@ -488,7 +555,7 @@ export default function KnowledgePage() {
           onChange={(e) => {
             const files = Array.from(e.target.files ?? []);
             e.target.value = "";
-            if (files.length > 0) upload.mutate(files);
+            stageUploadFiles(files);
           }}
         />
 
@@ -507,8 +574,9 @@ export default function KnowledgePage() {
             </div>
             {isSuperAdmin ? (
               <div className="flex flex-wrap gap-2">
-                <Button variant="secondary" onClick={() => fileInputRef.current?.click()} disabled={upload.isPending}>
-                  {upload.isPending && uploadProgress ? `Mengunggah ${uploadProgress.done}/${uploadProgress.total}...` : "Upload Markdown"}
+                <Button variant="secondary" onClick={() => setIsUploadModalOpen(true)} disabled={upload.isPending}>
+                  <UploadCloud className="h-4 w-4" aria-hidden="true" />
+                  Upload Knowledge
                 </Button>
                 <Link href="/knowledge/new">
                   <Button>+ Artikel Baru</Button>
@@ -846,18 +914,31 @@ export default function KnowledgePage() {
               <p className="mt-1 text-sm text-zinc-400">Cari artikel berdasarkan konten, lalu saring dengan status, audience, dan kategori.</p>
             </div>
             <div className="flex items-center gap-2 text-xs text-zinc-500">
-              <span>{docs.length} artikel tampil</span>
+              <span>{totalDocuments} artikel ditemukan</span>
               {activeFilterCount > 0 && <span>{activeFilterCount} filter aktif</span>}
             </div>
           </div>
           <div className="grid gap-3 xl:grid-cols-[minmax(0,1.4fr)_repeat(3,minmax(0,180px))]">
             <div>
               <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-zinc-400">Cari Artikel</label>
-              <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari judul, ringkasan, atau isi markdown..." />
+              <Input
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setPage(1);
+                }}
+                placeholder="Cari judul, ringkasan, atau isi markdown..."
+              />
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-zinc-400">Status</label>
-              <Select value={status} onChange={(e) => setStatus(e.target.value)}>
+              <Select
+                value={status}
+                onChange={(e) => {
+                  setStatus(e.target.value);
+                  setPage(1);
+                }}
+              >
                 <option value="">Semua status</option>
                 <option value="ACTIVE">ACTIVE</option>
                 <option value="NON_ACTIVE">NON_ACTIVE</option>
@@ -865,7 +946,13 @@ export default function KnowledgePage() {
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-zinc-400">Audience</label>
-              <Select value={audience} onChange={(e) => setAudience(e.target.value)}>
+              <Select
+                value={audience}
+                onChange={(e) => {
+                  setAudience(e.target.value);
+                  setPage(1);
+                }}
+              >
                 <option value="">Semua audience</option>
                 <option value="PUBLIC">PUBLIC</option>
                 <option value="AGENT_ONLY">AGENT_ONLY</option>
@@ -874,7 +961,13 @@ export default function KnowledgePage() {
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-zinc-400">Kategori</label>
-              <Select value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
+              <Select
+                value={categoryId}
+                onChange={(e) => {
+                  setCategoryId(e.target.value);
+                  setPage(1);
+                }}
+              >
                 <option value="">Semua kategori</option>
                 {categories.data?.map((category) => (
                   <option key={category.id} value={category.id}>{category.name}</option>
@@ -899,10 +992,12 @@ export default function KnowledgePage() {
                 <>
                   <span className="text-xs text-gold-300">{selectedVisibleDocumentIds.length} dipilih</span>
                   <Button variant="ghost" size="sm" onClick={() => batchStatus.mutate({ ids: selectedVisibleDocumentIds, nextStatus: "ACTIVE" })} disabled={batchStatus.isPending || batchRemove.isPending}>
-                    Aktifkan terpilih
+                    {batchStatus.isPending && batchStatus.variables?.nextStatus === "ACTIVE" && <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />}
+                    {batchStatus.isPending && batchStatus.variables?.nextStatus === "ACTIVE" ? "Mengaktifkan..." : "Aktifkan terpilih"}
                   </Button>
                   <Button variant="ghost" size="sm" onClick={() => batchStatus.mutate({ ids: selectedVisibleDocumentIds, nextStatus: "NON_ACTIVE" })} disabled={batchStatus.isPending || batchRemove.isPending}>
-                    Nonaktifkan terpilih
+                    {batchStatus.isPending && batchStatus.variables?.nextStatus === "NON_ACTIVE" && <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />}
+                    {batchStatus.isPending && batchStatus.variables?.nextStatus === "NON_ACTIVE" ? "Menonaktifkan..." : "Nonaktifkan terpilih"}
                   </Button>
                   <Button variant="danger" size="sm" onClick={() => setIsBatchDeleteConfirmOpen(true)} disabled={batchStatus.isPending || batchRemove.isPending}>
                     Hapus terpilih
@@ -917,6 +1012,7 @@ export default function KnowledgePage() {
                   setAudience("");
                   setCategoryId("");
                   setSearch("");
+                  setPage(1);
                 }}
               >
                 Reset Filter
@@ -981,6 +1077,7 @@ export default function KnowledgePage() {
                             type="button"
                             role="switch"
                             aria-checked={doc.status === "ACTIVE"}
+                            aria-busy={pendingToggleId === doc.id}
                             aria-label={doc.status === "ACTIVE" ? `Nonaktifkan ${doc.title}` : `Aktifkan ${doc.title}`}
                             onClick={() =>
                               toggleStatus.mutate({
@@ -997,12 +1094,16 @@ export default function KnowledgePage() {
                               pendingToggleId === doc.id || removeArticle.isPending || batchStatus.isPending || batchRemove.isPending ? "cursor-wait opacity-60" : "cursor-pointer",
                             )}
                           >
-                            <span
-                              className={cn(
-                                "inline-block h-5 w-5 rounded-full bg-white shadow-sm transition-transform",
-                                doc.status === "ACTIVE" ? "translate-x-6" : "translate-x-1",
-                              )}
-                            />
+                            {pendingToggleId === doc.id ? (
+                              <LoaderCircle className="absolute left-1/2 h-4 w-4 -translate-x-1/2 animate-spin text-white" aria-hidden="true" />
+                            ) : (
+                              <span
+                                className={cn(
+                                  "inline-block h-5 w-5 rounded-full bg-white shadow-sm transition-transform",
+                                  doc.status === "ACTIVE" ? "translate-x-6" : "translate-x-1",
+                                )}
+                              />
+                            )}
                           </button>
                         )}
                       </div>
@@ -1041,6 +1142,34 @@ export default function KnowledgePage() {
               </tbody>
             </table>
           </div>
+          {totalDocuments > 0 && (
+            <div className="flex flex-col gap-3 border-t border-ink-700 px-4 py-4 text-sm sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-zinc-500">
+                Menampilkan {firstVisibleDocument}-{lastVisibleDocument} dari {totalDocuments} artikel
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => changePage(page - 1)}
+                  disabled={page <= 1 || query.isFetching}
+                >
+                  Sebelumnya
+                </Button>
+                <span className="min-w-28 text-center text-zinc-400">
+                  Halaman {displayedPage} dari {totalPages}
+                </span>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => changePage(page + 1)}
+                  disabled={page >= totalPages || query.isFetching}
+                >
+                  Berikutnya
+                </Button>
+              </div>
+            </div>
+          )}
         </Card>
       </main>
       <Modal
@@ -1317,6 +1446,120 @@ export default function KnowledgePage() {
               <p className="mt-2 text-center text-[10px] text-zinc-600">Preview ini hanya untuk testing AI dan knowledge aktif.</p>
             </div>
           </section>
+        </div>
+      </Modal>
+      <Modal
+        open={isUploadModalOpen}
+        title="Upload Knowledge"
+        onClose={() => {
+          if (upload.isPending) return;
+          setIsUploadModalOpen(false);
+          setIsDraggingFiles(false);
+          setSelectedUploadFiles([]);
+        }}
+        panelClassName="max-w-xl overflow-hidden"
+      >
+        <div className="px-5 pb-5">
+          <p className="mb-4 text-sm leading-6 text-zinc-400">
+            Upload satu atau beberapa file Markdown. Semua artikel baru akan disimpan sebagai NON_ACTIVE agar dapat diperiksa sebelum dipakai AI.
+          </p>
+          <div
+            role="button"
+            tabIndex={upload.isPending ? -1 : 0}
+            aria-disabled={upload.isPending}
+            aria-label="Upload file Markdown dengan drag and drop atau pilih file"
+            onClick={() => {
+              if (!upload.isPending) fileInputRef.current?.click();
+            }}
+            onKeyDown={(event) => {
+              if (!upload.isPending && (event.key === "Enter" || event.key === " ")) {
+                event.preventDefault();
+                fileInputRef.current?.click();
+              }
+            }}
+            onDragEnter={handleFileDrag}
+            onDragOver={handleFileDrag}
+            onDragLeave={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              const nextTarget = event.relatedTarget;
+              if (!(nextTarget instanceof Node) || !event.currentTarget.contains(nextTarget)) setIsDraggingFiles(false);
+            }}
+            onDrop={handleFileDrop}
+            className={cn(
+              "flex min-h-52 cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed px-6 py-8 text-center outline-none transition-colors focus-visible:ring-2 focus-visible:ring-gold-500/60",
+              isDraggingFiles
+                ? "border-gold-400 bg-gold-500/10"
+                : "border-ink-500 bg-ink-900/45 hover:border-gold-500/50 hover:bg-ink-900/70",
+              upload.isPending && "cursor-wait opacity-75",
+            )}
+          >
+            {upload.isPending ? (
+              <LoaderCircle className="h-10 w-10 animate-spin text-gold-400" aria-hidden="true" />
+            ) : (
+              <UploadCloud className={cn("h-10 w-10", isDraggingFiles ? "text-gold-300" : "text-zinc-400")} aria-hidden="true" />
+            )}
+            <p className="mt-4 text-sm font-semibold text-zinc-100">
+              {upload.isPending && uploadProgress
+                ? `Mengunggah ${uploadProgress.done} dari ${uploadProgress.total} file...`
+                : isDraggingFiles
+                  ? "Lepaskan file untuk mulai mengunggah"
+                  : selectedUploadFiles.length > 0
+                    ? `${selectedUploadFiles.length} file siap diunggah`
+                    : "Tarik & lepas file Markdown di sini"}
+            </p>
+            <p className="mt-1 text-xs text-zinc-500">
+              {upload.isPending
+                ? "Jangan tutup modal sampai proses selesai."
+                : selectedUploadFiles.length > 0
+                  ? "Klik area ini untuk mengganti pilihan file."
+                  : `atau klik untuk memilih hingga ${MAX_BATCH_UPLOAD_FILES} file .md`}
+            </p>
+          </div>
+          {selectedUploadFiles.length > 0 && !upload.isPending && (
+            <div className="mt-4 rounded-xl border border-ink-600 bg-ink-900/45">
+              <div className="flex items-center justify-between border-b border-ink-600 px-3 py-2">
+                <p className="text-xs font-medium text-zinc-300">File terpilih</p>
+                <button
+                  type="button"
+                  onClick={() => setSelectedUploadFiles([])}
+                  className="text-xs text-zinc-500 transition-colors hover:text-zinc-200"
+                >
+                  Hapus pilihan
+                </button>
+              </div>
+              <ul className="scrollbar-thin max-h-36 overflow-y-auto px-3 py-2">
+                {selectedUploadFiles.map((file) => (
+                  <li key={`${file.name}-${file.size}-${file.lastModified}`} className="flex items-center justify-between gap-3 py-1 text-xs">
+                    <span className="min-w-0 truncate text-zinc-300">{file.name}</span>
+                    <span className="shrink-0 text-zinc-600">{Math.max(1, Math.ceil(file.size / 1024))} KB</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          <div className="mt-5 flex justify-end gap-2">
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setIsUploadModalOpen(false);
+                setIsDraggingFiles(false);
+                setSelectedUploadFiles([]);
+              }}
+              disabled={upload.isPending}
+            >
+              Batal
+            </Button>
+            <Button
+              onClick={() => upload.mutate(selectedUploadFiles)}
+              disabled={upload.isPending || selectedUploadFiles.length === 0}
+            >
+              {upload.isPending && <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />}
+              {upload.isPending
+                ? "Mengunggah..."
+                : `Konfirmasi Upload${selectedUploadFiles.length > 0 ? ` (${selectedUploadFiles.length})` : ""}`}
+            </Button>
+          </div>
         </div>
       </Modal>
       <Modal open={Boolean(uploadReport)} title="Hasil Upload Markdown" onClose={() => setUploadReport(null)}>

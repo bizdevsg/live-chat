@@ -3,8 +3,17 @@
 Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
+### Added
+- Tombol Upload Knowledge kini membuka modal upload batch Markdown dengan area drag & drop dan progres unggahan.
+
 ### Changed
+- Kontrol status Knowledge kini menampilkan indikator loading ringkas di dalam switch saat perubahan individual sedang disimpan, serta loading pada aksi massal.
+- Memperbarui `apps/dashboard/src/app/(dashboard)/knowledge/page.tsx`.
 - Memperbarui `package.json`.
+- Upload Knowledge kini meminta konfirmasi setelah file dipilih atau dijatuhkan sebelum menyimpan artikel ke server.
+
+### Fixed
+- Index Knowledge kini menampilkan seluruh artikel melalui pagination server-side, bukan berhenti pada 20 artikel pertama.
 
 ## [0.12.0] - 2026-09-21
 ### Added
