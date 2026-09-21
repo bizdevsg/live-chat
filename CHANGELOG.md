@@ -4,7 +4,14 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
 ### Changed
+- Memperbarui `apps/widget-loader/src/loader.ts`.
 - Memperbarui `package.json`.
+- Menyesuaikan ukuran ikon bubble Live Chat menjadi 120×120px pada desktop dan 100×100px pada perangkat mobile, termasuk posisi badge agar tetap proporsional.
+
+### Fixed
+- Memastikan panel Live Chat tampil fullscreen pada viewport mobile, termasuk ketika diuji melalui mode responsif browser yang masih melaporkan pointer desktop.
+- Memastikan ukuran bubble mobile 100×100px diterapkan berdasarkan lebar viewport tanpa bergantung pada kemampuan pointer perangkat.
+- Menghilangkan celah kosong di sisi kanan panel fullscreen dengan memberi iframe aturan `left: 0; width: 100%; max-width: none`. Iframe adalah elemen replaced sehingga `left: 0; right: 0; width: auto` tidak melebarkannya (tetap 300px), dan `max-width: calc(100vw - 40px)` dari mode desktop sebelumnya menyisakan celah di kanan. `visualViewport` tetap menangani tinggi saat keyboard mobile terbuka.
 
 ## [0.13.0] - 2026-09-21
 ### Added

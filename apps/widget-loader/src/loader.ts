@@ -30,9 +30,9 @@ const FLOATING_BOTTOM_OFFSET = 20;
 // Keep the desktop chat compact even when the browser window is very tall.
 const PANEL_BOTTOM_OFFSET = 15;
 const PANEL_MAX_HEIGHT = 720;
-// A narrow desktop browser must remain a floating panel. Full-screen mode is reserved for actual
-// touch devices, which avoids treating a resized desktop window as a phone.
-const MOBILE_MEDIA_QUERY = "(max-width: 767.98px) and (pointer: coarse)";
+// Keep bubble sizing and full-screen panel behavior aligned on narrow viewports, including
+// responsive browser emulation where pointer capabilities may still report a desktop mouse.
+const MOBILE_WIDTH_MEDIA_QUERY = "(max-width: 767.98px)";
 
 function supportsRequiredFeatures(): boolean {
   return (
@@ -101,7 +101,7 @@ function init() {
     .bubble.has-unread { filter: drop-shadow(0 0 14px rgba(229,72,77,.45)); }
     .bubble-image { width: 100%; height: 100%; display: block; object-fit: contain; }
     .bubble.open { display: none; }
-    .badge { position: fixed; bottom: ${FLOATING_BOTTOM_OFFSET + 42}px; ${config.position === "bottom-left" ? "left: 62px;" : "right: 62px;"}
+    .badge { position: fixed; bottom: ${FLOATING_BOTTOM_OFFSET + 100}px; ${config.position === "bottom-left" ? "left: 130px;" : "right: 10px;"}
       min-width: 20px; height: 20px; padding: 0 5px; border-radius: 10px; background: #e5484d;
       color: #fff; font: 600 11px/20px system-ui, sans-serif; text-align: center; display: none; }
     .badge.visible { display: block; animation: badge-pulse 1.8s ease-out infinite; }
@@ -114,11 +114,12 @@ function init() {
       width: 440px; height: min(${PANEL_MAX_HEIGHT}px, calc(100vh - 40px)); max-width: calc(100vw - 40px); border: none; border-radius: 16px;
       box-shadow: 0 10px 40px rgba(0,0,0,.45); display: none; background: #2e2e2e; }
     .panel.open { display: block; }
-    @media ${MOBILE_MEDIA_QUERY} {
-      .bubble { width: 90px; height: 90px; }
+    @media ${MOBILE_WIDTH_MEDIA_QUERY} {
+      .bubble { width: 100px; height: 100px; }
+      .badge { bottom: ${FLOATING_BOTTOM_OFFSET + 80}px; ${config.position === "bottom-left" ? "left: 110px;" : "right: 10px;"} }
       .panel {
-        top: 0; left: 0; right: 0; bottom: auto;
-        width: auto; height: 100vh; height: 100dvh;
+        top: 0; left: 0; right: auto; bottom: auto;
+        width: 100%; max-width: none; height: 100vh; height: 100dvh;
         max-height: none; border-radius: 0; box-shadow: none;
       }
     }
@@ -183,7 +184,7 @@ function init() {
   }
 
   function isMobileViewport(): boolean {
-    return window.matchMedia(MOBILE_MEDIA_QUERY).matches;
+    return window.matchMedia(MOBILE_WIDTH_MEDIA_QUERY).matches;
   }
 
   // On a phone the panel is full-screen. iOS Safari keeps `100dvh` spanning *behind* the
@@ -200,10 +201,13 @@ function init() {
       iframe.style.left = "";
       return;
     }
-    iframe.style.width = `${vv.width}px`;
+    // Let CSS `left: 0; width: 100%; max-width: none` own the horizontal sizing. An iframe is a
+    // replaced element, so `left: 0; right: 0; width: auto` would not stretch it (it stays 300px),
+    // and the desktop `max-width: calc(100vw - 40px)` must be reset or it leaves a strip on the right.
+    iframe.style.width = "";
     iframe.style.height = `${vv.height}px`;
     iframe.style.top = `${vv.offsetTop}px`;
-    iframe.style.left = `${vv.offsetLeft}px`;
+    iframe.style.left = "";
   }
 
   function postToIframe(message: unknown) {
