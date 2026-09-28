@@ -3,8 +3,48 @@
 Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
+### Added
+- Menambahkan SDK mobile native yang terisolasi di `sdks/android` dan `sdks/ios`, masing-masing berisi headless client, persistence visitor/conversation, integrasi REST + Socket.IO, serta UI siap pakai berbasis Jetpack Compose dan SwiftUI tanpa WebView.
+- Menambahkan URL sumber resmi opsional pada Knowledge Base dari editor dashboard hingga retrieval AI, lengkap dengan allowlist domain resmi dan link aman yang dapat dibuka dari widget.
+- Menambahkan `sdks/README.md`.
+- Menambahkan `sdks/android/.gitignore`.
+- Menambahkan `sdks/android/README.md`.
+- Menambahkan `sdks/android/build.gradle.kts`.
+- Menambahkan `sdks/android/gradle.properties`.
+- Menambahkan `sdks/android/settings.gradle.kts`.
+- Menambahkan `sdks/android/solidchat-sdk/build.gradle.kts`.
+- Menambahkan `sdks/android/solidchat-sdk/consumer-rules.pro`.
+- Menambahkan `sdks/android/solidchat-sdk/src/main/AndroidManifest.xml`.
+- Menambahkan `sdks/android/solidchat-sdk/src/main/kotlin/com/solidchat/sdk/SolidChatApi.kt`.
+- Menambahkan `sdks/android/solidchat-sdk/src/main/kotlin/com/solidchat/sdk/SolidChatClient.kt`.
+- Menambahkan `sdks/android/solidchat-sdk/src/main/kotlin/com/solidchat/sdk/SolidChatModels.kt`.
+- Menambahkan `sdks/android/solidchat-sdk/src/main/kotlin/com/solidchat/sdk/SolidChatRealtime.kt`.
+- Menambahkan `sdks/android/solidchat-sdk/src/main/kotlin/com/solidchat/sdk/SolidChatStorage.kt`.
+- Menambahkan `sdks/android/solidchat-sdk/src/main/kotlin/com/solidchat/sdk/ui/SolidChatScreen.kt`.
+- Menambahkan `sdks/android/solidchat-sdk/src/test/kotlin/com/solidchat/sdk/SolidChatStateTest.kt`.
+- Menambahkan `sdks/ios/.gitignore`.
+- Menambahkan `sdks/ios/Package.swift`.
+- Menambahkan `sdks/ios/README.md`.
+- Menambahkan `sdks/ios/Sources/SolidChatSDK/SolidChatAPI.swift`.
+- Menambahkan `sdks/ios/Sources/SolidChatSDK/SolidChatClient.swift`.
+- Menambahkan `sdks/ios/Sources/SolidChatSDK/SolidChatModels.swift`.
+- Menambahkan `sdks/ios/Sources/SolidChatSDK/SolidChatStorage.swift`.
+- Menambahkan `sdks/ios/Sources/SolidChatSDK/SolidChatView.swift`.
+- Menambahkan `sdks/ios/Tests/SolidChatSDKTests/SolidChatStateTests.swift`.
+- Menambahkan dokumentasi integrasi, matriks parity, contoh host app, pedoman keamanan token, dan pengujian state dasar untuk SDK Android/iOS.
+- Menambahkan parity flow widget pada kedua SDK: bootstrap session, resume conversation, pre-chat lead, realtime message/status/typing/presence, handoff dan timeout agent, upload gambar, offline ticket, close/new conversation, rating, serta customer identity token.
+- Menambahkan timeline handoff pada halaman AI Runs dengan sumber request eksplisit: tombol user, keputusan AI, rule sistem, fallback error, atau data lama yang belum memiliki sumber.
+- Menambahkan tombol Detail dan modal informasi AI Run yang menampilkan alasan handoff, hasil pengalihan, status model, confidence, latensi, dan error terkait.
+- Menambahkan tombol backup seluruh percakapan ke file JSON pada Inbox Superadmin, lengkap dengan pesan, metadata lampiran, context, event, assignment, ringkasan, AI run, feedback, lead, dan tiket terkait.
+
 ### Changed
+- Memperbarui `README.md`.
+- Memperbarui `docs/architecture.md`.
 - Memperbarui `package.json`.
+
+### Fixed
+- Memastikan chat baru tetap membuat conversation terpisah meskipun email atau nomor telepon sudah pernah digunakan, sehingga riwayat conversation lama tidak dilanjutkan atau dipindahkan ke visitor baru.
+- Mencatat AI Run yang benar-benar memicu handoff serta membatasi data AI Runs agar hanya dapat diakses oleh organisasi pemiliknya.
 
 ## [0.13.1] - 2026-09-21
 ### Changed

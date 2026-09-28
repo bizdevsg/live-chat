@@ -24,6 +24,9 @@ apps/
   dashboard/      Next.js 14 App Router — Admin + CS dashboard (27 routes)
   widget/         React + Vite — customer-facing chat iframe SPA
   widget-loader/  Vanilla TS → single ~3.6KB widget.js (esbuild)
+sdks/
+  android/        Kotlin core SDK + native Jetpack Compose chat UI
+  ios/            Swift core SDK + native SwiftUI chat UI
 packages/
   database/       Prisma schema (MySQL), migrations, seed
   shared/         Enums, types, AiProvider/CrmAdapter interfaces
@@ -37,6 +40,8 @@ infrastructure/
 docs/             Architecture, API, WebSocket, security, AI policy, database, deployment
 .github/workflows/ci.yml
 ```
+
+Mobile SDK integration and API parity are documented in [`sdks/README.md`](sdks/README.md). Both mobile UIs are fully native and consume the existing widget REST/Socket.IO contract without changing the web widget runtime.
 
 ## 3. Features completed
 

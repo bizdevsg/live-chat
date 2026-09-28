@@ -35,6 +35,8 @@ Widget Iframe App (chat.sg-berjangka.com)      Dashboard Admin/CS (cs-chat.sg-be
 | `apps/dashboard` | Next.js 14 App Router | Admin + CS dashboard |
 | `apps/widget` | React + Vite (SPA) | Customer-facing chat iframe |
 | `apps/widget-loader` | Vanilla TS, esbuild IIFE | `widget.js` — the single script embedded on the Solid Gold site |
+| `sdks/android` | Kotlin, Jetpack Compose | Headless Android client and optional native chat screen |
+| `sdks/ios` | Swift, SwiftUI | Headless iOS client and optional native chat screen |
 
 ## Packages
 
