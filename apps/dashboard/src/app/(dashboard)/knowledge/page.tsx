@@ -45,6 +45,7 @@ interface KnowledgeDoc {
   version: number;
   updatedAt: string;
   category?: Category | null;
+  sourceUrl?: string | null;
 }
 
 interface AiKnowledgeTestResult {
@@ -72,6 +73,7 @@ interface AiKnowledgeTestResult {
     title: string;
     version: number;
     audience: string;
+    sourceUrl?: string | null;
     content: string;
   }>;
   answer: {
@@ -89,6 +91,7 @@ interface AiKnowledgeTestResult {
       title: string;
       version: number;
       score: number;
+      sourceUrl?: string | null;
     }>;
   } | null;
 }
@@ -184,6 +187,7 @@ export default function KnowledgePage() {
   const [audience, setAudience] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [page, setPage] = useState(1);
   const queryClient = useQueryClient();
   const toast = useToast();
@@ -217,8 +221,15 @@ export default function KnowledgePage() {
     queryFn: () => apiClient.get<{ items: KnowledgeDoc[] }>("/api/v1/knowledge/documents?pageSize=200"),
   });
 
+  // Debounced so typing doesn't fire one API request per keystroke — only after the visitor
+  // pauses for 350ms does the search actually run.
+  useEffect(() => {
+    const timeout = setTimeout(() => setDebouncedSearch(search.trim()), 350);
+    return () => clearTimeout(timeout);
+  }, [search]);
+
   const query = useQuery({
-    queryKey: ["knowledge", status, audience, categoryId, search, page],
+    queryKey: ["knowledge", status, audience, categoryId, debouncedSearch, page],
     queryFn: () => {
       const params = new URLSearchParams();
       params.set("page", String(page));
@@ -226,7 +237,7 @@ export default function KnowledgePage() {
       if (status) params.set("status", status);
       if (audience) params.set("audience", audience);
       if (categoryId) params.set("categoryId", categoryId);
-      if (search.trim()) params.set("search", search.trim());
+      if (debouncedSearch) params.set("search", debouncedSearch);
       return apiClient.get<KnowledgeListResponse>(`/api/v1/knowledge/documents?${params.toString()}`);
     },
     placeholderData: (previousData) => previousData,
@@ -1012,6 +1023,7 @@ export default function KnowledgePage() {
                   setAudience("");
                   setCategoryId("");
                   setSearch("");
+                  setDebouncedSearch("");
                   setPage(1);
                 }}
               >

@@ -36,6 +36,7 @@ interface KnowledgeDocDetail {
   effectiveDate?: string | null;
   expiredDate?: string | null;
   sourceFile?: string | null;
+  sourceUrl?: string | null;
   chunks: Array<{ id: string; chunkIndex: number }>;
 }
 
@@ -67,6 +68,7 @@ export default function KnowledgeDetailPage() {
 
   const [title, setTitle] = useState("");
   const [summary, setSummary] = useState("");
+  const [sourceUrl, setSourceUrl] = useState("");
   const [content, setContent] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [audience, setAudience] = useState("PUBLIC");
@@ -78,6 +80,7 @@ export default function KnowledgeDetailPage() {
     if (query.data) {
       setTitle(query.data.title);
       setSummary(query.data.summary ?? "");
+      setSourceUrl(query.data.sourceUrl ?? "");
       setContent(query.data.content);
       setCategoryId(query.data.categoryId ?? "");
       setAudience(query.data.audience);
@@ -103,6 +106,7 @@ export default function KnowledgeDetailPage() {
       apiClient.put(`/api/v1/knowledge/documents/${documentId}`, {
         title,
         summary: summary || undefined,
+        sourceUrl: sourceUrl.trim() || null,
         content,
         categoryId: categoryId || undefined,
         audience,
@@ -195,6 +199,19 @@ Tulis isi knowledge di sini...`}
                   </Select>
                 </div>
                 <div>
+                  <Label htmlFor="sourceUrl">URL Sumber Resmi</Label>
+                  <Input
+                    id="sourceUrl"
+                    type="url"
+                    inputMode="url"
+                    value={sourceUrl}
+                    disabled={!editable}
+                    onChange={(e) => setSourceUrl(e.target.value)}
+                    placeholder="https://sg-berjangka.com/id/..."
+                  />
+                  <p className="mt-1.5 text-xs leading-5 text-zinc-500">Halaman resmi paling spesifik yang boleh diberikan AI kepada customer.</p>
+                </div>
+                <div>
                   <Label htmlFor="audience">Audience</Label>
                   <Select id="audience" value={audience} disabled={!editable} onChange={(e) => setAudience(e.target.value)}>
                     <option value="PUBLIC">PUBLIC</option>
@@ -239,6 +256,16 @@ Tulis isi knowledge di sini...`}
                 <div className="flex items-center justify-between">
                   <span>Source File</span>
                   <span className="max-w-[150px] truncate text-right text-zinc-200">{doc.sourceFile ?? "Manual editor"}</span>
+                </div>
+                <div className="flex items-start justify-between gap-3">
+                  <span>URL Resmi</span>
+                  {doc.sourceUrl ? (
+                    <a href={doc.sourceUrl} target="_blank" rel="noopener noreferrer" className="max-w-[190px] break-all text-right text-gold-500 hover:text-gold-400">
+                      {doc.sourceUrl}
+                    </a>
+                  ) : (
+                    <span className="text-right text-zinc-500">Belum diisi</span>
+                  )}
                 </div>
               </div>
             </Card>

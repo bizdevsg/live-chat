@@ -25,6 +25,7 @@ export interface KnowledgeEvidence {
   version: number;
   content: string;
   audience: KnowledgeAudience;
+  sourceUrl?: string | null;
 }
 
 export interface AnswerInput {

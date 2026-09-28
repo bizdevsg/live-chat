@@ -26,6 +26,7 @@ export default function NewKnowledgeArticlePage() {
   const user = useAuthStore((s) => s.user);
   const [title, setTitle] = useState("");
   const [summary, setSummary] = useState("");
+  const [sourceUrl, setSourceUrl] = useState("");
   const [content, setContent] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [audience, setAudience] = useState("PUBLIC");
@@ -47,6 +48,7 @@ export default function NewKnowledgeArticlePage() {
       apiClient.post<{ id: string }>("/api/v1/knowledge/documents", {
         title,
         summary: summary || undefined,
+        sourceUrl: sourceUrl.trim() || null,
         content,
         categoryId: categoryId || undefined,
         audience,
@@ -155,6 +157,18 @@ Tuliskan edge case atau pengecualian di sini.`}
                       </option>
                     ))}
                   </Select>
+                </div>
+                <div>
+                  <Label htmlFor="sourceUrl">URL Sumber Resmi</Label>
+                  <Input
+                    id="sourceUrl"
+                    type="url"
+                    inputMode="url"
+                    value={sourceUrl}
+                    onChange={(e) => setSourceUrl(e.target.value)}
+                    placeholder="https://sg-berjangka.com/id/..."
+                  />
+                  <p className="mt-1.5 text-xs leading-5 text-zinc-500">Gunakan halaman resmi yang paling spesifik sesuai topik artikel. Kosongkan jika artikel tidak memerlukan tautan.</p>
                 </div>
                 <div>
                   <Label htmlFor="audience">Audience</Label>

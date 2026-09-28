@@ -12,7 +12,7 @@ describe("LeadsService.createFromWidget — shared-browser identity checkpoint",
     inheritedOwner?: { email: string | null; phone: string | null } | null;
     /** Customer the pre-chat email/phone already resolves to (returning visitor), or null. */
     existingCustomerByContact?: { id: string; email: string | null; phone: string | null } | null;
-    resumableConversation?: { id: string; assignedAgentId: string | null; assignedTeamId: string | null; status: string } | null;
+    olderConversation?: { id: string; assignedAgentId: string | null; assignedTeamId: string | null; status: string } | null;
     freshConversationId?: string;
   }) {
     const freshConversationId = options.freshConversationId ?? "conv-fresh";
@@ -25,7 +25,7 @@ describe("LeadsService.createFromWidget — shared-browser identity checkpoint",
         create: jest.fn().mockImplementation(({ data }) => Promise.resolve({ id: "cust-new", ...data })),
       },
       conversation: {
-        findFirst: jest.fn().mockResolvedValue(options.resumableConversation ?? null),
+        findFirst: jest.fn().mockResolvedValue(options.olderConversation ?? null),
         update: jest.fn().mockResolvedValue({}),
         delete: jest.fn().mockResolvedValue({}),
       },
@@ -137,15 +137,20 @@ describe("LeadsService.createFromWidget — shared-browser identity checkpoint",
     );
   });
 
-  it("keeps the same person on their existing conversation", async () => {
+  it("keeps a new conversation separate when its contact belongs to an older conversation", async () => {
+    const newConversation = {
+      ...inheritedConversation,
+      id: "conv-new",
+      customerId: null,
+      firstMessageAt: null,
+    };
     const { service, tx, conversations } = createService({
-      inheritedConversation,
-      inheritedOwner: { email: "mega@example.com", phone: "0899" },
+      inheritedConversation: newConversation,
       existingCustomerByContact: { id: "cust-mega", email: "mega@example.com", phone: "0899" },
+      olderConversation: { id: "conv-mega", assignedAgentId: null, assignedTeamId: null, status: "AI_ACTIVE" },
     });
-    tx.customer.findUnique.mockResolvedValue({ id: "cust-mega", email: "mega@example.com", phone: "0899" });
 
-    const result = await service.createFromWidget("site-1", "conv-mega", {
+    const result = await service.createFromWidget("site-1", "conv-new", {
       name: "Mega",
       email: "mega@example.com",
       phone: "0899",
@@ -153,7 +158,14 @@ describe("LeadsService.createFromWidget — shared-browser identity checkpoint",
     } as never);
 
     expect(conversations.createConversation).not.toHaveBeenCalled();
-    expect(result.conversationId).toBe("conv-mega");
+    expect(tx.conversation.findFirst).not.toHaveBeenCalled();
+    expect(tx.conversation.delete).not.toHaveBeenCalled();
+    expect(tx.conversation.update).toHaveBeenCalledWith({
+      where: { id: "conv-new" },
+      data: { customerId: "cust-mega" },
+    });
+    expect(result.conversationId).toBe("conv-new");
+    expect(result.resumedConversation).toBe(false);
   });
 
   it("rejects submissions without consent", async () => {

@@ -653,7 +653,10 @@ export class OpenAiProvider implements AiProvider {
     }
 
     const evidenceBlock = input.evidence
-      .map((e, i) => `[${i + 1}] (${e.title}) ${e.content}`)
+      .map(
+        (e, i) =>
+          `[${i + 1}]\nJudul: ${e.title}\n${e.sourceUrl ? `URL resmi: ${e.sourceUrl}\n` : ""}Isi: ${e.content}`,
+      )
       .join("\n\n");
     // Context for follow-ups/references ("yang tadi", "itu berapa" …) — NOT a source of facts.
     // The grounding rule right below still governs what the model may actually claim.
@@ -695,7 +698,7 @@ export class OpenAiProvider implements AiProvider {
             "Untuk bagian yang tidak terkait layanan Solid Gold, jawab singkat bahwa Anda hanya membantu pertanyaan seputar layanan/customer service Solid Gold dan tidak dapat membantu permintaan script, kode, program, atau bantuan teknis umum. Jangan pernah menulis script/kode/program tersebut.",
           ]
         : []),
-       "Jika customer perlu diarahkan ke website resmi dan dokumen referensi memuat URL resmi yang relevan, berikan URL halaman yang PALING spesifik untuk topik yang sedang dibahas (misalnya halaman pendaftaran untuk pertanyaan pendaftaran), bukan beranda. Jangan pernah membuat, menebak, atau mengubah URL. Jika tidak ada URL resmi spesifik yang tertulis di dokumen referensi, jangan sertakan tautan dan tawarkan bantuan petugas bila diperlukan.",
+        "Jika customer perlu diarahkan ke website resmi dan dokumen referensi memuat URL resmi yang relevan, berikan URL halaman yang PALING spesifik untuk topik yang sedang dibahas (misalnya halaman pendaftaran untuk pertanyaan pendaftaran), bukan beranda. Tulis URL HTTPS mentah persis seperti di referensi agar dapat dibuka langsung. Jangan pernah membuat, menebak, atau mengubah URL. Jika tidak ada URL resmi spesifik yang tertulis di dokumen referensi, jangan sertakan tautan dan tawarkan bantuan petugas bila diperlukan.",
        "KONTEKS KEMAMPUAN CHAT: selama percakapan masih ditangani AI, customer belum dapat mengirim gambar atau file; pengiriman tersebut tersedia setelah percakapan ditangani agent. Nilai makna pesan terbaru dan riwayat untuk menentukan bantuan yang paling relevan. Niat yang jelas untuk mengirim gambar adalah kebutuhan yang tidak dapat diselesaikan AI sendiri, jadi tawarkan dengan natural untuk menghubungkan customer ke agent agar upload dapat dilakukan. PENTING: pernyataan seperti 'saya mau kirim gambar' hanya menyatakan kebutuhan, BUKAN persetujuan transfer. Pada tahap ini, respons harus menawarkan agent dan `handoffRequired` HARUS false. `handoffRequired` hanya boleh true setelah customer, dalam konteks tawaran agent sebelumnya, menyatakan setuju atau meminta untuk dihubungkan. Saat true, jawab dengan konfirmasi bahwa percakapan sedang dialihkan; jangan mengulang tawaran atau mengajukan pertanyaan persetujuan lagi. Nilai makna keseluruhan percakapan, bukan kecocokan satu kata atau frasa.",
        responseLanguageInstruction(input.message, input.language),
       "Balas HANYA dengan JSON valid, satu objek, tanpa markdown code block (jangan pakai ```), tanpa teks apa pun sebelum atau sesudah JSON-nya: {\"answer\": string, \"confidence\": number 0-1, \"handoffRequired\": boolean}. Field \"answer\" berisi teks final yang akan dibaca customer apa adanya — jadi jangan sertakan label sumber, markdown heading, atau nomor referensi di dalamnya. Pastikan semua tanda kutip ganda (\") di dalam isi \"answer\" di-escape dengan benar (\\\") supaya JSON-nya tetap valid.",
@@ -731,6 +734,7 @@ export class OpenAiProvider implements AiProvider {
       title: e.title,
       version: e.version,
       score: 0.75,
+      sourceUrl: e.sourceUrl,
     }));
 
     // Verify calculations before grounding. A correct derived result (for example an amount
@@ -904,7 +908,9 @@ export class OpenAiProvider implements AiProvider {
 
   async generateSuggestedReply(input: SuggestedReplyInput): Promise<SuggestedReplyResult> {
     const transcript = input.history.map((t) => `${t.senderType}: ${t.content}`).join("\n");
-    const evidenceBlock = input.evidence.map((e) => `(${e.title}) ${e.content}`).join("\n\n");
+    const evidenceBlock = input.evidence
+      .map((e) => `Judul: ${e.title}\n${e.sourceUrl ? `URL resmi: ${e.sourceUrl}\n` : ""}Isi: ${e.content}`)
+      .join("\n\n");
     const customPrompt = input.systemPrompt?.trim();
     const promptUsesEvidencePlaceholder = customPrompt?.includes("{{evidence}}") ?? false;
     const baseSystemPrompt = customPrompt
@@ -941,6 +947,7 @@ export class OpenAiProvider implements AiProvider {
         title: e.title,
         version: e.version,
         score: 0.7,
+        sourceUrl: e.sourceUrl,
       })),
     };
   }

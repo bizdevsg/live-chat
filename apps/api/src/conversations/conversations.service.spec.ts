@@ -270,7 +270,7 @@ describe("ConversationsService.requestAgent (agents handle up to 5 concurrent ch
       reserveCount: 1,
     });
 
-    await service.requestAgent("conv-1", "CUSTOMER_REQUESTED_HUMAN");
+    await service.requestAgent("conv-1", "CUSTOMER_REQUESTED_HUMAN", "USER_BUTTON");
 
     expect(prisma.conversation.update).toHaveBeenCalledWith({
       where: { id: "conv-1" },
@@ -279,6 +279,7 @@ describe("ConversationsService.requestAgent (agents handle up to 5 concurrent ch
     expect(prisma.agentProfile.updateMany).not.toHaveBeenCalled();
     expect(service.logEvent).toHaveBeenCalledWith("conv-1", "handoff.requested", "SYSTEM", null, {
       reason: "CUSTOMER_REQUESTED_HUMAN",
+      source: "USER_BUTTON",
       teamId: "team-1",
       outcome: "queued",
     });
@@ -287,7 +288,7 @@ describe("ConversationsService.requestAgent (agents handle up to 5 concurrent ch
   it("keeps the AI conversation active and notifies the visitor when no agent is online", async () => {
     const { service, prisma } = createService();
 
-    await service.requestAgent("conv-1", "CUSTOMER_REQUESTED_HUMAN");
+    await service.requestAgent("conv-1", "CUSTOMER_REQUESTED_HUMAN", "USER_BUTTON");
 
     expect(service.postMessage).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -312,6 +313,7 @@ describe("ConversationsService.requestAgent (agents handle up to 5 concurrent ch
     });
     expect(service.logEvent).toHaveBeenCalledWith("conv-1", "handoff.requested", "SYSTEM", null, {
       reason: "CUSTOMER_REQUESTED_HUMAN",
+      source: "UNKNOWN",
       teamId: "team-1",
       outcome: "queued",
     });

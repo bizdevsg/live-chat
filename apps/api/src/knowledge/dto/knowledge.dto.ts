@@ -1,5 +1,5 @@
 import { Type } from "class-transformer";
-import { IsArray, IsIn, IsISO8601, IsInt, IsOptional, IsString, Min, MinLength } from "class-validator";
+import { IsArray, IsIn, IsISO8601, IsInt, IsOptional, IsString, MaxLength, Min, MinLength } from "class-validator";
 import { KnowledgeAudience } from "@solidchat/shared";
 
 export class CreateKnowledgeDocumentDto {
@@ -18,6 +18,11 @@ export class CreateKnowledgeDocumentDto {
   @IsOptional()
   @IsString()
   categoryId?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(191)
+  sourceUrl?: string | null;
 
   @IsOptional()
   @IsIn(Object.values(KnowledgeAudience))
@@ -55,6 +60,11 @@ export class UpdateKnowledgeDocumentDto {
   @IsOptional()
   @IsString()
   categoryId?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(191)
+  sourceUrl?: string | null;
 
   @IsOptional()
   @IsIn(Object.values(KnowledgeAudience))

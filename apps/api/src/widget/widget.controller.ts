@@ -2,7 +2,7 @@ import { BadRequestException, Body, Controller, Get, HttpCode, HttpStatus, Param
 import { Throttle } from "@nestjs/throttler";
 import { ApiTags } from "@nestjs/swagger";
 import type { Request } from "express";
-import { HandoffReason, HandlerType, MAX_ATTACHMENT_SIZE_BYTES, MessageType, SenderType } from "@solidchat/shared";
+import { HandoffReason, HandoffSource, HandlerType, MAX_ATTACHMENT_SIZE_BYTES, MessageType, SenderType } from "@solidchat/shared";
 import { FileInterceptor } from "@nestjs/platform-express";
 import { Public } from "../common/decorators/public.decorator";
 import { WidgetService } from "./widget.service";
@@ -146,7 +146,7 @@ export class WidgetController {
     });
     await this.widgetService.assertOwnership(id, req.visitor.visitorId);
     const reason = (dto.reason as HandoffReason) || HandoffReason.CUSTOMER_REQUESTED_HUMAN;
-    const data = await this.conversations.requestAgent(id, reason);
+    const data = await this.conversations.requestAgent(id, reason, HandoffSource.USER_BUTTON);
     this.aiOrchestrator.summarize(id, "HANDOFF").catch(() => undefined);
     return { success: true, data };
   }

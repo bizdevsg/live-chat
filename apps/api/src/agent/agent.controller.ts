@@ -51,6 +51,12 @@ export class AgentController {
     return { success: true, data };
   }
 
+  @Get("conversations/backup")
+  async backupConversations(@CurrentUser() user: JwtAccessPayload) {
+    const data = await this.agentService.backupAllConversations(user);
+    return { success: true, data };
+  }
+
   @Get("closed")
   async closedByVisitorWithoutAgentReply(@CurrentUser() user: JwtAccessPayload) {
     const data = await this.agentService.closedByVisitorWithoutAgentReply(user);

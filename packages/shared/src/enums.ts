@@ -182,6 +182,15 @@ export const HandoffReason = {
 } as const;
 export type HandoffReason = (typeof HandoffReason)[keyof typeof HandoffReason];
 
+export const HandoffSource = {
+  USER_BUTTON: "USER_BUTTON",
+  AI_DECISION: "AI_DECISION",
+  SYSTEM_RULE: "SYSTEM_RULE",
+  AI_ERROR_FALLBACK: "AI_ERROR_FALLBACK",
+  UNKNOWN: "UNKNOWN",
+} as const;
+export type HandoffSource = (typeof HandoffSource)[keyof typeof HandoffSource];
+
 export const ErrorCode = {
   VALIDATION_ERROR: "VALIDATION_ERROR",
   UNAUTHORIZED: "UNAUTHORIZED",
@@ -193,6 +202,7 @@ export const ErrorCode = {
   RATE_LIMITED: "RATE_LIMITED",
   CONFLICT: "CONFLICT",
   INTERNAL_ERROR: "INTERNAL_ERROR",
+  AI_PROVIDER_UNAVAILABLE: "AI_PROVIDER_UNAVAILABLE",
   TOKEN_EXPIRED: "TOKEN_EXPIRED",
   TOKEN_INVALID: "TOKEN_INVALID",
   ACCOUNT_LOCKED: "ACCOUNT_LOCKED",

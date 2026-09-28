@@ -25,7 +25,7 @@ describe("KnowledgeRetriever", () => {
         chunkIndex: 0,
         content: "Withdrawal dapat dilakukan melalui aplikasi resmi.",
         tokenCount: 50,
-        document: { title: "Withdrawal", version: 1, audience: "PUBLIC" },
+        document: { title: "Withdrawal", version: 1, audience: "PUBLIC", sourceUrl: "https://sg-berjangka.com/id/withdrawal" },
       },
       {
         id: "chunk_2",
@@ -33,7 +33,7 @@ describe("KnowledgeRetriever", () => {
         chunkIndex: 1,
         content: "Penarikan diproses setelah verifikasi akun selesai.",
         tokenCount: 60,
-        document: { title: "Withdrawal", version: 1, audience: "PUBLIC" },
+        document: { title: "Withdrawal", version: 1, audience: "PUBLIC", sourceUrl: "https://sg-berjangka.com/id/withdrawal" },
       },
       {
         id: "chunk_3",
@@ -41,7 +41,7 @@ describe("KnowledgeRetriever", () => {
         chunkIndex: 0,
         content: "Akun harus terverifikasi sebelum transaksi tertentu diproses.",
         tokenCount: 60,
-        document: { title: "Verifikasi Akun", version: 2, audience: "PUBLIC" },
+        document: { title: "Verifikasi Akun", version: 2, audience: "PUBLIC", sourceUrl: null },
       },
     ]);
     const prisma = {
@@ -64,6 +64,7 @@ describe("KnowledgeRetriever", () => {
 
     expect(result).toHaveLength(2);
     expect(result.map((item) => item.chunkId)).toEqual(["chunk_1", "chunk_2"]);
+    expect(result.every((item) => item.sourceUrl === "https://sg-berjangka.com/id/withdrawal")).toBe(true);
     expect(findMany).toHaveBeenCalledTimes(1);
   });
 
@@ -89,7 +90,7 @@ describe("KnowledgeRetriever", () => {
         chunkIndex: 0,
         content: "Withdrawal dapat dilakukan melalui aplikasi resmi.",
         tokenCount: 50,
-        document: { title: "Withdrawal", version: 1, audience: "PUBLIC" },
+        document: { title: "Withdrawal", version: 1, audience: "PUBLIC", sourceUrl: "https://sg-berjangka.com/id/withdrawal" },
       },
       {
         id: "chunk_2",
@@ -97,7 +98,7 @@ describe("KnowledgeRetriever", () => {
         chunkIndex: 0,
         content: "Akun harus terverifikasi sebelum penarikan diproses.",
         tokenCount: 60,
-        document: { title: "Verifikasi Akun", version: 2, audience: "PUBLIC" },
+        document: { title: "Verifikasi Akun", version: 2, audience: "PUBLIC", sourceUrl: null },
       },
     ]);
     const prisma = {

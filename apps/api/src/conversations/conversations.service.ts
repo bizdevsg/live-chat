@@ -1,6 +1,6 @@
 import { InjectQueue } from "@nestjs/bullmq";
 import { Injectable, Logger } from "@nestjs/common";
-import { AgentAvailability, ConversationStatus, ErrorCode, HandlerType, MessageType, QUEUE_NAMES, SenderType, type ConversationInactivityJobData, type ConversationInactivityJobKind, type ConversationTimeoutJobData, type HandoffReason } from "@solidchat/shared";
+import { AgentAvailability, ConversationStatus, ErrorCode, HandoffSource, HandlerType, MessageType, QUEUE_NAMES, SenderType, type ConversationInactivityJobData, type ConversationInactivityJobKind, type ConversationTimeoutJobData, type HandoffReason, type HandoffSource as HandoffSourceValue } from "@solidchat/shared";
 import { Prisma } from "@solidchat/database";
 import type { Queue } from "bullmq";
 import { PrismaService } from "../prisma/prisma.service";
@@ -602,7 +602,11 @@ export class ConversationsService {
     );
   }
 
-  async requestAgent(conversationId: string, reason: HandoffReason = "CUSTOMER_REQUESTED_HUMAN") {
+  async requestAgent(
+    conversationId: string,
+    reason: HandoffReason = "CUSTOMER_REQUESTED_HUMAN",
+    source: HandoffSourceValue = HandoffSource.UNKNOWN,
+  ) {
     const conversation = await this.getConversationOrThrow(conversationId);
     await this.safelyCancelAiInactivityTimeout(conversationId);
 
@@ -614,7 +618,7 @@ export class ConversationsService {
     });
     if (!onlineAgent) {
       await this.postSystemMessage(conversationId, "Mohon maaf, saat ini belum ada agent yang sedang online. AI tetap siap membantu Anda.");
-      await this.logEvent(conversationId, "handoff.unavailable_no_agent", "SYSTEM", null, { reason });
+      await this.logEvent(conversationId, "handoff.unavailable_no_agent", "SYSTEM", null, { reason, source });
       return conversation;
     }
 
@@ -635,7 +639,7 @@ export class ConversationsService {
         data: { status: ConversationStatus.AI_ACTIVE, handlerType: HandlerType.AI, assignedAgentId: null },
       });
       await this.safelyCancelAgentReplyTimeout(conversationId);
-      await this.logEvent(conversationId, "handoff.deferred_no_team", "SYSTEM", null, { reason });
+      await this.logEvent(conversationId, "handoff.deferred_no_team", "SYSTEM", null, { reason, source });
       this.realtime.toConversation(conversationId, "conversation:updated", {
         conversationId,
         status: ConversationStatus.AI_ACTIVE,
@@ -658,7 +662,7 @@ export class ConversationsService {
     // auto-returns to the AI (autoReturnToAiOnAgentTimeout), and the agent dashboard shows the
     // matching "Kembali ke AI dalam …" countdown.
     await this.safelyRefreshAgentReplyTimeout(conversationId);
-    await this.logEvent(conversationId, "handoff.requested", "SYSTEM", null, { reason, teamId: targetTeam.id, outcome: "queued" });
+    await this.logEvent(conversationId, "handoff.requested", "SYSTEM", null, { reason, source, teamId: targetTeam.id, outcome: "queued" });
     this.realtime.toConversation(conversationId, "conversation:updated", {
       conversationId,
       status: ConversationStatus.QUEUED,

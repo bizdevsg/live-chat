@@ -8,12 +8,25 @@ import type { ReactNode } from "react";
  * "1. " or "1) " numbered lists, and paragraph breaks.
  */
 
-const INLINE_PATTERN = /(\*\*[^*]+\*\*|\*[^*]+\*|_[^_]+_|`[^`]+`)/g;
+const INLINE_PATTERN = /(\*\*[^*]+\*\*|\*[^*]+\*|_[^_]+_|`[^`]+`|https:\/\/[^\s<]+)/g;
 
 function renderInline(text: string, keyPrefix: string): ReactNode[] {
   const parts = text.split(INLINE_PATTERN).filter((part) => part.length > 0);
   return parts.map((part, i) => {
     const key = `${keyPrefix}-${i}`;
+    if (part.startsWith("https://")) {
+      const match = part.match(/^(.*?)([),.;!?]*)$/);
+      const href = match?.[1] ?? part;
+      const suffix = match?.[2] ?? "";
+      return (
+        <span key={key}>
+          <a href={href} target="_blank" rel="noopener noreferrer" className="break-all text-sky-300 underline decoration-sky-300/50 underline-offset-2 hover:text-sky-200">
+            {href}
+          </a>
+          {suffix}
+        </span>
+      );
+    }
     if (part.startsWith("**") && part.endsWith("**") && part.length > 3) {
       return <strong key={key}>{part.slice(2, -2)}</strong>;
     }

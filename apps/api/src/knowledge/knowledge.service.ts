@@ -1,12 +1,14 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { HttpStatus, Injectable, Logger } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { chunkText } from "@solidchat/ai-core";
 import { AI_MODELS, KnowledgeStatus, ErrorCode, normalizeWikiLinksForIndexing } from "@solidchat/shared";
 import { PrismaService } from "../prisma/prisma.service";
 import { AuditLogService } from "../common/audit/audit-log.service";
 import { AiProviderFactory } from "../ai/ai-provider.factory";
-import { NotFoundApiException } from "../common/errors/api.exception";
+import { ApiException, NotFoundApiException } from "../common/errors/api.exception";
 import type { CreateKnowledgeDocumentDto, ListKnowledgeQueryDto, UpdateKnowledgeDocumentDto } from "./dto/knowledge.dto";
 import { StorageService } from "../storage/storage.service";
+import { normalizeOfficialSourceUrl, parseOfficialSourceHosts } from "./official-source-url";
 
 function slugify(title: string): string {
   return title
@@ -40,7 +42,21 @@ export class KnowledgeService {
     private readonly auditLog: AuditLogService,
     private readonly aiProviderFactory: AiProviderFactory,
     private readonly storage: StorageService,
+    private readonly config: ConfigService,
   ) {}
+
+  private normalizeSourceUrl(value: string | null | undefined): string | null {
+    const allowedHosts = parseOfficialSourceHosts(this.config.get<string>("OFFICIAL_KNOWLEDGE_SOURCE_HOSTS"));
+    try {
+      return normalizeOfficialSourceUrl(value, allowedHosts);
+    } catch (error) {
+      throw new ApiException(
+        ErrorCode.VALIDATION_ERROR,
+        (error as Error).message,
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
 
   async list(siteId: string, query: ListKnowledgeQueryDto) {
     const page = query.page ?? 1;
@@ -51,25 +67,70 @@ export class KnowledgeService {
         : query.status === KnowledgeStatus.NON_ACTIVE
           ? { in: [...NON_ACTIVE_STATUSES] }
           : undefined;
-    const where = {
+    const baseWhere = {
       siteId,
       status: requestedStatus,
       audience: query.audience || undefined,
       categoryId: query.categoryId || undefined,
-      ...(query.search
-        ? { OR: [{ title: { contains: query.search } }, { content: { contains: query.search } }] }
-        : {}),
     };
-    const [items, total] = await Promise.all([
-      this.prisma.knowledgeDocument.findMany({
-        where,
-        orderBy: { updatedAt: "desc" },
-        skip: (page - 1) * pageSize,
-        take: pageSize,
-        include: { category: true },
-      }),
-      this.prisma.knowledgeDocument.count({ where }),
-    ]);
+    const search = query.search?.trim();
+    if (!search) {
+      const [items, total] = await Promise.all([
+        this.prisma.knowledgeDocument.findMany({
+          where: baseWhere,
+          orderBy: { updatedAt: "desc" },
+          skip: (page - 1) * pageSize,
+          take: pageSize,
+          include: { category: true },
+        }),
+        this.prisma.knowledgeDocument.count({ where: baseWhere }),
+      ]);
+      return { items: items.map((item) => this.serializeDocument(item)), total, page, pageSize };
+    }
+
+    // A plain content LIKE also matches nodes that only *mention* the search term in a
+    // cross-reference/disambiguation note (e.g. an Akun Reguler node saying "beda dari Akun
+    // Mini..."), which buried the actual Akun Mini nodes under a pile of unrelated Akun Reguler
+    // results. Fetch every match, then rank title/summary hits (the doc is actually ABOUT this)
+    // above content-only hits (the doc merely mentions it) before paginating in memory — the KB is
+    // small enough (low hundreds of docs) that this is cheap.
+    const matches = await this.prisma.knowledgeDocument.findMany({
+      where: {
+        ...baseWhere,
+        OR: [
+          { title: { contains: search } },
+          { summary: { contains: search } },
+          { content: { contains: search } },
+        ],
+      },
+      orderBy: { updatedAt: "desc" },
+      include: { category: true },
+    });
+    // Titles are written camelCase/hyphenated ("KB-Node-AkunMini-...") with no spaces, so a
+    // literal `.includes("akun mini")` never matches the title text at all — every doc fell
+    // through to the same rank and the sort became a no-op. Split camelCase/hyphen boundaries into
+    // spaces before comparing, and require every search word to appear (not the exact phrase), so
+    // "akun mini" matches the title "AkunMini" the same way a human reads it.
+    const normalize = (text: string) =>
+      text
+        .replace(/[-_]/g, " ")
+        .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+        .toLowerCase();
+    const searchWords = search.toLowerCase().split(/\s+/).filter(Boolean);
+    const allWordsIn = (text: string) => {
+      const normalized = normalize(text);
+      return searchWords.every((word) => normalized.includes(word));
+    };
+    const rank = (doc: (typeof matches)[number]) => {
+      if (allWordsIn(doc.title)) return 0;
+      if (doc.summary && allWordsIn(doc.summary)) return 1;
+      return 2;
+    };
+    const ranked = matches
+      .map((doc, index) => ({ doc, rank: rank(doc), index }))
+      .sort((a, b) => a.rank - b.rank || a.index - b.index);
+    const total = ranked.length;
+    const items = ranked.slice((page - 1) * pageSize, (page - 1) * pageSize + pageSize).map(({ doc }) => doc);
     return { items: items.map((item) => this.serializeDocument(item)), total, page, pageSize };
   }
 
@@ -98,6 +159,7 @@ export class KnowledgeService {
         content: dto.content,
         summary: dto.summary,
         categoryId: dto.categoryId,
+        sourceUrl: this.normalizeSourceUrl(dto.sourceUrl),
         audience: dto.audience ?? "PUBLIC",
         effectiveDate: dto.effectiveDate ? new Date(dto.effectiveDate) : undefined,
         expiredDate: dto.expiredDate ? new Date(dto.expiredDate) : undefined,
@@ -128,6 +190,7 @@ export class KnowledgeService {
         content: dto.content,
         summary: dto.summary,
         categoryId: dto.categoryId,
+        sourceUrl: dto.sourceUrl === undefined ? undefined : this.normalizeSourceUrl(dto.sourceUrl),
         audience: dto.audience,
         effectiveDate: dto.effectiveDate ? new Date(dto.effectiveDate) : undefined,
         expiredDate: dto.expiredDate ? new Date(dto.expiredDate) : undefined,
@@ -145,8 +208,8 @@ export class KnowledgeService {
       action: "knowledge.updated",
       resourceType: "knowledge_document",
       resourceId: id,
-      beforeData: { title: before.title, status: before.status },
-      afterData: { title: updated.title, status: normalizeKnowledgeStatus(updated.status) },
+      beforeData: { title: before.title, status: before.status, sourceUrl: before.sourceUrl },
+      afterData: { title: updated.title, status: normalizeKnowledgeStatus(updated.status), sourceUrl: updated.sourceUrl },
     });
     return this.serializeDocument(updated);
   }

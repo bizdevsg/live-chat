@@ -59,6 +59,7 @@ export interface KnowledgeSource {
   title: string;
   version: number;
   score: number;
+  sourceUrl?: string | null;
 }
 
 export interface AnswerResult {

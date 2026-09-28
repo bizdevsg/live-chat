@@ -118,6 +118,7 @@ export class MockAiProvider implements AiProvider {
         title: e.title,
         version: e.version,
         score: 0.8,
+        sourceUrl: e.sourceUrl,
       })),
       handoffRequired: 0.82 < DEFAULT_CONFIDENCE_THRESHOLD,
     };
@@ -140,7 +141,7 @@ export class MockAiProvider implements AiProvider {
       reply: top
         ? `Terima kasih sudah menunggu. Berdasarkan "${top.title}": ${top.content.slice(0, 300)}`
         : "Terima kasih sudah menunggu, mohon informasi tambahan agar kami dapat membantu lebih lanjut.",
-      sources: top ? [{ documentId: top.documentId, chunkId: top.chunkId, title: top.title, version: top.version, score: 0.75 }] : [],
+      sources: top ? [{ documentId: top.documentId, chunkId: top.chunkId, title: top.title, version: top.version, score: 0.75, sourceUrl: top.sourceUrl }] : [],
       confidence: top ? 0.7 : 0.3,
     };
   }

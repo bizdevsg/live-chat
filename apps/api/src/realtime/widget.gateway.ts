@@ -9,7 +9,7 @@ import {
 } from "@nestjs/websockets";
 import { Logger } from "@nestjs/common";
 import type { Server, Socket } from "socket.io";
-import { HandoffReason, MessageType, SenderType } from "@solidchat/shared";
+import { HandoffReason, HandoffSource, MessageType, SenderType } from "@solidchat/shared";
 import { Public } from "../common/decorators/public.decorator";
 import { VisitorTokenService } from "../widget/visitor-token.service";
 import { WidgetService } from "../widget/widget.service";
@@ -111,7 +111,11 @@ export class WidgetGateway implements OnGatewayInit, OnGatewayConnection {
   async onAgentRequest(@ConnectedSocket() client: WidgetSocket, @MessageBody() body: { conversationId: string; reason?: string }) {
     try {
       await this.widgetService.assertOwnership(body.conversationId, client.data.visitorId);
-      await this.conversations.requestAgent(body.conversationId, (body.reason as HandoffReason) || HandoffReason.CUSTOMER_REQUESTED_HUMAN);
+      await this.conversations.requestAgent(
+        body.conversationId,
+        (body.reason as HandoffReason) || HandoffReason.CUSTOMER_REQUESTED_HUMAN,
+        HandoffSource.USER_BUTTON,
+      );
     } catch {
       client.emit("error", { code: "FORBIDDEN", message: "Tidak dapat meminta agent." });
     }

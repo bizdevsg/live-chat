@@ -24,6 +24,7 @@ const envSchema = z.object({
   APP_URL: z.string().default("http://localhost:3000"),
   API_URL: z.string().default("http://localhost:4000"),
   WIDGET_URL: z.string().default("http://localhost:3001"),
+  OFFICIAL_KNOWLEDGE_SOURCE_HOSTS: z.string().default("sg-berjangka.com"),
 
   DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
 

@@ -145,7 +145,7 @@ describe("Widget (e2e)", () => {
     expect(contents).not.toContain("internal-only note");
   });
 
-  it("reuses the latest resumable conversation when a new visitor submits the same email", async () => {
+  it("creates a separate conversation when a new visitor submits the same email", async () => {
     const sessionA = await request(server).post("/api/v1/widget/session").send({
       siteId: fixtures.siteKey,
       visitorId: "visitor_resume_owner",
@@ -162,7 +162,14 @@ describe("Widget (e2e)", () => {
     expect(firstLead.status).toBe(201);
     expect(firstLead.body.data.conversationId).toBe(conversationAId);
 
-    const adminUser = await prisma.user.findUniqueOrThrow({ where: { email: fixtures.adminEmail } });
+    const adminUser = await prisma.user.findUniqueOrThrow({
+      where: {
+        organizationId_email: {
+          organizationId: fixtures.organizationId,
+          email: fixtures.adminEmail,
+        },
+      },
+    });
     await prisma.conversation.update({
       where: { id: conversationAId },
       data: { status: "RESOLVED", assignedAgentId: adminUser.id, resolvedAt: new Date() },
@@ -182,19 +189,20 @@ describe("Widget (e2e)", () => {
       .set("Authorization", `Bearer ${tokenB}`)
       .send({ name: "Budi Update", email: "budi@example.com", phone: "08123456789", consentGiven: true });
     expect(secondLead.status).toBe(201);
-    expect(secondLead.body.data.conversationId).toBe(conversationAId);
-    expect(secondLead.body.data.resumedConversation).toBe(true);
+    expect(secondLead.body.data.conversationId).toBe(conversationBId);
+    expect(secondLead.body.data.resumedConversation).toBe(false);
 
-    const reusedConversation = await prisma.conversation.findUnique({ where: { id: conversationAId } });
-    const placeholderConversation = await prisma.conversation.findUnique({ where: { id: conversationBId } });
-    expect(reusedConversation?.visitorId).toBe(sessionB.body.data.visitorDbId);
-    expect(reusedConversation?.status).toBe("QUEUED");
-    expect(reusedConversation?.assignedAgentId).toBeNull();
-    expect(placeholderConversation).toBeNull();
+    const olderConversation = await prisma.conversation.findUnique({ where: { id: conversationAId } });
+    const newConversation = await prisma.conversation.findUnique({ where: { id: conversationBId } });
+    expect(olderConversation?.visitorId).toBe(sessionA.body.data.visitorDbId);
+    expect(olderConversation?.status).toBe("RESOLVED");
+    expect(olderConversation?.assignedAgentId).toBe(adminUser.id);
+    expect(newConversation?.visitorId).toBe(sessionB.body.data.visitorDbId);
+    expect(newConversation?.customerId).toBe(olderConversation?.customerId);
 
-    const resumedConversationRes = await request(server)
-      .get(`/api/v1/widget/conversations/${conversationAId}`)
+    const newConversationRes = await request(server)
+      .get(`/api/v1/widget/conversations/${conversationBId}`)
       .set("Authorization", `Bearer ${tokenB}`);
-    expect(resumedConversationRes.status).toBe(200);
+    expect(newConversationRes.status).toBe(200);
   });
 });

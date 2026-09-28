@@ -18,6 +18,7 @@ interface ContextRow {
   title: string;
   version: number;
   audience: string;
+  sourceUrl: string | null;
   tokenCount: number;
 }
 
@@ -56,6 +57,7 @@ function mapEvidence(row: ContextRow): KnowledgeEvidence {
     version: row.version,
     content: row.content,
     audience: row.audience as KnowledgeEvidence["audience"],
+    sourceUrl: row.sourceUrl,
   };
 }
 
@@ -169,7 +171,7 @@ export class KnowledgeRetriever {
         content: true,
         embedding: true,
         tokenCount: true,
-        document: { select: { title: true, version: true, audience: true } },
+        document: { select: { title: true, version: true, audience: true, sourceUrl: true } },
       },
       orderBy: [{ documentId: "asc" }, { chunkIndex: "asc" }],
       take: KNOWLEDGE_RETRIEVAL_CANDIDATE_LIMIT,
@@ -198,6 +200,7 @@ export class KnowledgeRetriever {
         title: row.document.title,
         version: row.document.version,
         audience: row.document.audience,
+        sourceUrl: row.document.sourceUrl,
         tokenCount: row.tokenCount,
       });
     }

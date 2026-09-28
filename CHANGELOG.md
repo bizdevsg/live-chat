@@ -4,6 +4,46 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
 ### Added
+- Menambahkan `apps/api/src/ai/ai-answer-source.spec.ts`.
+- Menambahkan `apps/api/src/knowledge/official-source-url.spec.ts`.
+- Menambahkan `apps/api/src/knowledge/official-source-url.ts`.
+
+### Changed
+- Memperbarui `.env.example`.
+- Memperbarui `apps/api/src/agent/agent.controller.ts`.
+- Memperbarui `apps/api/src/agent/agent.service.spec.ts`.
+- Memperbarui `apps/api/src/agent/agent.service.ts`.
+- Memperbarui `apps/api/src/ai/ai-orchestrator.service.ts`.
+- Memperbarui `apps/api/src/ai/ai.controller.ts`.
+- Memperbarui `apps/api/src/config/env.validation.ts`.
+- Memperbarui `apps/api/src/conversations/conversations.service.spec.ts`.
+- Memperbarui `apps/api/src/conversations/conversations.service.ts`.
+- Memperbarui `apps/api/src/knowledge/dto/knowledge.dto.ts`.
+- Memperbarui `apps/api/src/knowledge/knowledge.service.ts`.
+- Memperbarui `apps/api/src/knowledge/retrieval.service.ts`.
+- Memperbarui `apps/api/src/leads/leads.service.spec.ts`.
+- Memperbarui `apps/api/src/leads/leads.service.ts`.
+- Memperbarui `apps/api/src/realtime/widget.gateway.ts`.
+- Memperbarui `apps/api/src/widget/widget.controller.ts`.
+- Memperbarui `apps/api/test/widget.e2e-spec.ts`.
+- Memperbarui `apps/dashboard/src/app/(dashboard)/ai/runs/page.tsx`.
+- Memperbarui `apps/dashboard/src/app/(dashboard)/inbox/layout.tsx`.
+- Memperbarui `apps/dashboard/src/app/(dashboard)/knowledge/[documentId]/page.tsx`.
+- Memperbarui `apps/dashboard/src/app/(dashboard)/knowledge/new/page.tsx`.
+- Memperbarui `apps/dashboard/src/app/(dashboard)/knowledge/page.tsx`.
+- Memperbarui `apps/widget/src/lib/rich-text.tsx`.
+- Memperbarui `package.json`.
+- Memperbarui `packages/ai-core/src/providers/mock-provider.ts`.
+- Memperbarui `packages/ai-core/src/providers/openai-provider.ts`.
+- Memperbarui `packages/ai-core/src/retrieval/knowledge-retriever.spec.ts`.
+- Memperbarui `packages/ai-core/src/retrieval/knowledge-retriever.ts`.
+- Memperbarui `packages/database/prisma/schema.prisma`.
+- Memperbarui `packages/shared/src/ai-provider.ts`.
+- Memperbarui `packages/shared/src/enums.ts`.
+- Memperbarui `packages/shared/src/types.ts`.
+
+## [0.14.0] - 2026-09-28
+### Added
 - Menambahkan SDK mobile native yang terisolasi di `sdks/android` dan `sdks/ios`, masing-masing berisi headless client, persistence visitor/conversation, integrasi REST + Socket.IO, serta UI siap pakai berbasis Jetpack Compose dan SwiftUI tanpa WebView.
 - Menambahkan URL sumber resmi opsional pada Knowledge Base dari editor dashboard hingga retrieval AI, lengkap dengan allowlist domain resmi dan link aman yang dapat dibuka dari widget.
 - Menambahkan `sdks/README.md`.
@@ -644,7 +684,8 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 - Memperbarui `apps/dashboard/src/app/(dashboard)/knowledge/page.tsx`.
 - Memperbarui `package.json`.
 
-[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.13.1...HEAD
+[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.14.0...HEAD
+[0.14.0]: https://github.com/bizdevsg/live-chat/compare/v0.13.1...v0.14.0
 [0.13.1]: https://github.com/bizdevsg/live-chat/compare/v0.13.0...v0.13.1
 [0.13.0]: https://github.com/bizdevsg/live-chat/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/bizdevsg/live-chat/compare/v0.11.1...v0.12.0

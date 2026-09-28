@@ -1,7 +1,7 @@
 import { Injectable, HttpStatus } from "@nestjs/common";
 import { InjectQueue } from "@nestjs/bullmq";
 import type { Queue } from "bullmq";
-import { ConversationStatus, ErrorCode, HandlerType, QUEUE_NAMES, type CrmSyncJobData } from "@solidchat/shared";
+import { ErrorCode, HandlerType, QUEUE_NAMES, type CrmSyncJobData } from "@solidchat/shared";
 import { PrismaService } from "../prisma/prisma.service";
 import { AuditLogService } from "../common/audit/audit-log.service";
 import { CrmProviderFactory } from "./crm-provider.factory";
@@ -53,27 +53,6 @@ export class LeadsService {
     if (owner.email && owner.email === lead.email) return true;
     if (owner.phone && owner.phone === lead.phone) return true;
     return false;
-  }
-
-  private getResumeState() {
-    // A resumed conversation always comes back on the AI. If the visitor wants a human they press
-    // "Hubungi Agent" again, and it is routed to whoever is free at that moment (§26).
-    return { status: ConversationStatus.AI_ACTIVE, handlerType: HandlerType.AI };
-  }
-
-  private static readonly ENDED_STATUSES: string[] = [ConversationStatus.RESOLVED, ConversationStatus.CLOSED];
-
-  /** Fields that lift a RESOLVED/CLOSED conversation back into an active handler state. */
-  private reactivationFields() {
-    const next = this.getResumeState();
-    return {
-      assignedAgentId: null,
-      status: next.status,
-      handlerType: next.handlerType,
-      assignedAt: null,
-      resolvedAt: null,
-      closedAt: null,
-    };
   }
 
   async createFromWidget(siteId: string, conversationId: string | undefined, dto: CreateLeadDto) {
@@ -154,59 +133,15 @@ export class LeadsService {
             },
           });
 
-      const resumableConversation = await tx.conversation.findFirst({
-        where: {
-          siteId,
-          id: conversation?.id ? { not: conversation.id } : undefined,
-          status: { notIn: [ConversationStatus.CLOSED, ConversationStatus.SPAM, ConversationStatus.BLOCKED] },
-          OR: [
-            { customerId: customer.id },
-            { customer: { email: normalized.email } },
-            { leads: { some: { email: normalized.email } } },
-          ],
-        },
-        orderBy: [{ lastMessageAt: "desc" }, { createdAt: "desc" }],
-        select: {
-          id: true,
-          assignedAgentId: true,
-          assignedTeamId: true,
-          status: true,
-        },
-      });
+      const targetConversationId = conversation?.id;
 
-      let targetConversationId = conversation?.id;
-
-      if (resumableConversation && conversation?.visitorId) {
-        targetConversationId = resumableConversation.id;
-        const reactivate = LeadsService.ENDED_STATUSES.includes(resumableConversation.status);
-
+      // Email/phone identify the customer, not the transcript. A newly-created widget
+      // conversation must remain a separate thread even when this contact has older chats.
+      if (conversation && conversation.customerId !== customer.id) {
         await tx.conversation.update({
-          where: { id: resumableConversation.id },
-          data: {
-            visitorId: conversation.visitorId,
-            customerId: customer.id,
-            ...(reactivate ? this.reactivationFields() : {}),
-          },
+          where: { id: conversation.id },
+          data: { customerId: customer.id },
         });
-
-        if (!conversation.firstMessageAt) {
-          await tx.conversation.delete({ where: { id: conversation.id } });
-        }
-      } else if (conversation) {
-        // A returning visitor can land back on a stale conversation id whose chat already ended
-        // (they closed it, or an agent resolved it). Submitting the pre-chat form means they want
-        // to talk now — bring that conversation back to life instead of attaching the lead to a
-        // dead thread the widget would then render as "conversation ended".
-        const reactivate = LeadsService.ENDED_STATUSES.includes(conversation.status);
-        if (reactivate || conversation.customerId !== customer.id) {
-          await tx.conversation.update({
-            where: { id: conversation.id },
-            data: {
-              customerId: customer.id,
-              ...(reactivate ? this.reactivationFields() : {}),
-            },
-          });
-        }
       }
 
       const createdLead = await tx.lead.create({
@@ -231,7 +166,7 @@ export class LeadsService {
       return {
         lead: createdLead,
         conversationId: targetConversationId,
-        resumedConversation: targetConversationId !== conversation?.id,
+        resumedConversation: false,
       };
     });
 

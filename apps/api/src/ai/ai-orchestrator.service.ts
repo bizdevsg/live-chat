@@ -1,14 +1,15 @@
-import { Injectable } from "@nestjs/common";
+import { HttpStatus, Injectable } from "@nestjs/common";
 import { extractCustomerServiceQuery } from "@solidchat/ai-core";
 import {
   DEFAULT_CONFIDENCE_THRESHOLD,
   ErrorCode,
   HandlerType,
   HandoffReason,
+  HandoffSource,
   MessageType,
   SenderType,
-  type AnswerResult,
   type ChatTurn,
+  type KnowledgeSource,
 } from "@solidchat/shared";
 import { PrismaService } from "../prisma/prisma.service";
 import { ConversationsService } from "../conversations/conversations.service";
@@ -19,6 +20,46 @@ import { SecurityEventService } from "../common/security/security-event.service"
 import { RealtimeEmitterService } from "../realtime/realtime-emitter.service";
 import { MarketDataService } from "../market-data/market-data.service";
 import { ApiException } from "../common/errors/api.exception";
+
+/**
+ * Detects a timed-out/unreachable OpenAI call by message shape rather than an `instanceof` check —
+ * apps/api doesn't depend on the `openai` package directly (only @solidchat/ai-core does), so the
+ * error crossing that boundary is a plain Error, not an SDK error class we could import here.
+ */
+function isTransientAiProviderError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  return /timed out|timeout|ECONNRESET|ETIMEDOUT|fetch failed/i.test(error.message);
+}
+
+export function formatAnswerForCustomer(answer: string, sources: KnowledgeSource[], showSources: boolean): string {
+  const allowedUrls = new Set(sources.map((source) => source.sourceUrl).filter((url): url is string => Boolean(url)));
+  const safeAnswer = answer
+    .replace(/\[([^\]]+)]\((https?:\/\/[^\s)]+)\)/gi, (_match, label: string, url: string) =>
+      allowedUrls.has(url) ? `${label}: ${url}` : label,
+    )
+    .replace(/\bhttps?:\/\/[^\s<]+/gi, (rawUrl) => {
+      const candidate = rawUrl.replace(/[),.;!?]+$/, "");
+      const suffix = rawUrl.slice(candidate.length);
+      return allowedUrls.has(candidate) ? `${candidate}${suffix}` : "";
+    })
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/ {2,}/g, " ")
+    .trim();
+
+  if (!showSources || sources.length === 0) return safeAnswer;
+
+  const seen = new Set<string>();
+  const uniqueSources = sources.filter((source) => {
+    const key = source.sourceUrl || source.documentId;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  const list = uniqueSources
+    .map((source) => `• ${source.title}${source.sourceUrl ? `: ${source.sourceUrl}` : ""}`)
+    .join("\n");
+  return `${safeAnswer}\n\nSumber:\n${list}`;
+}
 
 @Injectable()
 export class AiOrchestratorService {
@@ -86,91 +127,104 @@ export class AiOrchestratorService {
 
     const trimmedMessage = message.trim();
     const history: ChatTurn[] = [];
-    const { provider, config } = await this.aiProviderFactory.getProviderForSite(site.id);
-    const classification = await provider.classifyIntent({
-      message: trimmedMessage,
-      history,
-      language: site.language,
-    });
-    const forcedHandoffReason = this.handoffEvaluator.evaluate(trimmedMessage, classification);
-    const retrievalQuery = classification.retrievalQuery?.trim() || extractCustomerServiceQuery(trimmedMessage, classification.intent);
-    const [marketEvidence, knowledgeEvidence, answerPrompt] = await Promise.all([
-      Promise.resolve(this.marketData.getRealtimePriceEvidence(trimmedMessage)),
-      this.retrieval.retrieveForCustomer(site.id, retrievalQuery),
-      this.prisma.aiPrompt.findFirst({
-        where: {
-          aiConfigurationId: config.id,
-          purpose: "ANSWER",
-          isActive: true,
-        },
-        orderBy: { version: "desc" },
-      }),
-    ]);
-    const evidence = [...marketEvidence, ...knowledgeEvidence];
-    const realtimePriceAnswer = this.marketData.getRealtimePriceAnswer(trimmedMessage);
-    const answer = forcedHandoffReason
-      ? null
-      : realtimePriceAnswer
-        ? {
-            answer: realtimePriceAnswer,
-            confidence: 0.98,
-            intent: classification.intent,
-            handoffRequired: false,
-            sources: marketEvidence.map((item) => ({
-              documentId: item.documentId,
-              chunkId: item.chunkId,
-              title: item.title,
-              version: item.version,
-              score: 0.98,
-            })),
-          }
-      : await provider.generateAnswer({
-          message: trimmedMessage,
-          history,
-          language: site.language,
-          intent: classification.intent,
-          evidence,
-          aiName: site.aiName,
-          organizationName: site.organization.name,
-          systemPrompt: answerPrompt?.content ?? null,
-        });
-
-    return {
-      site: {
-        id: site.id,
-        name: site.name,
-        aiName: site.aiName,
+    try {
+      const { provider, config } = await this.aiProviderFactory.getProviderForSite(site.id);
+      const classification = await provider.classifyIntent({
+        message: trimmedMessage,
+        history,
         language: site.language,
-        organizationName: site.organization.name,
-      },
-      classification,
-      retrievalQuery,
-      forcedHandoffReason,
-      evidence: evidence.map((item, index) => ({
-        index: index + 1,
-        sourceType: item.chunkId.startsWith("market-quote:") ? "MARKET" : "KNOWLEDGE",
-        documentId: item.documentId,
-        chunkId: item.chunkId,
-        title: item.title,
-        version: item.version,
-        audience: item.audience,
-        content: item.content,
-      })),
-      answer: answer
-        ? {
-            ...answer,
-            formattedAnswer: this.formatAnswerForCustomer(
-              answer.answer,
-              answer.sources,
-              site.settings?.showAiSourcesToCustomer ?? false,
-            ),
-            lowConfidence: answer.confidence < DEFAULT_CONFIDENCE_THRESHOLD,
-            // The answer generator's uncertainty flag is not a transfer decision. In production,
-            // only the earlier structured handoff decision can move a conversation to an agent.
-            wouldAutoHandoff: false,
-          }
-        : null,
-    };
+      });
+      const forcedHandoffReason = this.handoffEvaluator.evaluate(trimmedMessage, classification);
+      const retrievalQuery = classification.retrievalQuery?.trim() || extractCustomerServiceQuery(trimmedMessage, classification.intent);
+      const [marketEvidence, knowledgeEvidence, answerPrompt] = await Promise.all([
+        Promise.resolve(this.marketData.getRealtimePriceEvidence(trimmedMessage)),
+        this.retrieval.retrieveForCustomer(site.id, retrievalQuery),
+        this.prisma.aiPrompt.findFirst({
+          where: {
+            aiConfigurationId: config.id,
+            purpose: "ANSWER",
+            isActive: true,
+          },
+          orderBy: { version: "desc" },
+        }),
+      ]);
+      const evidence = [...marketEvidence, ...knowledgeEvidence];
+      const realtimePriceAnswer = this.marketData.getRealtimePriceAnswer(trimmedMessage);
+      const answer = forcedHandoffReason
+        ? null
+        : realtimePriceAnswer
+          ? {
+              answer: realtimePriceAnswer,
+              confidence: 0.98,
+              intent: classification.intent,
+              handoffRequired: false,
+              sources: marketEvidence.map((item) => ({
+                documentId: item.documentId,
+                chunkId: item.chunkId,
+                title: item.title,
+                version: item.version,
+                score: 0.98,
+              })),
+            }
+        : await provider.generateAnswer({
+            message: trimmedMessage,
+            history,
+            language: site.language,
+            intent: classification.intent,
+            evidence,
+            aiName: site.aiName,
+            organizationName: site.organization.name,
+            systemPrompt: answerPrompt?.content ?? null,
+          });
+
+      return {
+        site: {
+          id: site.id,
+          name: site.name,
+          aiName: site.aiName,
+          language: site.language,
+          organizationName: site.organization.name,
+        },
+        classification,
+        retrievalQuery,
+        forcedHandoffReason,
+        evidence: evidence.map((item, index) => ({
+          index: index + 1,
+          sourceType: item.chunkId.startsWith("market-quote:") ? "MARKET" : "KNOWLEDGE",
+          documentId: item.documentId,
+          chunkId: item.chunkId,
+          title: item.title,
+          version: item.version,
+          audience: item.audience,
+          sourceUrl: item.sourceUrl,
+          content: item.content,
+        })),
+        answer: answer
+          ? {
+              ...answer,
+              formattedAnswer: formatAnswerForCustomer(
+                answer.answer,
+                answer.sources,
+                site.settings?.showAiSourcesToCustomer ?? false,
+              ),
+              lowConfidence: answer.confidence < DEFAULT_CONFIDENCE_THRESHOLD,
+              // The answer generator's uncertainty flag is not a transfer decision. In production,
+              // only the earlier structured handoff decision can move a conversation to an agent.
+              wouldAutoHandoff: false,
+            }
+          : null,
+      };
+    } catch (error) {
+      if (error instanceof ApiException) throw error;
+      if (isTransientAiProviderError(error)) {
+        throw new ApiException(
+          ErrorCode.AI_PROVIDER_UNAVAILABLE,
+          "AI provider (OpenAI) sedang lambat merespons atau timeout. Coba kirim pertanyaan yang sama lagi dalam beberapa detik.",
+          HttpStatus.SERVICE_UNAVAILABLE,
+        );
+      }
+      throw error;
+    }
   }
 
   private async runVisitorTurn(conversationId: string): Promise<void> {
@@ -202,6 +256,7 @@ export class AiOrchestratorService {
     // typing:updated event agents use, just with from: "AI". Always cleared in `finally` so a
     // thrown/handed-off turn never leaves the indicator stuck on for the visitor.
     this.realtime.toConversation(conversationId, "typing:updated", { from: "AI", typing: true });
+    let activeAiRunId: string | null = null;
     try {
       const { provider, config } = await this.aiProviderFactory.getProviderForSite(conversation.siteId);
 
@@ -211,11 +266,12 @@ export class AiOrchestratorService {
         history,
         language: conversation.language,
       });
-      await this.recordAiRun(conversationId, "CLASSIFY", provider.name, config.model, {
+      const classificationRun = await this.recordAiRun(conversationId, "CLASSIFY", provider.name, config.model, {
         latencyMs: Date.now() - classifyStart,
         confidence: classification.confidence,
         intent: classification.intent,
       });
+      activeAiRunId = classificationRun.id;
 
       if (!conversation.intent) {
         await this.prisma.conversation.update({ where: { id: conversationId }, data: { intent: classification.intent, sentiment: classification.sentiment } });
@@ -232,7 +288,8 @@ export class AiOrchestratorService {
 
       const forcedReason = this.handoffEvaluator.evaluate(lastVisitorMessage.content, classification);
       if (forcedReason) {
-        await this.respondBeforeHandoff(conversationId, forcedReason);
+        await this.markAiRunHandoff(classificationRun.id);
+        await this.respondBeforeHandoff(conversationId, forcedReason, HandoffSource.SYSTEM_RULE);
         return;
       }
 
@@ -250,7 +307,12 @@ export class AiOrchestratorService {
           metadata: { handoffDecision: handoffDecision.action },
         });
         if (handoffDecision.action === "TRANSFER") {
-          await this.conversations.requestAgent(conversationId, HandoffReason.CUSTOMER_REQUESTED_HUMAN);
+          await this.markAiRunHandoff(classificationRun.id);
+          await this.conversations.requestAgent(
+            conversationId,
+            HandoffReason.CUSTOMER_REQUESTED_HUMAN,
+            HandoffSource.AI_DECISION,
+          );
           await this.summarize(conversationId, "HANDOFF");
         }
         return;
@@ -324,11 +386,12 @@ export class AiOrchestratorService {
         // that is not consent from the customer and must not switch the handler to HUMAN.
         handoffRequired: false,
       });
+      activeAiRunId = aiRun.id;
 
       await this.conversations.postMessage({
         conversationId,
         senderType: SenderType.AI,
-        content: this.formatAnswerForCustomer(answer.answer, answer.sources, site.settings.showAiSourcesToCustomer),
+        content: formatAnswerForCustomer(answer.answer, answer.sources, site.settings.showAiSourcesToCustomer),
         messageType: MessageType.TEXT,
         aiRunId: aiRun.id,
         metadata: { confidence: answer.confidence, intent: answer.intent, sources: answer.sources },
@@ -341,7 +404,12 @@ export class AiOrchestratorService {
       // thrown error here left the visitor with dead air: typing indicator off, no reply, no
       // handoff. Always give the visitor something and route them to a human instead.
       console.error(`[AiOrchestratorService] visitor turn failed for conversation ${conversationId}:`, error);
-      await this.respondBeforeHandoff(conversationId, HandoffReason.AI_FAILED_TWICE).catch((handoffError) =>
+      if (activeAiRunId) {
+        await this.markAiRunHandoff(activeAiRunId, error).catch((recordError) =>
+          console.error(`[AiOrchestratorService] failed to mark AI run ${activeAiRunId} as handoff:`, recordError),
+        );
+      }
+      await this.respondBeforeHandoff(conversationId, HandoffReason.AI_FAILED_TWICE, HandoffSource.AI_ERROR_FALLBACK).catch((handoffError) =>
         console.error(`[AiOrchestratorService] fallback handoff also failed for conversation ${conversationId}:`, handoffError),
       );
     } finally {
@@ -349,7 +417,7 @@ export class AiOrchestratorService {
     }
   }
 
-  private async respondBeforeHandoff(conversationId: string, reason: HandoffReason) {
+  private async respondBeforeHandoff(conversationId: string, reason: HandoffReason, source: HandoffSource) {
     await this.conversations.postMessage({
       conversationId,
       senderType: SenderType.AI,
@@ -357,14 +425,8 @@ export class AiOrchestratorService {
         "Baik, untuk hal ini saya akan menghubungkan Anda dengan petugas kami agar dapat dibantu lebih lanjut. Mohon tunggu sebentar ya.",
       messageType: MessageType.TEXT,
     });
-    await this.conversations.requestAgent(conversationId, reason);
+    await this.conversations.requestAgent(conversationId, reason, source);
     await this.summarize(conversationId, "HANDOFF");
-  }
-
-  private formatAnswerForCustomer(answer: string, sources: { title: string }[], showSources: boolean): string {
-    if (!showSources || sources.length === 0) return answer;
-    const list = sources.map((s) => `• ${s.title}`).join("\n");
-    return `${answer}\n\nSumber:\n${list}`;
   }
 
   async summarize(conversationId: string, trigger: "HANDOFF" | "RESOLVED" | "LENGTH" | "MANUAL") {
@@ -439,6 +501,21 @@ export class AiOrchestratorService {
 
   async submitFeedback(aiRunId: string, agentId: string, helpful: boolean, used: boolean, edited: boolean) {
     return this.prisma.aiFeedback.create({ data: { aiRunId, agentId, helpful, used, edited } });
+  }
+
+  private async markAiRunHandoff(aiRunId: string, error?: unknown) {
+    return this.prisma.aiRun.update({
+      where: { id: aiRunId },
+      data: {
+        handoffRequired: true,
+        ...(error
+          ? {
+              status: "ERROR",
+              errorMessage: error instanceof Error ? error.message : String(error),
+            }
+          : {}),
+      },
+    });
   }
 
   private async recordAiRun(

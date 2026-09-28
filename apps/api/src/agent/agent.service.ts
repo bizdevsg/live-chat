@@ -151,6 +151,70 @@ export class AgentService {
   }
 
   /**
+   * Produces a portable, organization-scoped snapshot before conversation data is
+   * reset or archived. Object-store binaries are intentionally not embedded; the
+   * attachment rows retain their storage keys and file metadata.
+   */
+  async backupAllConversations(user: JwtAccessPayload) {
+    if (!user.roles.includes(SystemRole.SUPER_ADMIN)) {
+      throw new ForbiddenApiException("Hanya Superadmin yang dapat mengunduh backup conversation.");
+    }
+
+    const conversations = await this.prisma.conversation.findMany({
+      where: { organizationId: user.organizationId },
+      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+      include: {
+        context: true,
+        visitor: true,
+        customer: true,
+        participants: { orderBy: { joinedAt: "asc" } },
+        assignments: { orderBy: { assignedAt: "asc" } },
+        events: { orderBy: { createdAt: "asc" } },
+        summaries: { orderBy: { createdAt: "asc" } },
+        messages: {
+          orderBy: { createdAt: "asc" },
+          include: {
+            attachments: { orderBy: { createdAt: "asc" } },
+            receipts: { orderBy: { readAt: "asc" } },
+            reactions: { orderBy: { createdAt: "asc" } },
+          },
+        },
+        tickets: {
+          orderBy: { createdAt: "asc" },
+          include: {
+            comments: { orderBy: { createdAt: "asc" } },
+            assignments: { orderBy: { assignedAt: "asc" } },
+            events: { orderBy: { createdAt: "asc" } },
+          },
+        },
+        leads: {
+          orderBy: { createdAt: "asc" },
+          include: { events: { orderBy: { createdAt: "asc" } } },
+        },
+        aiRuns: {
+          orderBy: { createdAt: "asc" },
+          include: {
+            messages: true,
+            toolCalls: { orderBy: { createdAt: "asc" } },
+            feedback: { orderBy: { createdAt: "asc" } },
+          },
+        },
+        feedback: { orderBy: { createdAt: "asc" } },
+      },
+    });
+
+    return {
+      schemaVersion: 1,
+      exportedAt: new Date().toISOString(),
+      organizationId: user.organizationId,
+      exportedByUserId: user.sub,
+      conversationCount: conversations.length,
+      attachmentsEmbedded: false,
+      conversations,
+    };
+  }
+
+  /**
    * Conversations abandoned by a visitor before any human agent replied. Keep these separate
    * from the live queue so agents can review missed opportunities without mixing them into work
    * that can still be accepted.

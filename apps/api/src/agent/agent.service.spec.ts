@@ -1,4 +1,4 @@
-import { Permission } from "@solidchat/shared";
+import { Permission, SystemRole } from "@solidchat/shared";
 import { AgentService } from "./agent.service";
 
 /**
@@ -134,6 +134,30 @@ describe("AgentService conversation access", () => {
         where: expect.objectContaining({ id: { not: "agent-a" } }),
       }),
     );
+  });
+
+  it("exports a complete organization-scoped conversation backup for Superadmin", async () => {
+    const { service, prisma } = createService({ organizationId: "org-1", assignedAgentId: null, assignedTeamId: null });
+    const findMany = jest.fn().mockResolvedValue([{ id: "conv-1" }]);
+    (prisma.conversation as unknown as { findMany: typeof findMany }).findMany = findMany;
+    const superAdmin = {
+      sub: "admin-1",
+      organizationId: "org-1",
+      roles: [SystemRole.SUPER_ADMIN],
+      permissions: [],
+    } as never;
+
+    const result = await service.backupAllConversations(superAdmin);
+
+    expect(result).toEqual(expect.objectContaining({ schemaVersion: 1, organizationId: "org-1", conversationCount: 1 }));
+    expect(findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { organizationId: "org-1" } }));
+  });
+
+  it("denies conversation backup to non-Superadmin users", async () => {
+    const { service } = createService({ organizationId: "org-1", assignedAgentId: null, assignedTeamId: null });
+    const agent = { sub: "agent-1", organizationId: "org-1", roles: [SystemRole.CS_AGENT], permissions: [] } as never;
+
+    await expect(service.backupAllConversations(agent)).rejects.toThrow("Hanya Superadmin");
   });
 });
 

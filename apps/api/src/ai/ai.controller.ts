@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Param, Post, Put, Query, UseGuards } from "@nestjs/common";
 import { ApiTags } from "@nestjs/swagger";
-import { Permission, type JwtAccessPayload } from "@solidchat/shared";
+import { ErrorCode, Permission, type JwtAccessPayload } from "@solidchat/shared";
 import { PermissionsGuard } from "../common/guards/permissions.guard";
 import { RequirePermissions } from "../common/decorators/permissions.decorator";
 import { CurrentUser } from "../common/decorators/current-user.decorator";
@@ -9,11 +9,18 @@ import { AuditLogService } from "../common/audit/audit-log.service";
 import { AiOrchestratorService } from "./ai-orchestrator.service";
 import { AiProviderFactory } from "./ai-provider.factory";
 import { UpdateAiConfigurationDto, AiFeedbackDto, AiKnowledgeTestDto } from "./dto/ai.dto";
-import { ForbiddenApiException } from "../common/errors/api.exception";
+import { ForbiddenApiException, NotFoundApiException } from "../common/errors/api.exception";
 
 const ANSWER_PROMPT_PURPOSE = "ANSWER";
 const DEFAULT_AI_NAME = "Asisten Virtual";
 const DEFAULT_GREETING = "Halo! Ada yang bisa kami bantu?";
+const HANDOFF_EVENT_TYPES = ["handoff.requested", "handoff.unavailable_no_agent", "handoff.deferred_no_team"];
+
+function getEventPayloadString(payload: unknown, key: string): string | null {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) return null;
+  const value = (payload as Record<string, unknown>)[key];
+  return typeof value === "string" ? value : null;
+}
 
 @ApiTags("ai")
 @UseGuards(PermissionsGuard)
@@ -150,10 +157,17 @@ export class AiController {
 
   @Get("runs")
   @RequirePermissions(Permission.ANALYTICS_VIEW, Permission.AI_CONFIG_MANAGE)
-  async listRuns(@Query("conversationId") conversationId?: string, @Query("page") page = "1") {
+  async listRuns(
+    @CurrentUser() user: JwtAccessPayload,
+    @Query("conversationId") conversationId?: string,
+    @Query("page") page = "1",
+  ) {
     const pageNum = Number(page) || 1;
     const pageSize = 30;
-    const where = conversationId ? { conversationId } : {};
+    const where = {
+      conversationId: conversationId || undefined,
+      conversation: { organizationId: user.organizationId },
+    };
     const [items, total] = await Promise.all([
       this.prisma.aiRun.findMany({
         where,
@@ -164,6 +178,95 @@ export class AiController {
       this.prisma.aiRun.count({ where }),
     ]);
     return { success: true, data: { items, total, page: pageNum, pageSize } };
+  }
+
+  @Get("handoffs")
+  @RequirePermissions(Permission.ANALYTICS_VIEW, Permission.AI_CONFIG_MANAGE)
+  async listHandoffs(@CurrentUser() user: JwtAccessPayload) {
+    const events = await this.prisma.conversationEvent.findMany({
+      where: {
+        type: { in: HANDOFF_EVENT_TYPES },
+        conversation: { organizationId: user.organizationId },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 30,
+      select: {
+        id: true,
+        conversationId: true,
+        type: true,
+        payload: true,
+        createdAt: true,
+        conversation: { select: { status: true, handlerType: true } },
+      },
+    });
+
+    return {
+      success: true,
+      data: {
+        items: events.map((event) => ({
+          id: event.id,
+          conversationId: event.conversationId,
+          eventType: event.type,
+          reason: getEventPayloadString(event.payload, "reason") ?? "UNSPECIFIED",
+          source: getEventPayloadString(event.payload, "source") ?? "UNKNOWN",
+          outcome: getEventPayloadString(event.payload, "outcome"),
+          createdAt: event.createdAt,
+          conversation: event.conversation,
+        })),
+      },
+    };
+  }
+
+  @Get("runs/:id")
+  @RequirePermissions(Permission.ANALYTICS_VIEW, Permission.AI_CONFIG_MANAGE)
+  async getRunDetail(@Param("id") id: string, @CurrentUser() user: JwtAccessPayload) {
+    const run = await this.prisma.aiRun.findFirst({
+      where: {
+        id,
+        conversation: { organizationId: user.organizationId },
+      },
+      include: {
+        messages: { orderBy: { role: "asc" } },
+        toolCalls: { orderBy: { createdAt: "asc" } },
+        feedback: { orderBy: { createdAt: "desc" } },
+        conversation: {
+          select: {
+            status: true,
+            handlerType: true,
+            handoffReason: true,
+          },
+        },
+      },
+    });
+    if (!run) throw new NotFoundApiException(ErrorCode.NOT_FOUND, "AI run tidak ditemukan.");
+
+    const handoffWindowEndsAt = new Date(run.createdAt.getTime() + 5 * 60 * 1000);
+    const handoffEvent = run.handoffRequired
+      ? await this.prisma.conversationEvent.findFirst({
+          where: {
+            conversationId: run.conversationId,
+            type: { in: HANDOFF_EVENT_TYPES },
+            createdAt: { gte: run.createdAt, lte: handoffWindowEndsAt },
+          },
+          orderBy: { createdAt: "asc" },
+          select: { type: true, payload: true, createdAt: true },
+        })
+      : null;
+
+    return {
+      success: true,
+      data: {
+        ...run,
+        handoffReason: run.handoffRequired
+          ? getEventPayloadString(handoffEvent?.payload, "reason") ?? run.conversation.handoffReason ?? "UNSPECIFIED"
+          : null,
+        handoffSource: run.handoffRequired
+          ? getEventPayloadString(handoffEvent?.payload, "source") ?? "UNKNOWN"
+          : null,
+        handoffEventType: handoffEvent?.type ?? null,
+        handoffEventAt: handoffEvent?.createdAt ?? null,
+      },
+    };
   }
 
   @Post("runs/:id/feedback")

@@ -4,6 +4,7 @@ import { type ReactNode, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Download, LoaderCircle } from "lucide-react";
 import { apiClient } from "@/lib/api-client";
 import { useConversationRealtimeStore } from "@/lib/conversation-realtime-store";
 import { getDashboardSocket } from "@/lib/socket";
@@ -11,10 +12,22 @@ import type { ConversationSummary } from "@/lib/types";
 import { useAuthStore } from "@/lib/auth-store";
 import { isSuperAdminRole } from "@/lib/is-super-admin";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/components/ui/cn";
+import { useToast } from "@/components/ui/toast";
 import { AutoReturnCountdown } from "@/components/inbox/auto-return-countdown";
 
 type Tab = "waiting" | "mine" | "closed" | "all";
+
+interface ConversationBackup {
+  schemaVersion: number;
+  exportedAt: string;
+  organizationId: string;
+  exportedByUserId: string;
+  conversationCount: number;
+  attachmentsEmbedded: boolean;
+  conversations: unknown[];
+}
 
 /** A visitor asked for a human (or the AI handed off) and no agent has picked it up yet. */
 const WAITING_FOR_AGENT = new Set(["QUEUED", "WAITING_AGENT"]);
@@ -58,7 +71,9 @@ function ConversationNotificationBadge({ show }: { show: boolean }) {
 export default function InboxLayout({ children }: { children: ReactNode }) {
   const params = useParams<{ conversationId?: string }>();
   const [tab, setTab] = useState<Tab>("waiting");
+  const [isBackingUp, setIsBackingUp] = useState(false);
   const queryClient = useQueryClient();
+  const toast = useToast();
   const user = useAuthStore((state) => state.user);
   const isSuperAdmin = isSuperAdminRole(user?.roles);
   const unreadByConversationId = useConversationRealtimeStore((s) => s.unreadByConversationId);
@@ -144,11 +159,50 @@ export default function InboxLayout({ children }: { children: ReactNode }) {
   };
   const tabs: Tab[] = isSuperAdmin ? ["waiting", "all"] : ["waiting", "mine", "closed"];
 
+  async function downloadConversationBackup() {
+    if (isBackingUp) return;
+    setIsBackingUp(true);
+
+    try {
+      const backup = await apiClient.get<ConversationBackup>("/api/v1/agent/conversations/backup");
+      const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json;charset=utf-8" });
+      const downloadUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      const timestamp = backup.exportedAt.replace(/[:.]/g, "-");
+      link.href = downloadUrl;
+      link.download = `solidchat-conversations-${timestamp}.json`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(downloadUrl);
+      toast.push(`${backup.conversationCount} conversation berhasil dibackup.`, "success");
+    } catch (error) {
+      toast.push(error instanceof Error ? error.message : "Backup conversation gagal diunduh.", "error");
+    } finally {
+      setIsBackingUp(false);
+    }
+  }
+
   return (
     <div className="flex min-w-0 flex-1 flex-col overflow-hidden md:flex-row">
       <div
         className="flex max-h-[42vh] min-h-[240px] w-full min-w-0 flex-col border-b border-ink-600 bg-ink-800/40 md:max-h-none md:min-h-0 md:w-72 md:shrink-0 md:border-b-0 md:border-r"
       >
+        {isSuperAdmin ? (
+          <div className="border-b border-ink-600 p-3">
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              className="w-full"
+              onClick={downloadConversationBackup}
+              disabled={isBackingUp}
+            >
+              {isBackingUp ? <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Download className="h-4 w-4" aria-hidden="true" />}
+              {isBackingUp ? "Menyiapkan backup..." : "Backup percakapan (JSON)"}
+            </Button>
+          </div>
+        ) : null}
         <div className="flex border-b border-ink-600 text-xs">
           {tabs.map((t) => (
             <button
