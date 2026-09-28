@@ -4,7 +4,14 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
 ### Changed
+- Memperbarui `.github/workflows/mobile-sdk.yml`.
 - Memperbarui `package.json`.
+- Memperbarui `sdks/README.md`.
+- Memperbarui `sdks/android/README.md`.
+- Memperbarui `sdks/ios/README.md`.
+
+### Fixed
+- Memperbaiki quoting perintah pembaca versi pada workflow Mobile SDK agar branch `dev` dapat meneruskan versi release ke Gradle.
 
 ## [0.16.1] - 2026-09-28
 ### Changed

@@ -13,7 +13,7 @@ Keduanya dapat dipakai sebagai headless client atau dengan layar chat bawaan. UI
 
 - Android: GitHub Packages Maven, coordinate `com.solidchat:solidchat-android-sdk:<version>`.
 - iOS: Swift Package URL `https://github.com/bizdevsg/live-chat.git`.
-- Versi SDK mengikuti tag release repository, misalnya `v0.16.1` dipakai sebagai dependency `0.16.1`.
+- Versi SDK mengikuti tag release repository, misalnya `v0.16.2` dipakai sebagai dependency `0.16.2`.
 - Workflow `.github/workflows/mobile-sdk.yml` membangun kedua platform pada perubahan SDK dan mempublish Android package ketika perubahan SDK masuk ke branch `dev` atau workflow dijalankan manual. Tag `v*` menjadi versi Swift Package yang dapat dipilih Xcode.
 
 Tim mobile hanya menerima API base URL, `siteId`, versi dependency, dan identity token yang diterbitkan backend. Secret penandatanganan tidak pernah ditempatkan dalam aplikasi.
