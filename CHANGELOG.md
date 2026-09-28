@@ -5,6 +5,10 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 ## [Unreleased]
 ### Changed
 - Memperbarui `package.json`.
+
+## [0.16.3] - 2026-09-28
+### Changed
+- Memperbarui `package.json`.
 - Memperbarui `sdks/README.md`.
 - Memperbarui `sdks/android/README.md`.
 - Memperbarui `sdks/android/solidchat-sdk/build.gradle.kts`.
@@ -731,7 +735,8 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 - Memperbarui `apps/dashboard/src/app/(dashboard)/knowledge/page.tsx`.
 - Memperbarui `package.json`.
 
-[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.16.2...HEAD
+[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.16.3...HEAD
+[0.16.3]: https://github.com/bizdevsg/live-chat/compare/v0.16.2...v0.16.3
 [0.16.2]: https://github.com/bizdevsg/live-chat/compare/v0.16.1...v0.16.2
 [0.16.1]: https://github.com/bizdevsg/live-chat/compare/v0.16.0...v0.16.1
 [0.16.0]: https://github.com/bizdevsg/live-chat/compare/v0.15.0...v0.16.0
