@@ -3,6 +3,10 @@
 Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
+### Changed
+- Memperbarui `package.json`.
+
+## [0.15.0] - 2026-09-28
 ### Added
 - Menambahkan `apps/api/src/ai/ai-answer-source.spec.ts`.
 - Menambahkan `apps/api/src/knowledge/official-source-url.spec.ts`.
@@ -684,7 +688,8 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 - Memperbarui `apps/dashboard/src/app/(dashboard)/knowledge/page.tsx`.
 - Memperbarui `package.json`.
 
-[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.14.0...HEAD
+[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.15.0...HEAD
+[0.15.0]: https://github.com/bizdevsg/live-chat/compare/v0.14.0...v0.15.0
 [0.14.0]: https://github.com/bizdevsg/live-chat/compare/v0.13.1...v0.14.0
 [0.13.1]: https://github.com/bizdevsg/live-chat/compare/v0.13.0...v0.13.1
 [0.13.0]: https://github.com/bizdevsg/live-chat/compare/v0.12.0...v0.13.0
