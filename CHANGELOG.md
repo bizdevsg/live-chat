@@ -4,7 +4,14 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
 ### Changed
+- Memperbarui `.github/workflows/mobile-sdk.yml`.
 - Memperbarui `package.json`.
+- Memperbarui `sdks/README.md`.
+- Memperbarui `sdks/android/README.md`.
+- Memperbarui `sdks/ios/README.md`.
+
+### Fixed
+- Memperbaiki setup Android SDK pada workflow Mobile SDK agar tidak meminta paket legacy `tools` yang sudah tidak tersedia dan hanya memasang `platform-tools` sebelum platform/build-tools versi 35.
 
 ## [0.16.0] - 2026-09-28
 ### Added

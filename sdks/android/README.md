@@ -33,7 +33,7 @@ Tambahkan dependency SDK dengan versi release yang disepakati:
 
 ```kotlin
 dependencies {
-    implementation("com.solidchat:solidchat-android-sdk:0.16.0")
+    implementation("com.solidchat:solidchat-android-sdk:0.16.1")
 }
 ```
 
