@@ -4,6 +4,10 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
 ### Changed
+- Memperbarui `package.json`.
+
+## [0.16.1] - 2026-09-28
+### Changed
 - Memperbarui `.github/workflows/mobile-sdk.yml`.
 - Memperbarui `package.json`.
 - Memperbarui `sdks/README.md`.
@@ -710,7 +714,8 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 - Memperbarui `apps/dashboard/src/app/(dashboard)/knowledge/page.tsx`.
 - Memperbarui `package.json`.
 
-[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.16.0...HEAD
+[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.16.1...HEAD
+[0.16.1]: https://github.com/bizdevsg/live-chat/compare/v0.16.0...v0.16.1
 [0.16.0]: https://github.com/bizdevsg/live-chat/compare/v0.15.0...v0.16.0
 [0.15.0]: https://github.com/bizdevsg/live-chat/compare/v0.14.0...v0.15.0
 [0.14.0]: https://github.com/bizdevsg/live-chat/compare/v0.13.1...v0.14.0
