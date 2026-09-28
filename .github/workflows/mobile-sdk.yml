@@ -1,0 +1,107 @@
+name: Mobile SDK
+
+on:
+  pull_request:
+    paths:
+      - "Package.swift"
+      - "sdks/**"
+      - ".github/workflows/mobile-sdk.yml"
+  push:
+    branches:
+      - dev
+    tags:
+      - "v*"
+    paths:
+      - "package.json"
+      - "Package.swift"
+      - "sdks/**"
+      - ".github/workflows/mobile-sdk.yml"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "SDK version to publish, without the v prefix"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: mobile-sdk-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  android:
+    name: Android build and publish
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sdks/android
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK packages
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.14.2"
+
+      - name: Resolve SDK version
+        id: version
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            version="${{ inputs.version }}"
+          elif [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            version="${GITHUB_REF_NAME#v}"
+          elif [[ "$GITHUB_REF" == "refs/heads/dev" ]]; then
+            version="$(node -p \"require('../../package.json').version\")"
+          else
+            version="0.0.0-ci.${GITHUB_RUN_NUMBER}"
+          fi
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]]; then
+            echo "Invalid semantic version: $version" >&2
+            exit 1
+          fi
+          echo "value=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Test and assemble Android SDK
+        run: gradle :solidchat-sdk:test :solidchat-sdk:assembleRelease --no-daemon --console=plain -PsdkVersion=${{ steps.version.outputs.value }}
+
+      - name: Publish Android SDK to GitHub Packages
+        if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/dev'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gradle :solidchat-sdk:publishReleasePublicationToGitHubPackagesRepository --no-daemon --console=plain -PsdkVersion=${{ steps.version.outputs.value }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: solidchat-android-sdk-${{ steps.version.outputs.value }}
+          path: sdks/android/solidchat-sdk/build/outputs/aar/solidchat-sdk-release.aar
+          if-no-files-found: error
+
+  ios:
+    name: iOS package build
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate Swift package manifest
+        run: swift package dump-package
+
+      - name: Build for iOS Simulator
+        run: >-
+          xcodebuild build
+          -scheme SolidChatSDK
+          -destination 'generic/platform=iOS Simulator'
+          -derivedDataPath "$RUNNER_TEMP/SolidChatDerivedData"
+          CODE_SIGNING_ALLOWED=NO

@@ -3,7 +3,14 @@ plugins {
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
     id("org.jetbrains.kotlin.plugin.serialization")
+    id("maven-publish")
 }
+
+group = "com.solidchat"
+version = providers.gradleProperty("sdkVersion")
+    .orElse(providers.environmentVariable("SDK_VERSION"))
+    .orElse("0.0.0-local")
+    .get()
 
 android {
     namespace = "com.solidchat.sdk"
@@ -15,6 +22,11 @@ android {
     }
 
     buildFeatures { compose = true }
+    publishing {
+        singleVariant("release") {
+            withSourcesJar()
+        }
+    }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -35,4 +47,36 @@ dependencies {
         exclude(group = "org.json", module = "json")
     }
     testImplementation(kotlin("test"))
+}
+
+afterEvaluate {
+    publishing {
+        publications {
+            create<MavenPublication>("release") {
+                from(components["release"])
+                artifactId = "solidchat-android-sdk"
+                pom {
+                    name.set("SolidChat Android SDK")
+                    description.set("Native Android client and Jetpack Compose UI for SolidChat.")
+                    url.set("https://github.com/bizdevsg/live-chat")
+                    scm {
+                        connection.set("scm:git:https://github.com/bizdevsg/live-chat.git")
+                        url.set("https://github.com/bizdevsg/live-chat")
+                    }
+                }
+            }
+        }
+        repositories {
+            maven {
+                name = "GitHubPackages"
+                url = uri("https://maven.pkg.github.com/bizdevsg/live-chat")
+                credentials {
+                    username = providers.environmentVariable("GITHUB_ACTOR").orNull
+                        ?: providers.gradleProperty("gpr.user").orNull
+                    password = providers.environmentVariable("GITHUB_TOKEN").orNull
+                        ?: providers.gradleProperty("gpr.key").orNull
+                }
+            }
+        }
+    }
 }

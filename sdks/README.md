@@ -9,6 +9,15 @@ SDK mobile ini adalah consumer native baru untuk kontrak publik `api/v1/widget` 
 
 Keduanya dapat dipakai sebagai headless client atau dengan layar chat bawaan. UI bawaan bukan WebView.
 
+## Distribusi untuk tim mobile
+
+- Android: GitHub Packages Maven, coordinate `com.solidchat:solidchat-android-sdk:<version>`.
+- iOS: Swift Package URL `https://github.com/bizdevsg/live-chat.git`.
+- Versi SDK mengikuti tag release repository, misalnya `v0.16.0` dipakai sebagai dependency `0.16.0`.
+- Workflow `.github/workflows/mobile-sdk.yml` membangun kedua platform pada perubahan SDK dan mempublish Android package ketika perubahan SDK masuk ke branch `dev` atau workflow dijalankan manual. Tag `v*` menjadi versi Swift Package yang dapat dipilih Xcode.
+
+Tim mobile hanya menerima API base URL, `siteId`, versi dependency, dan identity token yang diterbitkan backend. Secret penandatanganan tidak pernah ditempatkan dalam aplikasi.
+
 ## Parity dengan web widget
 
 | Perilaku | Android | iOS |

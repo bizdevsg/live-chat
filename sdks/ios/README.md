@@ -4,7 +4,15 @@ Native Swift SDK dengan UI SwiftUI. Tidak menggunakan WKWebView.
 
 ## Swift Package Manager
 
-Di Xcode pilih **File → Add Package Dependencies → Add Local**, kemudian arahkan ke folder `sdks/ios`. Package mengambil `socket.io-client-swift` sebagai satu-satunya dependency eksternal.
+Di Xcode pilih **File → Add Package Dependencies**, lalu masukkan:
+
+```text
+https://github.com/bizdevsg/live-chat.git
+```
+
+Pilih **Up to Next Major Version** dari `0.16.0`. Karena repository bersifat private, developer harus sudah login ke GitHub dari Xcode atau memakai credential Git yang memiliki akses repository.
+
+Untuk pengembangan SDK secara lokal, pilih **Add Local** dan arahkan ke root repository atau folder `sdks/ios`. Package mengambil `socket.io-client-swift` sebagai satu-satunya dependency eksternal.
 
 ## UI siap pakai
 

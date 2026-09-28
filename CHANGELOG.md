@@ -3,8 +3,19 @@
 Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
+### Added
+- Menambahkan `.github/workflows/mobile-sdk.yml`.
+- Menambahkan `Package.swift`.
+- Menambahkan distribusi Android SDK melalui GitHub Packages Maven dengan coordinate `com.solidchat:solidchat-android-sdk` dan metadata dependency transitif.
+- Menambahkan manifest Swift Package pada root repository agar tim iOS dapat memasang `SolidChatSDK` langsung dari URL GitHub dan tag release.
+- Menambahkan workflow Mobile SDK untuk memvalidasi Android/iOS, mengunggah artefak AAR, dan mempublish package Android secara otomatis dari branch `dev` atau manual dispatch.
+
 ### Changed
-- Memperbarui `package.json`.
+- Memperbarui `sdks/README.md`.
+- Memperbarui `sdks/android/README.md`.
+- Memperbarui `sdks/android/solidchat-sdk/build.gradle.kts`.
+- Memperbarui `sdks/ios/README.md`.
+- Memperbarui panduan integrasi tim mobile dengan credential, repository, dependency coordinate, versioning, dan local-development fallback.
 
 ## [0.15.0] - 2026-09-28
 ### Added

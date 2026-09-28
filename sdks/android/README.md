@@ -2,9 +2,44 @@
 
 Native Kotlin SDK dengan UI Jetpack Compose. Tidak menggunakan WebView.
 
-## Menambahkan module
+## Instalasi dari GitHub Packages
 
-Untuk penggunaan langsung dari monorepo:
+Tambahkan credential GitHub pada `~/.gradle/gradle.properties` milik developer atau secret CI. Token memerlukan akses `read:packages` dan, untuk repository private, akses repository:
+
+```properties
+gpr.user=GITHUB_USERNAME
+gpr.key=GITHUB_TOKEN
+```
+
+Daftarkan repository pada `settings.gradle.kts` aplikasi:
+
+```kotlin
+dependencyResolutionManagement {
+    repositories {
+        google()
+        mavenCentral()
+        maven {
+            url = uri("https://maven.pkg.github.com/bizdevsg/live-chat")
+            credentials {
+                username = providers.gradleProperty("gpr.user").get()
+                password = providers.gradleProperty("gpr.key").get()
+            }
+        }
+    }
+}
+```
+
+Tambahkan dependency SDK dengan versi release yang disepakati:
+
+```kotlin
+dependencies {
+    implementation("com.solidchat:solidchat-android-sdk:0.16.0")
+}
+```
+
+## Menambahkan module secara lokal
+
+Cara ini hanya untuk pengembangan SDK langsung dari monorepo:
 
 ```kotlin
 // settings.gradle.kts milik aplikasi
