@@ -5,6 +5,12 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 ## [Unreleased]
 ### Changed
 - Memperbarui `package.json`.
+- Memperbarui `sdks/README.md`.
+- Memperbarui `sdks/android/README.md`.
+- Memperbarui `sdks/android/solidchat-sdk/build.gradle.kts`.
+- Memperbarui `sdks/ios/README.md`.
+- Memperkaya deskripsi Maven POM untuk `com.solidchat:solidchat-android-sdk` dengan cakupan fitur, arsitektur native, metadata developer, SCM, dan issue tracker agar halaman GitHub Packages menjelaskan fungsi package secara jelas.
+- Memperluas dokumentasi Android SDK dengan kemampuan, requirement, arsitektur, konfigurasi environment, lifecycle, batas tanggung jawab, keamanan, error handling, dan kebijakan versioning untuk tim integrator.
 
 ## [0.16.2] - 2026-09-28
 ### Changed

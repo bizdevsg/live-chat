@@ -57,11 +57,36 @@ afterEvaluate {
                 artifactId = "solidchat-android-sdk"
                 pom {
                     name.set("SolidChat Android SDK")
-                    description.set("Native Android client and Jetpack Compose UI for SolidChat.")
-                    url.set("https://github.com/bizdevsg/live-chat")
+                    description.set(
+                        "SolidChat Android SDK is a native Kotlin integration for embedding " +
+                            "SolidChat AI and human-agent customer support in Android applications " +
+                            "without a WebView. It provides a headless REST and Socket.IO client, " +
+                            "visitor and conversation persistence, realtime messaging and typing " +
+                            "events, AI-to-agent handoff with timeout recovery, pre-chat lead capture, " +
+                            "offline ticket submission, image attachments, customer identity, ratings, " +
+                            "and an optional production-ready Jetpack Compose chat screen. The SDK " +
+                            "uses the same public backend contract as the SolidChat web widget while " +
+                            "remaining isolated from the widget runtime."
+                    )
+                    url.set("https://github.com/bizdevsg/live-chat/tree/dev/sdks/android")
+                    inceptionYear.set("2026")
+                    developers {
+                        developer {
+                            id.set("bizdevsg")
+                            name.set("SolidChat Development Team")
+                            organization.set("BizDev SG")
+                            organizationUrl.set("https://github.com/bizdevsg")
+                        }
+                    }
                     scm {
                         connection.set("scm:git:https://github.com/bizdevsg/live-chat.git")
+                        developerConnection.set("scm:git:https://github.com/bizdevsg/live-chat.git")
                         url.set("https://github.com/bizdevsg/live-chat")
+                        tag.set("HEAD")
+                    }
+                    issueManagement {
+                        system.set("GitHub Issues")
+                        url.set("https://github.com/bizdevsg/live-chat/issues")
                     }
                 }
             }
