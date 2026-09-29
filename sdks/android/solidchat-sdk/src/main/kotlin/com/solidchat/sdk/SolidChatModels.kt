@@ -3,10 +3,13 @@ package com.solidchat.sdk
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
+const val SOLIDCHAT_PRODUCTION_API_URL = "https://live-chat.sg-berjangka.com"
+const val SOLIDCHAT_SOLID_GOLD_SITE_ID = "solid-gold-main"
+
 @Serializable
 data class SolidChatConfig(
-    val apiUrl: String,
-    val siteId: String,
+    val apiUrl: String = SOLIDCHAT_PRODUCTION_API_URL,
+    val siteId: String = SOLIDCHAT_SOLID_GOLD_SITE_ID,
     val language: String = "id",
 )
 
@@ -81,6 +84,9 @@ data class Conversation(
 
 @Serializable
 data class Attachment(val id: String, val fileName: String, val mimeType: String)
+
+@Serializable
+internal data class AttachmentUrlResult(val url: String)
 
 @Serializable
 data class ChatMessage(

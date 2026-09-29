@@ -3,8 +3,18 @@
 Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
+
+## [0.16.4] - 2026-09-29
+### Added
+- Menambahkan default production Android SDK untuk base URL `https://live-chat.sg-berjangka.com` dan site ID `solid-gold-main`.
+- Menambahkan pengujian konfigurasi production dan memastikan `pageUrl` sesi native kosong secara default.
+- Menambahkan `SolidChatClient.getAttachmentUrl()` agar aplikasi Android dapat meminta signed URL attachment MinIO melalui Widget API tanpa membawa credential storage di APK.
+
 ### Changed
 - Memperbarui `package.json`.
+- Android SDK kini menyimpan `visitorToken` bersama `visitorId` di `SharedPreferences`, menggunakan kembali token saat membuka layar chat, dan hanya membuat session baru ketika token tidak tersedia atau ditolak server.
+- Konfigurasi Socket.IO Android kini menetapkan namespace `/widget` dan path `/socket.io/` secara eksplisit serta dokumentasi integrasi menjelaskan endpoint Widget API yang boleh dipakai aplikasi.
+- Dokumentasi Android kini menjelaskan alur upload dan pembacaan gambar melalui bucket private MinIO, signed URL berumur pendek, serta pemisahan endpoint internal dan public signing endpoint.
 
 ## [0.16.3] - 2026-09-28
 ### Changed
@@ -735,7 +745,8 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 - Memperbarui `apps/dashboard/src/app/(dashboard)/knowledge/page.tsx`.
 - Memperbarui `package.json`.
 
-[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.16.3...HEAD
+[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.16.4...HEAD
+[0.16.4]: https://github.com/bizdevsg/live-chat/compare/v0.16.3...v0.16.4
 [0.16.3]: https://github.com/bizdevsg/live-chat/compare/v0.16.2...v0.16.3
 [0.16.2]: https://github.com/bizdevsg/live-chat/compare/v0.16.1...v0.16.2
 [0.16.1]: https://github.com/bizdevsg/live-chat/compare/v0.16.0...v0.16.1

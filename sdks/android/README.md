@@ -38,6 +38,15 @@ SDK menggunakan kontrak backend publik yang sama dengan web widget, tetapi lifec
 
 Host app membutuhkan akses ke base URL API SolidChat dan `siteId` publik. Package tidak membutuhkan API key, database credential, OpenAI key, atau secret penandatanganan.
 
+Konfigurasi production PT Solid Gold Berjangka sudah menjadi default SDK:
+
+- Base URL: `https://live-chat.sg-berjangka.com`
+- REST Widget API: `https://live-chat.sg-berjangka.com/api/v1/widget`
+- Socket.IO: namespace `/widget`, path `/socket.io/`
+- Site ID: `solid-gold-main`
+
+Endpoint `/admin`, `/agent`, dan `/auth` tidak digunakan oleh SDK Android karena hanya ditujukan untuk dashboard CS/admin.
+
 ## Arsitektur singkat
 
 ```text
@@ -120,6 +129,12 @@ SolidChatConfig(
 )
 ```
 
+Untuk aplikasi resmi PT Solid Gold Berjangka, konfigurasi default production dapat digunakan langsung:
+
+```kotlin
+val config = SolidChatConfig()
+```
+
 Untuk Android Emulator yang mengakses backend lokal di komputer gunakan `http://10.0.2.2:4000`. Perangkat fisik harus memakai alamat LAN yang dapat dijangkau atau endpoint HTTPS development.
 
 ## UI siap pakai
@@ -129,10 +144,7 @@ class ChatActivity : ComponentActivity() {
     private val chatClient by lazy {
         SolidChatClient(
             applicationContext,
-            SolidChatConfig(
-                apiUrl = "https://chat-api.example.com",
-                siteId = "solid-gold-main",
-            ),
+            SolidChatConfig(),
         )
     }
 
@@ -178,12 +190,59 @@ lifecycleScope.launch {
 }
 ```
 
-API publik penting: `initialize`, `sendMessage`, `uploadImage`, `submitPreChat`, `submitTicket`, `requestAgent`, `closeConversation`, `startNewConversation`, `submitFeedback`, `identify`, `notifyTyping`, `markRead`, `reset`, dan `close`.
+API publik penting: `initialize`, `sendMessage`, `uploadImage`, `getAttachmentUrl`, `submitPreChat`, `submitTicket`, `requestAgent`, `closeConversation`, `startNewConversation`, `submitFeedback`, `identify`, `notifyTyping`, `markRead`, `reset`, dan `close`.
+
+## Penyimpanan gambar dengan MinIO
+
+SDK tidak pernah mengakses MinIO memakai credential secara langsung. APK juga tidak boleh berisi `S3_ACCESS_KEY`, `S3_SECRET_KEY`, atau `MINIO_ROOT_PASSWORD`. Semua operasi storage melewati Widget API:
+
+```text
+Android SDK
+  ├─ POST /api/v1/widget/conversations/:id/images
+  │    └─ API memvalidasi file dan menyimpannya ke bucket private MinIO
+  └─ GET /api/v1/widget/conversations/:conversationId/attachments/:attachmentId/url
+       └─ API mengembalikan signed URL berumur pendek
+```
+
+Upload gambar dilakukan melalui API publik SDK:
+
+```kotlin
+client.uploadImage(
+    file = cachedImageFile,
+    mimeType = "image/jpeg",
+    caption = "Bukti pendukung",
+)
+```
+
+Untuk menampilkan attachment pada UI custom, minta signed URL ketika gambar akan dimuat. Jangan menyimpan URL tersebut karena masa berlakunya terbatas:
+
+```kotlin
+val signedUrl = client.getAttachmentUrl(message.attachments.first().id)
+// Berikan signedUrl ke image loader Android, misalnya Coil atau Glide.
+```
+
+MinIO tetap dikonfigurasi hanya pada environment server. Contoh deployment Docker:
+
+```dotenv
+S3_ENDPOINT=http://minio:9000
+S3_PUBLIC_ENDPOINT=https://DOMAIN-MINIO-PUBLIK
+S3_REGION=us-east-1
+S3_ACCESS_KEY=solidchat
+S3_SECRET_KEY=SECRET_YANG_KUAT
+S3_BUCKET=solidchat
+MINIO_ROOT_USER=solidchat
+MINIO_ROOT_PASSWORD=SECRET_YANG_KUAT
+```
+
+`S3_ENDPOINT` dipakai API di jaringan internal. `S3_PUBLIC_ENDPOINT` wajib berupa origin HTTPS yang dapat dijangkau perangkat Android karena hostname tersebut ikut ditandatangani pada signed URL. Bucket tetap private; file hanya dibaca menggunakan signed URL dari endpoint Widget API.
 
 ## Lifecycle dan persistence
 
 - Buat satu `SolidChatClient` untuk satu layar/session chat, idealnya melalui dependency injection atau `ViewModel` dengan scope yang sesuai.
 - Panggil `initialize()` sekali ketika flow chat dimulai. `SolidChatScreen` melakukannya otomatis.
+- SDK membuat `visitorId` UUID satu kali dan menyimpannya di `SharedPreferences` per `siteId`.
+- `visitorToken` juga disimpan dan digunakan kembali. Endpoint `/session` hanya dipanggil saat token belum tersedia atau server menyatakan token kedaluwarsa/tidak valid, sehingga tidak membebani rate limit session ketika layar chat dibuka berulang kali.
+- `pageUrl` secara default tidak dikirim untuk integrasi native, sehingga validasi allowed domain khusus widget web tidak dijalankan.
 - Panggil `close()` ketika owner permanen client dihancurkan agar koneksi Socket.IO dan coroutine scope dilepas.
 - `reset()` menghapus visitor dan conversation lokal. Gunakan saat logout hanya bila produk memang ingin memulai identitas chat baru.
 - Conversation yang masih aktif otomatis dilanjutkan. Conversation berstatus `RESOLVED` atau `CLOSED` menawarkan flow pesan baru.

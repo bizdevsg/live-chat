@@ -28,6 +28,7 @@ internal class SolidChatRealtime(
         this.conversationId = conversationId
         val options = IO.Options.builder()
             .setAuth(mapOf("visitorToken" to visitorToken))
+            .setPath("/socket.io/")
             .setTransports(arrayOf("websocket", "polling"))
             .setReconnection(true)
             .build()

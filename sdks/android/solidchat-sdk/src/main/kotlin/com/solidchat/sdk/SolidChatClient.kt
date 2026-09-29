@@ -45,26 +45,57 @@ class SolidChatClient(
         scope.launch {
             mutableState.value = mutableState.value.copy(loading = true, error = null)
             runCatching {
-                val session = api.post<SessionRequest, SessionResult>(
-                    "/api/v1/widget/session",
-                    SessionRequest(
-                        siteId = config.siteId,
-                        visitorId = storage.visitorId(),
-                        pageUrl = context.pageUrl,
-                        pageTitle = context.pageTitle,
-                        language = config.language,
-                        referrer = context.referrer,
-                        utm = context.utm,
-                        device = context.device,
-                    ),
-                )
-                visitorToken = session.visitorToken
-                api.token = session.visitorToken
-                mutableState.value = mutableState.value.copy(site = session.site)
-                restoreOrCreateConversation()
+                restoreCachedSession() || createSession(context)
             }.onFailure(::publishError)
             mutableState.value = mutableState.value.copy(loading = false)
         }
+    }
+
+    private suspend fun restoreCachedSession(): Boolean {
+        val cachedToken = storage.visitorToken ?: return false
+        visitorToken = cachedToken
+        api.token = cachedToken
+
+        return runCatching {
+            val site = api.get<SiteConfig>("/api/v1/widget/config/${config.siteId}")
+            mutableState.value = mutableState.value.copy(site = site)
+            restoreOrCreateConversation()
+        }.fold(
+            onSuccess = { true },
+            onFailure = { error ->
+                val sdkError = error as? SolidChatException
+                if (sdkError?.httpStatus == 401 || sdkError?.httpStatus == 403) {
+                    storage.visitorToken = null
+                    visitorToken = null
+                    api.token = null
+                    false
+                } else {
+                    throw error
+                }
+            },
+        )
+    }
+
+    private suspend fun createSession(context: SolidChatSessionContext): Boolean {
+        val session = api.post<SessionRequest, SessionResult>(
+            "/api/v1/widget/session",
+            SessionRequest(
+                siteId = config.siteId,
+                visitorId = storage.visitorId(),
+                pageUrl = context.pageUrl,
+                pageTitle = context.pageTitle,
+                language = config.language,
+                referrer = context.referrer,
+                utm = context.utm,
+                device = context.device,
+            ),
+        )
+        storage.visitorToken = session.visitorToken
+        visitorToken = session.visitorToken
+        api.token = session.visitorToken
+        mutableState.value = mutableState.value.copy(site = session.site)
+        restoreOrCreateConversation()
+        return true
     }
 
     suspend fun sendMessage(content: String) {
@@ -87,6 +118,18 @@ class SolidChatClient(
         check(conversation.handlerType == "HUMAN") { "Gambar hanya dapat dikirim saat ditangani agent." }
         runCatching { api.uploadImage(conversation.id, file, mimeType, caption, UUID.randomUUID().toString()) }
             .onSuccess(::mergeMessage).onFailure(::publishError).getOrThrow()
+    }
+
+    /**
+     * Returns a short-lived MinIO URL for an attachment in the active conversation.
+     * The URL must not be persisted because the server signs it with a limited lifetime.
+     */
+    suspend fun getAttachmentUrl(attachmentId: String): String {
+        require(attachmentId.isNotBlank()) { "Attachment ID tidak boleh kosong." }
+        val conversation = requireConversation()
+        return api.get<AttachmentUrlResult>(
+            "/api/v1/widget/conversations/${conversation.id}/attachments/$attachmentId/url",
+        ).url
     }
 
     suspend fun submitPreChat(input: PreChatInput) {

@@ -10,6 +10,10 @@ internal class SolidChatStorage(context: Context, siteId: String) {
         prefs.edit().putString("visitor_id", it).apply()
     }
 
+    var visitorToken: String?
+        get() = prefs.getString("visitor_token", null)
+        set(value) = prefs.edit().apply { if (value == null) remove("visitor_token") else putString("visitor_token", value) }.apply()
+
     var conversationId: String?
         get() = prefs.getString("conversation_id", null)
         set(value) = prefs.edit().apply { if (value == null) remove("conversation_id") else putString("conversation_id", value) }.apply()
