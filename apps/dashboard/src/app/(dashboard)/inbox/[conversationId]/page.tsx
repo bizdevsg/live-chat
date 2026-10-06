@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient, ApiError } from "@/lib/api-client";
@@ -81,6 +81,46 @@ function formatTranscriptTime(value: string) {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(date);
+}
+
+function getLocalDateKey(value: string | Date) {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function formatMessageDate(value: string, now = new Date()) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+
+  const todayKey = getLocalDateKey(now);
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const messageDateKey = getLocalDateKey(date);
+
+  if (messageDateKey === todayKey) return "Today";
+  if (messageDateKey === getLocalDateKey(yesterday)) return "Yesterday";
+
+  const day = String(date.getDate()).padStart(2, "0");
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  return `${day}/${month}/${date.getFullYear()}`;
+}
+
+function MessageDateSeparator({ createdAt }: { createdAt: string }) {
+  const label = formatMessageDate(createdAt);
+  if (!label) return null;
+
+  return (
+    <div className="flex justify-center py-1" role="separator" aria-label={label}>
+      <span className="rounded-lg border border-ink-600/80 bg-ink-800/95 px-3 py-1 text-[11px] font-medium text-zinc-300 shadow-sm">
+        {label}
+      </span>
+    </div>
+  );
 }
 
 function getTranscriptSender(message: MessageItem, visitorName?: string | null) {
@@ -594,9 +634,17 @@ export default function ConversationDetailPage() {
           backgroundColor: "#2e2e2e",
           backgroundImage: "url(/conversation-bg.png)",
         }}>
-          {visibleMessages.map((m) => (
-            <MessageBubble key={m.id} message={m} visitorName={visitorName} showSeen={m.id === lastSeenAgentMessageId} />
-          ))}
+          {visibleMessages.map((m, index) => {
+            const previousMessage = visibleMessages[index - 1];
+            const startsNewDay = !previousMessage || getLocalDateKey(previousMessage.createdAt) !== getLocalDateKey(m.createdAt);
+
+            return (
+              <Fragment key={m.id}>
+                {startsNewDay ? <MessageDateSeparator createdAt={m.createdAt} /> : null}
+                <MessageBubble message={m} visitorName={visitorName} showSeen={m.id === lastSeenAgentMessageId} />
+              </Fragment>
+            );
+          })}
           {(visitorTyping || aiTyping) && (
             <div className="text-xs text-zinc-500">
               {visitorTyping ? `${visitorName ?? "Visitor"} sedang mengetik…` : "AI sedang mengetik…"}

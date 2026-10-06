@@ -3,6 +3,12 @@
 Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
+- Belum ada perubahan terdeteksi.
+
+## [0.17.0] - 2026-10-06
+### Changed
+- Memperbarui `apps/dashboard/src/app/(dashboard)/inbox/[conversationId]/page.tsx`.
+- Mengubah tampilan tanggal pada transcript Inbox CS/Admin menjadi pemisah hari bergaya WhatsApp: `Today`, `Yesterday`, atau tanggal `dd/MM/yyyy`, sehingga pergantian hari dalam riwayat chat lebih mudah dikenali.
 
 ## [0.16.4] - 2026-09-29
 ### Added
@@ -745,7 +751,8 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 - Memperbarui `apps/dashboard/src/app/(dashboard)/knowledge/page.tsx`.
 - Memperbarui `package.json`.
 
-[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.16.4...HEAD
+[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.17.0...HEAD
+[0.17.0]: https://github.com/bizdevsg/live-chat/compare/v0.16.4...v0.17.0
 [0.16.4]: https://github.com/bizdevsg/live-chat/compare/v0.16.3...v0.16.4
 [0.16.3]: https://github.com/bizdevsg/live-chat/compare/v0.16.2...v0.16.3
 [0.16.2]: https://github.com/bizdevsg/live-chat/compare/v0.16.1...v0.16.2
