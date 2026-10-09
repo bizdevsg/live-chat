@@ -3,6 +3,10 @@
 Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
+### Changed
+- Memperbarui `package.json`.
+
+## [0.18.0] - 2026-10-09
 ### Added
 - Menambahkan Chrome/Chromium extension `extensions/whatsapp-assistant` berbentuk native side panel untuk memindai chat aktif WhatsApp Web, menerima prompt agent, memasukkan draft ke composer, dan menjalankan guarded auto-reply.
 - Menambahkan `apps/api/src/admin/overview.controller.spec.ts`.
@@ -932,7 +936,8 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 - Memperbarui `apps/dashboard/src/app/(dashboard)/knowledge/page.tsx`.
 - Memperbarui `package.json`.
 
-[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.17.0...HEAD
+[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.18.0...HEAD
+[0.18.0]: https://github.com/bizdevsg/live-chat/compare/v0.17.0...v0.18.0
 [0.17.0]: https://github.com/bizdevsg/live-chat/compare/v0.16.4...v0.17.0
 [0.16.4]: https://github.com/bizdevsg/live-chat/compare/v0.16.3...v0.16.4
 [0.16.3]: https://github.com/bizdevsg/live-chat/compare/v0.16.2...v0.16.3
