@@ -50,6 +50,10 @@ Users (`/users`, `/users/roles`, `/users/invite`, `/users/:id`, `/users/:id/revo
 
 `GET /configuration`, `PUT /configuration/:id`, `GET /runs`, `POST /runs/:id/feedback`.
 
+## WhatsApp Assistant (`/api/v1/whatsapp-assistant`)
+
+`GET /status` dan `POST /reply` menggunakan header `X-WhatsApp-Assistant-Key`, bukan sesi user Dashboard. Payload reply berisi `prompt`, `systemPrompt` yang dibundel oleh extension, `messages` (1-50 item dengan `senderType: "CUSTOMER" | "AGENT"` dan `content`), serta `siteId`/`conversationTitle` opsional. Jika `WHATSAPP_ASSISTANT_SITE_ID` disetel, site tersebut menjadi default. Backend hanya mengambil knowledge dari database dan tidak membaca/menyimpan prompt extension di `ai_prompts`. Respons berisi draft berbasis knowledge, confidence, sumber, ringkasan klasifikasi, `canAutoReply`, dan `autoReplyBlockedReason`. Endpoint ini tidak membuat atau menambahkan data ke conversation SolidChat.
+
 ## Tickets (`/api/v1/tickets`)
 
 `GET/POST /`, `GET/PUT /:id`, `POST /:id/comments`, `POST /:id/assign`, `POST /:id/{resolve,close,reopen}`.

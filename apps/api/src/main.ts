@@ -1,6 +1,7 @@
 import "reflect-metadata";
 import { NestFactory } from "@nestjs/core";
 import { ValidationPipe } from "@nestjs/common";
+import { NestExpressApplication } from "@nestjs/platform-express";
 import { ConfigService } from "@nestjs/config";
 import { SwaggerModule, DocumentBuilder } from "@nestjs/swagger";
 import helmet from "helmet";
@@ -28,7 +29,7 @@ function wildcardMatches(hostname: string, pattern: string) {
 }
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, { bufferLogs: true });
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, { bufferLogs: true, bodyParser: false });
   const config = app.get(ConfigService);
   const prisma = app.get(PrismaService);
   const isProduction = config.get<string>("NODE_ENV") === "production";
@@ -39,6 +40,11 @@ async function bootstrap() {
 
   app.use(helmet());
   app.use(cookieParser());
+  // AI Configuration can contain separate, long system prompts for the live-chat
+  // widget and WhatsApp Assistant. Keep a finite limit, but allow both prompts to
+  // be saved in one request instead of Express rejecting the default 100 KB body.
+  app.useBodyParser("json", { limit: "1mb" });
+  app.useBodyParser("urlencoded", { extended: true, limit: "1mb" });
 
   const developmentOrigins = isProduction
     ? []
@@ -63,10 +69,17 @@ async function bootstrap() {
       .map((origin) => parseOrigin(origin)?.origin ?? origin)
       .filter(Boolean),
   );
+  const whatsappAssistantEnabled = Boolean(
+    config.get<string>("WHATSAPP_ASSISTANT_API_KEY")?.trim() || config.get<string>("CRM_API_KEY")?.trim(),
+  );
+  const chromeExtensionOriginPattern = /^chrome-extension:\/\/[a-p]{32}$/;
 
   app.enableCors({
     origin: async (origin, callback) => {
       if (!origin || allowedOrigins.has(origin)) return callback(null, true);
+      if (whatsappAssistantEnabled && chromeExtensionOriginPattern.test(origin)) {
+        return callback(null, true);
+      }
 
       const parsedOrigin = parseOrigin(origin);
       if (!parsedOrigin) {

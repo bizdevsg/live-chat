@@ -1,0 +1,29 @@
+{
+  "manifest_version": 3,
+  "name": "SolidChat WhatsApp Assistant",
+  "description": "AI copilot untuk WhatsApp Web yang menggunakan knowledge base SolidChat.",
+  "version": "0.2.8",
+  "minimum_chrome_version": "114",
+  "permissions": ["storage", "sidePanel", "tabs", "scripting"],
+  "host_permissions": [
+    "https://web.whatsapp.com/*",
+    "https://live-chat.sg-berjangka.com/*",
+    "http://localhost:4000/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "Buka SolidChat Assistant"
+  },
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://web.whatsapp.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

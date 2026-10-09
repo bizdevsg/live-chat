@@ -161,14 +161,15 @@ describe("AgentService conversation access", () => {
   });
 });
 
-describe("AgentService.markOfflineOnLogout", () => {
-  function createLogoutService(availability: string | null) {
+describe("AgentService automatic auth presence", () => {
+  function createPresenceService(availability: string | null, activeSessionCount = 0) {
     const prisma = {
       agentProfile: {
         findUnique: jest.fn().mockResolvedValue(availability === null ? null : { availability }),
         upsert: jest.fn().mockResolvedValue({}),
       },
       agentStatusHistory: { create: jest.fn().mockResolvedValue({}) },
+      session: { count: jest.fn().mockResolvedValue(activeSessionCount) },
     };
     const realtime = { toOrganizationDashboard: jest.fn() };
     const presence = { broadcastPresence: jest.fn().mockResolvedValue(undefined) };
@@ -176,8 +177,29 @@ describe("AgentService.markOfflineOnLogout", () => {
     return { service, prisma, realtime, presence };
   }
 
+  it("flips an OFFLINE agent to ONLINE after login and broadcasts it", async () => {
+    const { service, prisma, realtime, presence } = createPresenceService("OFFLINE");
+
+    await service.markOnlineOnLogin("agent-a", "org-1");
+
+    expect(prisma.agentProfile.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { userId: "agent-a" }, update: expect.objectContaining({ availability: "ONLINE" }) }),
+    );
+    expect(realtime.toOrganizationDashboard).toHaveBeenCalledWith("org-1", "agent:status", { userId: "agent-a", availability: "ONLINE" });
+    expect(presence.broadcastPresence).toHaveBeenCalledWith("org-1");
+  });
+
+  it("does not create an AgentProfile merely because a non-agent logs in", async () => {
+    const { service, prisma, realtime } = createPresenceService(null);
+
+    await service.markOnlineOnLogin("supervisor-1", "org-1");
+
+    expect(prisma.agentProfile.upsert).not.toHaveBeenCalled();
+    expect(realtime.toOrganizationDashboard).not.toHaveBeenCalled();
+  });
+
   it("flips an ONLINE agent to OFFLINE and broadcasts it", async () => {
-    const { service, prisma, realtime, presence } = createLogoutService("ONLINE");
+    const { service, prisma, realtime, presence } = createPresenceService("ONLINE");
 
     await service.markOfflineOnLogout("agent-a", "org-1");
 
@@ -188,8 +210,18 @@ describe("AgentService.markOfflineOnLogout", () => {
     expect(presence.broadcastPresence).toHaveBeenCalledWith("org-1");
   });
 
+  it("keeps an agent ONLINE when another active session remains", async () => {
+    const { service, prisma, realtime, presence } = createPresenceService("ONLINE", 1);
+
+    await service.markOfflineOnLogout("agent-a", "org-1");
+
+    expect(prisma.agentProfile.upsert).not.toHaveBeenCalled();
+    expect(realtime.toOrganizationDashboard).not.toHaveBeenCalled();
+    expect(presence.broadcastPresence).not.toHaveBeenCalled();
+  });
+
   it("does nothing for an agent already OFFLINE", async () => {
-    const { service, prisma, realtime } = createLogoutService("OFFLINE");
+    const { service, prisma, realtime } = createPresenceService("OFFLINE");
 
     await service.markOfflineOnLogout("agent-a", "org-1");
 
@@ -198,7 +230,7 @@ describe("AgentService.markOfflineOnLogout", () => {
   });
 
   it("does nothing for a user with no AgentProfile — never creates one just because they logged out", async () => {
-    const { service, prisma } = createLogoutService(null);
+    const { service, prisma } = createPresenceService(null);
 
     await service.markOfflineOnLogout("supervisor-1", "org-1");
 

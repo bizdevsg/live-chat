@@ -1,7 +1,6 @@
 import { BadRequestException, Injectable, HttpStatus, NotFoundException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { JwtService } from "@nestjs/jwt";
-import { hash, verify } from "@node-rs/argon2";
 import { nanoid } from "nanoid";
 import { createHash } from "node:crypto";
 import type { JwtAccessPayload, JwtRefreshPayload } from "@solidchat/shared";
@@ -19,6 +18,8 @@ import {
   CUSTOM_ON_CONVERSATION_SOUND_ID,
 } from "./account-settings.constants";
 import { normalizeUserAccountSettings, upsertUserAccountSettings } from "./account-settings.util";
+import { hashPassword, verifyPassword } from "./password-hashing.util";
+import { AgentService } from "../agent/agent.service";
 
 const MAX_FAILED_ATTEMPTS = 5;
 const LOCKOUT_MINUTES = 15;
@@ -43,6 +44,7 @@ export class AuthService {
     private readonly auditLog: AuditLogService,
     private readonly securityEvents: SecurityEventService,
     private readonly storage: StorageService,
+    private readonly agentService: AgentService,
   ) {}
 
   async login(email: string, password: string, meta: RequestMeta): Promise<AuthTokens> {
@@ -65,7 +67,7 @@ export class AuthService {
       throw new ApiException(ErrorCode.ACCOUNT_DISABLED, "Akun dinonaktifkan.", HttpStatus.FORBIDDEN);
     }
 
-    const passwordValid = await verify(user.passwordHash, password);
+    const passwordValid = await verifyPassword(user.passwordHash, password);
     if (!passwordValid) {
       const failedCount = user.failedLoginCount + 1;
       const shouldLock = failedCount >= MAX_FAILED_ATTEMPTS;
@@ -103,6 +105,8 @@ export class AuthService {
       ipAddress: meta.ipAddress,
       userAgent: meta.userAgent,
     });
+
+    await this.agentService.markOnlineOnLogin(user.id, user.organizationId).catch(() => undefined);
 
     return tokens;
   }
@@ -171,6 +175,10 @@ export class AuthService {
       userAgent: meta.userAgent,
     });
 
+    if (context) {
+      await this.agentService.markOnlineOnLogin(userId, context.organizationId).catch(() => undefined);
+    }
+
     return tokens;
   }
 
@@ -202,7 +210,7 @@ export class AuthService {
     });
     if (!record) throw new UnauthorizedApiException("Token reset password tidak valid atau kedaluwarsa.");
 
-    const passwordHash = await hash(newPassword);
+    const passwordHash = await hashPassword(newPassword);
     await this.prisma.$transaction([
       this.prisma.user.update({ where: { id: record.userId }, data: { passwordHash } }),
       this.prisma.passwordResetToken.update({ where: { id: record.id }, data: { usedAt: new Date() } }),
@@ -357,6 +365,40 @@ export class AuthService {
     const updated = await loadUserAuthContext(this.prisma, userId);
     if (!updated) throw new UnauthorizedApiException();
     return updated;
+  }
+
+  async changePassword(userId: string, currentSessionId: string, currentPassword: string, newPassword: string): Promise<void> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, organizationId: true, passwordHash: true },
+    });
+    if (!user) throw new UnauthorizedApiException();
+
+    const currentPasswordValid = await verifyPassword(user.passwordHash, currentPassword);
+    if (!currentPasswordValid) {
+      throw new BadRequestException("Password saat ini salah.");
+    }
+    if (currentPassword === newPassword) {
+      throw new BadRequestException("Password baru harus berbeda dari password saat ini.");
+    }
+
+    const passwordHash = await hashPassword(newPassword);
+    await this.prisma.$transaction([
+      this.prisma.user.update({ where: { id: userId }, data: { passwordHash } }),
+      this.prisma.session.updateMany({
+        where: { userId, id: { not: currentSessionId }, revokedAt: null },
+        data: { revokedAt: new Date() },
+      }),
+    ]);
+
+    await this.auditLog.record({
+      organizationId: user.organizationId,
+      actorType: "USER",
+      actorId: userId,
+      action: "auth.password_changed",
+      resourceType: "user",
+      resourceId: userId,
+    });
   }
 
   async uploadAvatar(userId: string, file: Express.Multer.File) {

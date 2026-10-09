@@ -1,5 +1,11 @@
 import { IsBoolean, IsEmail, IsIn, IsOptional, IsString, Matches, MaxLength, MinLength } from "class-validator";
 import {
+  PASSWORD_COMPLEXITY_MESSAGE,
+  PASSWORD_COMPLEXITY_PATTERN,
+  PASSWORD_MAX_LENGTH,
+  PASSWORD_MIN_LENGTH,
+} from "@solidchat/shared";
+import {
   CUSTOM_NEW_MESSAGES_SOUND_ID,
   CUSTOM_ON_CONVERSATION_SOUND_ID,
   NEW_MESSAGES_SOUND_IDS,
@@ -35,15 +41,27 @@ export class UpdateProfileDto {
   name!: string;
 }
 
+export class ChangePasswordDto {
+  @IsString()
+  @MinLength(1, { message: "Password saat ini wajib diisi." })
+  @MaxLength(512, { message: "Password saat ini terlalu panjang." })
+  currentPassword!: string;
+
+  @IsString()
+  @MinLength(PASSWORD_MIN_LENGTH, { message: "Password baru minimal 8 karakter." })
+  @MaxLength(PASSWORD_MAX_LENGTH, { message: "Password baru maksimal 64 karakter." })
+  @Matches(PASSWORD_COMPLEXITY_PATTERN, { message: PASSWORD_COMPLEXITY_MESSAGE })
+  newPassword!: string;
+}
+
 export class ResetPasswordDto {
   @IsString()
   token!: string;
 
   @IsString()
-  @MinLength(10, { message: "Password minimal 10 karakter." })
-  @Matches(/[a-z]/, { message: "Password harus mengandung huruf kecil." })
-  @Matches(/[A-Z]/, { message: "Password harus mengandung huruf besar." })
-  @Matches(/[0-9]/, { message: "Password harus mengandung angka." })
+  @MinLength(PASSWORD_MIN_LENGTH, { message: "Password minimal 8 karakter." })
+  @MaxLength(PASSWORD_MAX_LENGTH, { message: "Password maksimal 64 karakter." })
+  @Matches(PASSWORD_COMPLEXITY_PATTERN, { message: PASSWORD_COMPLEXITY_MESSAGE })
   newPassword!: string;
 }
 

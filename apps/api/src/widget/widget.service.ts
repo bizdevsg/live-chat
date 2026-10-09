@@ -139,10 +139,17 @@ export class WidgetService {
     return { visitorToken, site: config, visitorDbId: visitor.id };
   }
 
-  async ensureConversation(siteId: string, visitorId: string, context?: CreateWidgetSessionDto & { language?: string }) {
+  async ensureConversation(
+    siteId: string,
+    visitorId: string,
+    context?: CreateWidgetSessionDto & { language?: string },
+    forceNew = false,
+  ) {
     const site = await this.prisma.site.findUniqueOrThrow({ where: { id: siteId }, include: { settings: true } });
-    const existing = await this.conversations.getActiveConversation(siteId, visitorId);
-    if (existing) return existing;
+    if (!forceNew) {
+      const existing = await this.conversations.getActiveConversation(siteId, visitorId);
+      if (existing) return existing;
+    }
 
     return this.conversations.createConversation({
       organizationId: site.organizationId,

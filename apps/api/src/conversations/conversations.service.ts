@@ -156,7 +156,7 @@ export class ConversationsService {
     await existing?.remove().catch(() => undefined);
   }
 
-  private async refreshAgentReplyTimeout(conversationId: string, timeoutStartedAt = new Date()) {
+  private async refreshAgentReplyTimeout(conversationId: string, timeoutStartedAt = new Date(), resetExisting = false) {
     const conversation = await this.prisma.conversation.findUnique({
       where: { id: conversationId },
       select: { status: true, handlerType: true },
@@ -165,12 +165,12 @@ export class ConversationsService {
       await this.cancelAgentReplyTimeout(conversationId);
       return;
     }
-    const existingStartedAt = await this.getExistingAgentReplyTimeoutStart(conversationId);
+    const existingStartedAt = resetExisting ? null : await this.getExistingAgentReplyTimeoutStart(conversationId);
     await this.scheduleAgentReplyTimeout(conversationId, existingStartedAt ?? timeoutStartedAt);
   }
 
-  private async safelyRefreshAgentReplyTimeout(conversationId: string, timeoutStartedAt = new Date()) {
-    await this.refreshAgentReplyTimeout(conversationId, timeoutStartedAt).catch((error: unknown) => {
+  private async safelyRefreshAgentReplyTimeout(conversationId: string, timeoutStartedAt = new Date(), resetExisting = false) {
+    await this.refreshAgentReplyTimeout(conversationId, timeoutStartedAt, resetExisting).catch((error: unknown) => {
       this.logger.warn(
         `Gagal menjadwalkan timeout balasan agent untuk conversation ${conversationId}: ${
           error instanceof Error ? error.message : "unknown error"
@@ -851,6 +851,7 @@ export class ConversationsService {
     opts: { slotAlreadyReserved?: boolean; conversationAlreadyClaimed?: boolean } = {},
   ) {
     const conversation = await this.getConversationOrThrow(conversationId);
+    const assignedAt = new Date();
     await this.safelyCancelAiInactivityTimeout(conversationId);
     if (
       !opts.conversationAlreadyClaimed &&
@@ -876,7 +877,7 @@ export class ConversationsService {
                 assignedAgentId: agentId,
                 handlerType: HandlerType.HUMAN,
                 status: ConversationStatus.AGENT_ACTIVE,
-                assignedAt: new Date(),
+                assignedAt,
               },
             }),
           ]),
@@ -900,9 +901,12 @@ export class ConversationsService {
       assignedAgentId: agentId,
       status: ConversationStatus.AGENT_ACTIVE,
       handlerType: HandlerType.HUMAN,
+      agentReplyTimeoutStartedAt: assignedAt.toISOString(),
     });
     if (conversation.assignedTeamId) this.realtime.toTeam(conversation.assignedTeamId, "queue:updated", { conversationId });
-    await this.safelyRefreshAgentReplyTimeout(conversationId);
+    // Accepting or transferring a chat starts a fresh reply window for the newly assigned agent.
+    // Never preserve the original queue/pickup timer, which may have only seconds remaining.
+    await this.safelyRefreshAgentReplyTimeout(conversationId, assignedAt, true);
   }
 
   async accept(conversationId: string, agentId: string) {
@@ -1124,6 +1128,13 @@ export class ConversationsService {
           );
         }
         await this.assignToAgent(conversationId, target.toAgentId, "MANUAL", { slotAlreadyReserved: true });
+        this.notifications.notifyAgent(
+          target.toAgentId,
+          "AGENT_TRANSFER",
+          "Chat ditransfer kepada Anda",
+          "Ada percakapan baru hasil transfer yang perlu Anda tangani.",
+          { conversationId, siteId: conversation.siteId, transferredByAgentId: actorId },
+        );
       } else {
         await this.assignToAgent(conversationId, target.toAgentId, "MANUAL");
       }

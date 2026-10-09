@@ -50,6 +50,8 @@ const envSchema = z.object({
   // Model names are fixed constants in @solidchat/shared (AI_MODELS) — there is no mock
   // provider anymore, so the API refuses to boot without a real OpenAI key.
   OPENAI_API_KEY: z.string().min(1, "OPENAI_API_KEY is required — there is no mock AI mode"),
+  WHATSAPP_ASSISTANT_API_KEY: z.string().min(16).optional(),
+  WHATSAPP_ASSISTANT_SITE_ID: z.string().optional(),
 
   CRM_PROVIDER: z.enum(["mock", "rest"]).default("mock"),
   CRM_BASE_URL: z.string().optional(),

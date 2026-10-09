@@ -467,4 +467,32 @@ describe("OpenAiProvider", () => {
     expect(answerPrompt).toContain("tidak dapat membantu permintaan script, kode, program");
     expect(answerPrompt).toContain("Jangan pernah menulis script/kode/program tersebut");
   });
+
+  it("applies an authenticated agent instruction to a grounded suggested reply", async () => {
+    const provider = createProvider();
+    const respondSpy = jest.spyOn(provider as any, "respond");
+    respondSpy.mockResolvedValueOnce('{"reply":"Silakan mulai melalui Aplikasi Solid, kak.","confidence":0.9}');
+
+    await provider.generateSuggestedReply({
+      history: [{ senderType: "CUSTOMER", content: "Cara daftar bagaimana?", createdAt: "2026-10-07T02:00:00.000Z" }],
+      language: "id",
+      evidence: [{
+        chunkId: "chunk_1",
+        documentId: "doc_1",
+        title: "Cara Daftar",
+        version: 1,
+        content: "Pendaftaran dilakukan melalui Aplikasi Solid.",
+        audience: "AGENT_ONLY",
+      }],
+      aiName: "Solid Prime AI",
+      agentName: "Dina",
+      organizationName: "PT Solid Gold Berjangka",
+      agentDraft: "Buat jawaban singkat dan ramah.",
+    });
+
+    const systemPrompt = respondSpy.mock.calls[0]?.[1] as string;
+    expect(systemPrompt).toContain("Instruksi tambahan dari agent: Buat jawaban singkat dan ramah.");
+    expect(systemPrompt).toContain("tidak boleh");
+    expect(systemPrompt).toContain("sumber fakta baru");
+  });
 });

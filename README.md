@@ -24,6 +24,8 @@ apps/
   dashboard/      Next.js 14 App Router — Admin + CS dashboard (27 routes)
   widget/         React + Vite — customer-facing chat iframe SPA
   widget-loader/  Vanilla TS → single ~3.6KB widget.js (esbuild)
+extensions/
+  whatsapp-assistant/ Chrome/Chromium side panel for WhatsApp Web + guarded auto-reply
 sdks/
   android/        Kotlin core SDK + native Jetpack Compose chat UI
   ios/            Swift core SDK + native SwiftUI chat UI
@@ -42,6 +44,8 @@ docs/             Architecture, API, WebSocket, security, AI policy, database, d
 ```
 
 Mobile SDK integration and API parity are documented in [`sdks/README.md`](sdks/README.md). Both mobile UIs are fully native and consume the existing widget REST/Socket.IO contract without changing the web widget runtime.
+
+WhatsApp Web agent-assistant installation, security boundaries, and limitations are documented in [`extensions/whatsapp-assistant/README.md`](extensions/whatsapp-assistant/README.md). The extension uses a dedicated Extension Key without a CS/Admin login and keeps OpenAI credentials server-side.
 
 ## 3. Features completed
 

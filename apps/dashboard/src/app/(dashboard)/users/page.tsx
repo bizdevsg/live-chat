@@ -11,6 +11,12 @@ import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
 import { Modal, ConfirmModal } from "@/components/ui/modal";
 import { DashboardEmpty, DashboardPage, DashboardPageHeader, DashboardPageMetrics, DashboardTablePanel } from "@/components/layout/dashboard-page";
+import {
+  getPasswordPolicyError,
+  PASSWORD_MAX_LENGTH,
+  PASSWORD_MIN_LENGTH,
+  PASSWORD_REQUIREMENTS,
+} from "@solidchat/shared";
 
 interface Role {
   id: string;
@@ -27,10 +33,6 @@ interface UserRow {
   roles: Array<{ role: Role }>;
 }
 
-function isValidPassword(value: string) {
-  return value.length >= 10 && /[a-z]/.test(value) && /[A-Z]/.test(value) && /[0-9]/.test(value);
-}
-
 export default function UsersPage() {
   const queryClient = useQueryClient();
   const toast = useToast();
@@ -43,7 +45,9 @@ export default function UsersPage() {
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [editPassword, setEditPassword] = useState("");
+  const [editConfirmPassword, setEditConfirmPassword] = useState("");
   const [roleSlug, setRoleSlug] = useState("cs_agent");
 
   const usersQuery = useQuery({ queryKey: ["users"], queryFn: () => apiClient.get<UserRow[]>("/api/v1/admin/users") });
@@ -67,6 +71,7 @@ export default function UsersPage() {
       setEmail("");
       setName("");
       setPassword("");
+      setConfirmPassword("");
     },
     onError: (err) => toast.push(err instanceof ApiError ? err.message : "Gagal membuat user.", "error"),
   });
@@ -90,6 +95,7 @@ export default function UsersPage() {
       setEditTarget(null);
       setName("");
       setEditPassword("");
+      setEditConfirmPassword("");
     },
     onError: (err) => toast.push(err instanceof ApiError ? err.message : "Gagal memperbarui user.", "error"),
   });
@@ -125,6 +131,7 @@ export default function UsersPage() {
                   setEmail("");
                   setName("");
                   setPassword("");
+                  setConfirmPassword("");
                   setRoleSlug("cs_agent");
                   setOpen(true);
                 }}
@@ -183,6 +190,7 @@ export default function UsersPage() {
                               setName(user.name);
                               setRoleSlug(user.roles[0]?.role.slug ?? "cs_agent");
                               setEditPassword("");
+                              setEditConfirmPassword("");
                             }}
                           >
                             Edit
@@ -227,13 +235,19 @@ export default function UsersPage() {
         onClose={() => {
           setOpen(false);
           setPassword("");
+          setConfirmPassword("");
         }}
       >
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            if (!isValidPassword(password)) {
-              toast.push("Password harus minimal 10 karakter dan mengandung huruf besar, huruf kecil, serta angka.", "error");
+            const passwordError = getPasswordPolicyError(password);
+            if (passwordError) {
+              toast.push(passwordError, "error");
+              return;
+            }
+            if (password !== confirmPassword) {
+              toast.push("Password dan konfirmasi password harus sama.", "error");
               return;
             }
             create.mutate();
@@ -255,11 +269,29 @@ export default function UsersPage() {
               type="password"
               autoComplete="new-password"
               required
-              minLength={10}
+              minLength={PASSWORD_MIN_LENGTH}
+              maxLength={PASSWORD_MAX_LENGTH}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
-            <p className="mt-1 text-xs text-zinc-500">Minimal 10 karakter, berisi huruf besar, huruf kecil, dan angka.</p>
+            <ul className="mt-2 space-y-1 text-xs text-zinc-500" aria-label="Syarat password">
+              {PASSWORD_REQUIREMENTS.map((requirement) => (
+                <li key={requirement}>• {requirement}</li>
+              ))}
+            </ul>
+          </div>
+          <div>
+            <Label htmlFor="confirm-password">Konfirmasi Password</Label>
+            <Input
+              id="confirm-password"
+              type="password"
+              autoComplete="new-password"
+              required
+              minLength={PASSWORD_MIN_LENGTH}
+              maxLength={PASSWORD_MAX_LENGTH}
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+            />
           </div>
           <div>
             <Label htmlFor="role">Role</Label>
@@ -286,13 +318,19 @@ export default function UsersPage() {
           setEditTarget(null);
           setName("");
           setEditPassword("");
+          setEditConfirmPassword("");
         }}
       >
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            if (editPassword && !isValidPassword(editPassword)) {
-              toast.push("Password harus minimal 10 karakter dan mengandung huruf besar, huruf kecil, serta angka.", "error");
+            const passwordError = editPassword ? getPasswordPolicyError(editPassword) : null;
+            if (passwordError) {
+              toast.push(passwordError, "error");
+              return;
+            }
+            if (editPassword !== editConfirmPassword) {
+              toast.push("Password dan konfirmasi password harus sama.", "error");
               return;
             }
             updateUser.mutate();
@@ -309,12 +347,26 @@ export default function UsersPage() {
               id="edit-password"
               type="password"
               autoComplete="new-password"
-              minLength={10}
+              minLength={PASSWORD_MIN_LENGTH}
+              maxLength={PASSWORD_MAX_LENGTH}
               value={editPassword}
               onChange={(e) => setEditPassword(e.target.value)}
               placeholder="Kosongkan jika tidak diubah"
             />
-            <p className="mt-1 text-xs text-zinc-500">Jika diisi, minimal 10 karakter dengan huruf besar, huruf kecil, dan angka.</p>
+            <p className="mt-1 text-xs text-zinc-500">Kosongkan jika tidak diubah. Jika diisi, password wajib memenuhi seluruh syarat keamanan.</p>
+          </div>
+          <div>
+            <Label htmlFor="edit-confirm-password">Konfirmasi Password Baru</Label>
+            <Input
+              id="edit-confirm-password"
+              type="password"
+              autoComplete="new-password"
+              minLength={editPassword ? PASSWORD_MIN_LENGTH : undefined}
+              maxLength={PASSWORD_MAX_LENGTH}
+              value={editConfirmPassword}
+              onChange={(e) => setEditConfirmPassword(e.target.value)}
+              placeholder="Kosongkan jika password tidak diubah"
+            />
           </div>
           <div>
             <Label htmlFor="edit-role">Role</Label>

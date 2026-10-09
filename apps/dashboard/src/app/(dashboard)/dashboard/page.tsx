@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Activity,
@@ -27,6 +28,15 @@ import { useAuthStore } from "@/lib/auth-store";
 import { Permission } from "@/lib/permissions";
 import { Topbar } from "@/components/layout/topbar";
 import { cn } from "@/components/ui/cn";
+import { getDashboardSocket } from "@/lib/socket";
+
+interface OnlineAgent {
+  userId: string;
+  name: string;
+  email: string;
+  activeChatCount: number;
+  maxConcurrentChats: number;
+}
 
 interface OverviewData {
   totalChatToday: number;
@@ -37,6 +47,7 @@ interface OverviewData {
   unresolvedCount: number;
   openTickets: number;
   agentsOnline: number;
+  onlineAgents: OnlineAgent[];
   aiContainmentRate: number;
   customerSatisfactionAvg: number | null;
 }
@@ -106,6 +117,17 @@ export default function OverviewPage() {
   const canRunCleanup = hasPermission(Permission.SECURITY_MANAGE);
   const overview = useQuery({ queryKey: ["admin", "overview"], queryFn: () => apiClient.get<OverviewData>("/api/v1/admin/overview") });
   const volume = useQuery({ queryKey: ["analytics", "conversations"], queryFn: () => apiClient.get<VolumePoint[]>("/api/v1/analytics/conversations") });
+  useEffect(() => {
+    const socket = getDashboardSocket();
+    const refreshOnlineAgents = () => {
+      void queryClient.invalidateQueries({ queryKey: ["admin", "overview"] });
+    };
+    socket.on("agent:status", refreshOnlineAgents);
+    return () => {
+      socket.off("agent:status", refreshOnlineAgents);
+    };
+  }, [queryClient]);
+
   const cleanup = useMutation({
     mutationFn: () => apiClient.post<CleanupResult>("/api/v1/admin/maintenance/cleanup"),
     onSuccess: async (result) => {
@@ -208,6 +230,43 @@ export default function OverviewPage() {
                       <CompactRow icon={Ticket} label="Ticket terbuka" value={data.openTickets} href="/tickets" tone={data.openTickets > 0 ? "rose" : "green"} />
                       <CompactRow icon={Clock3} label="Conversation belum selesai" value={data.unresolvedCount} href="/inbox" tone={data.unresolvedCount > 0 ? "gold" : "green"} />
                     </div>
+                  </section>
+
+                  <section className="rounded-2xl border border-ink-600 bg-ink-800/70 p-5">
+                    <div className="mb-4 flex items-center justify-between gap-3">
+                      <div>
+                        <h3 className="text-lg font-semibold text-zinc-100">Agent online</h3>
+                        <p className="mt-1 text-xs text-zinc-500">Diperbarui otomatis saat login dan logout</p>
+                      </div>
+                      <span className="inline-flex min-w-7 items-center justify-center rounded-full bg-emerald-400/10 px-2 py-1 text-xs font-semibold text-emerald-300">
+                        {data.onlineAgents.length}
+                      </span>
+                    </div>
+                    {data.onlineAgents.length > 0 ? (
+                      <ul className="scrollbar-thin max-h-72 space-y-2 overflow-y-auto" aria-label="Daftar agent online">
+                        {data.onlineAgents.map((agent) => (
+                          <li key={agent.userId} className="flex items-center gap-3 rounded-xl border border-ink-600/90 bg-ink-900/60 p-3">
+                            <div className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gold-500/10 text-xs font-semibold uppercase text-gold-400">
+                              {agent.name.trim().charAt(0) || "A"}
+                              <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-ink-900 bg-emerald-400" aria-label="Online" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm font-medium text-zinc-200">{agent.name}</p>
+                              <p className="truncate text-xs text-zinc-500">{agent.email}</p>
+                            </div>
+                            <div className="shrink-0 text-right">
+                              <p className="text-xs font-semibold tabular-nums text-zinc-300">{agent.activeChatCount}/{agent.maxConcurrentChats}</p>
+                              <p className="mt-0.5 text-[10px] uppercase tracking-wide text-zinc-600">chat</p>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <div className="rounded-xl border border-dashed border-ink-600 px-4 py-6 text-center">
+                        <UsersRound className="mx-auto h-5 w-5 text-zinc-600" aria-hidden="true" />
+                        <p className="mt-2 text-sm text-zinc-500">Belum ada agent yang online.</p>
+                      </div>
+                    )}
                   </section>
 
                   <section className="rounded-2xl border border-ink-600 bg-ink-800/70 p-5">

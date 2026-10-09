@@ -68,7 +68,8 @@ export default function DashboardGroupLayout({ children }: { children: ReactNode
       const isRealtimeConversationNotification =
         payload.type === "NEW_CUSTOMER_MESSAGE" ||
         payload.type === "NEW_WAITING_CONVERSATION" ||
-        payload.type === "NEW_INBOX_CONVERSATION";
+        payload.type === "NEW_INBOX_CONVERSATION" ||
+        payload.type === "AGENT_TRANSFER";
       const isOnConversationNotification = payload.type === "NEW_CUSTOMER_MESSAGE";
       const isNewConversationNotification = payload.type === "NEW_WAITING_CONVERSATION" || payload.type === "NEW_INBOX_CONVERSATION";
       const isActivelyViewedConversation =

@@ -54,6 +54,7 @@ export default function App() {
     requestAgent,
     closeConversation,
     startNewConversation,
+    createNewConversation,
     submitFeedback,
     notifyTyping,
     loadConversation,
@@ -71,17 +72,20 @@ export default function App() {
   const isOffline = config?.settings?.humanChatEnabled === false;
 
   async function handlePreChatSubmit(values: PreChatValues) {
-    if (!conversation || !visitorToken) {
-      throw new Error("Percakapan belum siap. Coba lagi sebentar.");
+    if (!visitorToken) {
+      throw new Error("Session visitor belum siap. Coba lagi sebentar.");
     }
 
+    // The pre-chat form always starts a fresh transcript. Never reuse a conversation left in
+    // memory by an interrupted bootstrap or an earlier customer on the same browser.
+    const currentConversation = await createNewConversation();
     const { message, ...lead } = values;
     const response = await api.post<{ id: string; syncStatus: string; conversationId?: string | null; resumedConversation?: boolean }>(
-      `/api/v1/widget/conversations/${conversation.id}/lead`,
+      `/api/v1/widget/conversations/${currentConversation.id}/lead`,
       lead,
       visitorToken,
     );
-    const targetConversationId = response.conversationId ?? conversation.id;
+    const targetConversationId = response.conversationId ?? currentConversation.id;
     widgetStorage.setLeadConversationId(targetConversationId);
     setLeadConversationId(targetConversationId);
 
@@ -103,16 +107,17 @@ export default function App() {
   }
 
   async function handleTicketSubmit(values: TicketValues): Promise<string> {
-    if (!conversation || !visitorToken) {
-      throw new Error("Percakapan belum siap. Coba lagi sebentar.");
+    if (!visitorToken) {
+      throw new Error("Session visitor belum siap. Coba lagi sebentar.");
     }
 
+    const currentConversation = conversation ?? (await createNewConversation());
     const response = await api.post<{ id: string; ticketNumber: string }>(
-      `/api/v1/widget/conversations/${conversation.id}/ticket`,
+      `/api/v1/widget/conversations/${currentConversation.id}/ticket`,
       values,
       visitorToken,
     );
-    const info = { conversationId: conversation.id, ticketNumber: response.ticketNumber };
+    const info = { conversationId: currentConversation.id, ticketNumber: response.ticketNumber };
     widgetStorage.setTicketInfo(info);
     setTicketInfo(info);
     return response.ticketNumber;
@@ -184,10 +189,6 @@ export default function App() {
 
   if (!config.settings?.widgetEnabled) {
     return <div className="flex h-screen items-center justify-center bg-ink px-6 text-center text-sm text-zinc-500">{config.offlineMessage}</div>;
-  }
-
-  if (!conversation) {
-    return <div className="flex h-screen items-center justify-center bg-ink text-sm text-zinc-500">Menyiapkan percakapan...</div>;
   }
 
   const ticketSubmittedForConversation = !!conversation && ticketInfo?.conversationId === conversation.id;

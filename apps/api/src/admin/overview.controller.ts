@@ -33,7 +33,7 @@ export class OverviewController {
       handoff,
       unresolved,
       openTickets,
-      agentsOnline,
+      onlineAgents,
       csatAgg,
     ] = await Promise.all([
       this.prisma.conversation.count({ where: { organizationId: user.organizationId, createdAt: { gte: startOfDay } } }),
@@ -45,7 +45,16 @@ export class OverviewController {
       this.prisma.conversation.count({ where: { organizationId: user.organizationId, handoffReason: { not: null }, createdAt: { gte: startOfDay } } }),
       this.prisma.conversation.count({ where: { organizationId: user.organizationId, status: { notIn: [ConversationStatus.RESOLVED, ConversationStatus.CLOSED] } } }),
       this.prisma.ticket.count({ where: { organizationId: user.organizationId, status: { in: ["OPEN", "IN_PROGRESS"] } } }),
-      this.prisma.agentProfile.count({ where: { availability: "ONLINE", user: { organizationId: user.organizationId } } }),
+      this.prisma.agentProfile.findMany({
+        where: { availability: "ONLINE", user: { organizationId: user.organizationId, isActive: true } },
+        orderBy: { user: { name: "asc" } },
+        select: {
+          userId: true,
+          activeChatCount: true,
+          maxConcurrentChats: true,
+          user: { select: { name: true, email: true } },
+        },
+      }),
       this.prisma.customerFeedback.aggregate({ _avg: { score: true }, where: { conversation: { organizationId: user.organizationId } } }),
     ]);
 
@@ -62,7 +71,14 @@ export class OverviewController {
         handoffCount: handoff,
         unresolvedCount: unresolved,
         openTickets,
-        agentsOnline,
+        agentsOnline: onlineAgents.length,
+        onlineAgents: onlineAgents.map((agent) => ({
+          userId: agent.userId,
+          name: agent.user.name,
+          email: agent.user.email,
+          activeChatCount: agent.activeChatCount,
+          maxConcurrentChats: agent.maxConcurrentChats,
+        })),
         aiContainmentRate: totalConversations > 0 ? aiHandled / totalConversations : 0,
         customerSatisfactionAvg: csatAgg._avg.score ?? null,
       },

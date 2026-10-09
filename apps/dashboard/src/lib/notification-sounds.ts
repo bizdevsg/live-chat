@@ -12,10 +12,28 @@ import {
 import { API_URL } from "@/lib/api-client";
 
 const audioCache = new Map<string, HTMLAudioElement>();
+const NEW_MESSAGES_RING_DURATION_MS = 30_000;
 let notificationAudioPrepared = false;
 let notificationAudioUnlocked = false;
 let pendingPlayback: { category: NotificationSoundCategory; soundId: string } | null = null;
 let latestNotificationSettings: UserAccountSettings | null = null;
+let newMessagesAudio: HTMLAudioElement | null = null;
+let newMessagesStopTimer: number | null = null;
+let newMessagesPlaybackVersion = 0;
+
+export function stopNewMessagesNotificationSound() {
+  if (typeof window === "undefined") return;
+  newMessagesPlaybackVersion += 1;
+  if (newMessagesStopTimer !== null) {
+    window.clearTimeout(newMessagesStopTimer);
+    newMessagesStopTimer = null;
+  }
+  if (!newMessagesAudio) return;
+  newMessagesAudio.pause();
+  newMessagesAudio.currentTime = 0;
+  newMessagesAudio.loop = false;
+  newMessagesAudio = null;
+}
 
 function getOrCreateCachedAudio(src: string) {
   let audio = audioCache.get(src);
@@ -60,6 +78,9 @@ export function getNotificationSoundOptions(category: NotificationSoundCategory,
 export function prepareNotificationSounds(settings?: UserAccountSettings | null) {
   if (typeof window === "undefined") return () => undefined;
   latestNotificationSettings = settings ?? DEFAULT_USER_ACCOUNT_SETTINGS;
+  if (!latestNotificationSettings.playNewMessagesSound) {
+    stopNewMessagesNotificationSound();
+  }
 
   const allOptions = [
     ...getNotificationSoundOptions("onConversation", settings),
@@ -146,6 +167,47 @@ function playNotificationSound(category: NotificationSoundCategory, soundId: str
 
   const option = resolveSoundOption(category, soundId, settings);
   const audio = getOrCreateCachedAudio(option.src);
+
+  if (category === "newMessages") {
+    if (newMessagesAudio && newMessagesAudio !== audio) {
+      stopNewMessagesNotificationSound();
+    }
+
+    const playbackVersion = ++newMessagesPlaybackVersion;
+    newMessagesAudio = audio;
+    audio.muted = false;
+    audio.loop = true;
+    if (newMessagesStopTimer !== null) {
+      window.clearTimeout(newMessagesStopTimer);
+      newMessagesStopTimer = null;
+    }
+
+    const scheduleStop = () => {
+      if (playbackVersion !== newMessagesPlaybackVersion || newMessagesAudio !== audio) return;
+      newMessagesStopTimer = window.setTimeout(() => {
+        if (playbackVersion === newMessagesPlaybackVersion) stopNewMessagesNotificationSound();
+      }, NEW_MESSAGES_RING_DURATION_MS);
+    };
+
+    if (!audio.paused) {
+      scheduleStop();
+      return;
+    }
+
+    audio.currentTime = 0;
+    void audio.play()
+      .then(scheduleStop)
+      .catch(() => {
+        if (playbackVersion === newMessagesPlaybackVersion) {
+          audio.loop = false;
+          newMessagesAudio = null;
+        }
+        pendingPlayback = { category, soundId };
+      });
+    return;
+  }
+
+  audio.loop = false;
   audio.muted = false;
   audio.pause();
   audio.currentTime = 0;
@@ -155,7 +217,7 @@ function playNotificationSound(category: NotificationSoundCategory, soundId: str
 }
 
 function resolveNotificationSoundCategory(type: string | undefined): NotificationSoundCategory | null {
-  if (type === "NEW_WAITING_CONVERSATION" || type === "NEW_INBOX_CONVERSATION") return "newMessages";
+  if (type === "NEW_WAITING_CONVERSATION" || type === "NEW_INBOX_CONVERSATION" || type === "AGENT_TRANSFER") return "newMessages";
   if (type === "NEW_CUSTOMER_MESSAGE") return "onConversation";
   return null;
 }
@@ -172,6 +234,9 @@ export function playNotificationSoundForType(type: string | undefined, settings:
     return;
   }
 
-  if (!resolvedSettings.playNewMessagesSound) return;
+  if (!resolvedSettings.playNewMessagesSound) {
+    stopNewMessagesNotificationSound();
+    return;
+  }
   playNotificationSound(category, resolvedSettings.newMessagesSound, resolvedSettings);
 }

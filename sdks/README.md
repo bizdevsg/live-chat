@@ -6,13 +6,15 @@ SDK mobile ini adalah consumer native baru untuk kontrak publik `api/v1/widget` 
 
 - [`android/`](android/README.md): Kotlin core SDK + Jetpack Compose UI, minimum Android 7/API 24.
 - [`ios/`](ios/README.md): Swift core SDK + SwiftUI UI, minimum iOS 16.
+- [`flutter/`](flutter/README.md): Dart core SDK + Material UI siap pakai untuk Android dan iOS.
 
-Keduanya dapat dipakai sebagai headless client atau dengan layar chat bawaan. UI bawaan bukan WebView.
+Ketiganya dapat dipakai sebagai headless client atau dengan layar chat bawaan. UI bawaan bukan WebView.
 
 ## Distribusi untuk tim mobile
 
 - Android: GitHub Packages Maven, coordinate `com.solidchat:solidchat-android-sdk:<version>`.
 - iOS: Swift Package URL `https://github.com/bizdevsg/live-chat.git`.
+- Flutter: Git dependency dengan path `sdks/flutter`; cukup tampilkan `SolidChatView` tanpa merakit API atau UI sendiri.
 - Versi SDK mengikuti tag release repository, misalnya `v0.16.3` dipakai sebagai dependency `0.16.3`.
 - Workflow `.github/workflows/mobile-sdk.yml` membangun kedua platform pada perubahan SDK dan mempublish Android package ketika perubahan SDK masuk ke branch `dev` atau workflow dijalankan manual. Tag `v*` menjadi versi Swift Package yang dapat dipilih Xcode.
 
@@ -20,20 +22,20 @@ Tim mobile hanya menerima API base URL, `siteId`, versi dependency, dan identity
 
 ## Parity dengan web widget
 
-| Perilaku | Android | iOS |
-|---|---:|---:|
-| Bootstrap visitor session dan config site | ✅ | ✅ |
-| Resume active conversation per site | ✅ | ✅ |
-| Pre-chat lead + pesan pertama | ✅ | ✅ |
-| Realtime message/status/typing/presence | ✅ | ✅ |
-| Optimistic send + `clientMessageId` idempotency | ✅ | ✅ |
-| Minta agent + fallback timeout kembali ke AI | ✅ | ✅ |
-| Upload gambar hanya saat agent menangani | ✅ | ✅ |
-| Close/new conversation | ✅ | ✅ |
-| Offline ticket flow | ✅ | ✅ |
-| Rating setelah conversation selesai | ✅ | ✅ |
-| Customer identity token | ✅ | ✅ |
-| API headless untuk UI custom | ✅ | ✅ |
+| Perilaku | Android | iOS | Flutter |
+|---|---:|---:|---:|
+| Bootstrap visitor session dan config site | ✅ | ✅ | ✅ |
+| Resume active conversation per site | ✅ | ✅ | ✅ |
+| Pre-chat lead + pesan pertama | ✅ | ✅ | ✅ |
+| Realtime message/status/typing/presence | ✅ | ✅ | ✅ |
+| Optimistic send + `clientMessageId` idempotency | ✅ | ✅ | ✅ |
+| Minta agent + fallback timeout kembali ke AI | ✅ | ✅ | ✅ |
+| Upload gambar hanya saat agent menangani | ✅ | ✅ | ✅ |
+| Close/new conversation | ✅ | ✅ | ✅ |
+| Offline ticket flow | ✅ | ✅ | ✅ |
+| Rating setelah conversation selesai | ✅ | ✅ | ✅ |
+| Customer identity token | ✅ | ✅ | ✅ |
+| API headless untuk UI custom | ✅ | ✅ | ✅ |
 
 ## Batas keamanan
 
@@ -44,4 +46,4 @@ Tim mobile hanya menerima API base URL, `siteId`, versi dependency, dan identity
 
 ## Contract stability
 
-SDK sengaja hanya membaca field backend yang dibutuhkan dan decoder mengabaikan field tambahan. Penambahan field pada API tidak mematahkan SDK. Perubahan nama endpoint/event atau field wajib tetap dianggap breaking change dan perlu diuji terhadap ketiga client: widget, Android, dan iOS.
+SDK sengaja hanya membaca field backend yang dibutuhkan dan decoder mengabaikan field tambahan. Penambahan field pada API tidak mematahkan SDK. Perubahan nama endpoint/event atau field wajib tetap dianggap breaking change dan perlu diuji terhadap seluruh client: widget, Android, iOS, dan Flutter.

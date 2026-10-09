@@ -1,7 +1,7 @@
 import { Injectable, HttpStatus } from "@nestjs/common";
 import { InjectQueue } from "@nestjs/bullmq";
 import type { Queue } from "bullmq";
-import { ErrorCode, HandlerType, QUEUE_NAMES, type CrmSyncJobData } from "@solidchat/shared";
+import { ConversationStatus, ErrorCode, HandlerType, QUEUE_NAMES, type CrmSyncJobData } from "@solidchat/shared";
 import { PrismaService } from "../prisma/prisma.service";
 import { AuditLogService } from "../common/audit/audit-log.service";
 import { CrmProviderFactory } from "./crm-provider.factory";
@@ -83,7 +83,18 @@ export class LeadsService {
     // thread already has history and belongs to someone whose contact details don't match this
     // submission, treat the form filler as a new visitor and give them their own conversation
     // instead of hijacking the transcript / overwriting the other customer's record.
-    if (conversation?.customerId && conversation.firstMessageAt) {
+    const conversationEnded =
+      conversation?.status === ConversationStatus.CLOSED || conversation?.status === ConversationStatus.RESOLVED;
+    if (conversationEnded && conversation) {
+      const fresh = await this.conversations.createConversation({
+        organizationId: conversation.organizationId,
+        siteId,
+        visitorId: conversation.visitorId ?? undefined,
+        skipRouting: !!site.settings?.preChatFormEnabled,
+        context: { language: site.language },
+      });
+      conversation = await this.prisma.conversation.findUnique({ where: { id: fresh.id }, select: conversationSelect });
+    } else if (conversation?.customerId && conversation.firstMessageAt) {
       const owner = await this.prisma.customer.findUnique({
         where: { id: conversation.customerId },
         select: { email: true, phone: true },

@@ -168,6 +168,32 @@ describe("LeadsService.createFromWidget — shared-browser identity checkpoint",
     expect(result.resumedConversation).toBe(false);
   });
 
+  it("replaces a closed conversation even when the same customer submits the form again", async () => {
+    const { service, tx, conversations } = createService({
+      inheritedConversation: {
+        ...inheritedConversation,
+        status: "CLOSED",
+      },
+      inheritedOwner: { email: "mega@example.com", phone: "0899" },
+      existingCustomerByContact: { id: "cust-mega", email: "mega@example.com", phone: "0899" },
+    });
+
+    const result = await service.createFromWidget("site-1", "conv-mega", {
+      name: "Mega",
+      email: "mega@example.com",
+      phone: "0899",
+      consentGiven: true,
+    } as never);
+
+    expect(conversations.createConversation).toHaveBeenCalledWith(
+      expect.objectContaining({ organizationId: "org-1", siteId: "site-1", visitorId: "vis-1" }),
+    );
+    expect(tx.lead.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ conversationId: "conv-fresh" }) }),
+    );
+    expect(result.conversationId).toBe("conv-fresh");
+  });
+
   it("rejects submissions without consent", async () => {
     const { service } = createService({ inheritedConversation: null });
     await expect(

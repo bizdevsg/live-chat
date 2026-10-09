@@ -5,14 +5,21 @@ import {
   IsEmail,
   IsIn,
   IsInt,
-  Matches,
   IsObject,
   IsOptional,
   IsString,
+  Matches,
   Min,
   MinLength,
+  MaxLength,
   ValidateNested,
 } from "class-validator";
+import {
+  PASSWORD_COMPLEXITY_MESSAGE,
+  PASSWORD_COMPLEXITY_PATTERN,
+  PASSWORD_MAX_LENGTH,
+  PASSWORD_MIN_LENGTH,
+} from "@solidchat/shared";
 
 export class CreateUserDto {
   @IsEmail()
@@ -23,10 +30,9 @@ export class CreateUserDto {
   name!: string;
 
   @IsString()
-  @MinLength(10, { message: "Password minimal 10 karakter." })
-  @Matches(/[a-z]/, { message: "Password harus mengandung huruf kecil." })
-  @Matches(/[A-Z]/, { message: "Password harus mengandung huruf besar." })
-  @Matches(/[0-9]/, { message: "Password harus mengandung angka." })
+  @MinLength(PASSWORD_MIN_LENGTH, { message: "Password minimal 8 karakter." })
+  @MaxLength(PASSWORD_MAX_LENGTH, { message: "Password maksimal 64 karakter." })
+  @Matches(PASSWORD_COMPLEXITY_PATTERN, { message: PASSWORD_COMPLEXITY_MESSAGE })
   password!: string;
 
   @IsArray()
@@ -40,10 +46,9 @@ export class CreateUserDto {
 
 export class UpdateUserDto {
   @IsOptional() @IsString() @MinLength(2) name?: string;
-  @IsOptional() @IsString() @MinLength(10, { message: "Password minimal 10 karakter." })
-  @Matches(/[a-z]/, { message: "Password harus mengandung huruf kecil." })
-  @Matches(/[A-Z]/, { message: "Password harus mengandung huruf besar." })
-  @Matches(/[0-9]/, { message: "Password harus mengandung angka." }) password?: string;
+  @IsOptional() @IsString() @MinLength(PASSWORD_MIN_LENGTH, { message: "Password minimal 8 karakter." })
+  @MaxLength(PASSWORD_MAX_LENGTH, { message: "Password maksimal 64 karakter." })
+  @Matches(PASSWORD_COMPLEXITY_PATTERN, { message: PASSWORD_COMPLEXITY_MESSAGE }) password?: string;
   @IsOptional() @IsBoolean() isActive?: boolean;
   @IsOptional() @IsArray() @IsString({ each: true }) roleSlugs?: string[];
   @IsOptional() @IsString() supervisorId?: string;

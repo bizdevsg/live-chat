@@ -34,6 +34,7 @@ interface ConversationState {
   id: string;
   status: string;
   handlerType: string;
+  assignedAt?: string | null;
 }
 
 const DEFAULT_AGENT_REPLY_TIMEOUT_SECONDS = 60;
@@ -67,9 +68,12 @@ export function useConversation(
   const [agentRequestStartedAt, setAgentRequestStartedAt] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const socketRef = useRef<Socket | null>(null);
+  const activeConversationIdRef = useRef<string | null>(null);
+  const conversationRequestVersionRef = useRef(0);
   const timeoutFallbackRequestRef = useRef<string | null>(null);
 
   const disconnectSocket = useCallback(() => {
+    activeConversationIdRef.current = null;
     socketRef.current?.disconnect();
     socketRef.current = null;
     setConnected(false);
@@ -83,16 +87,20 @@ export function useConversation(
       if (!visitorToken) return;
 
       disconnectSocket();
+      activeConversationIdRef.current = conv.id;
       const socket = io(`${API_URL}/widget`, { auth: { visitorToken }, transports: ["websocket", "polling"] });
       socketRef.current = socket;
 
       socket.on("connect", () => {
+        if (activeConversationIdRef.current !== conv.id) return;
         setConnected(true);
         socket.emit("widget:join", { conversationId: conv.id });
       });
-      socket.on("disconnect", () => setConnected(false));
+      socket.on("disconnect", () => {
+        if (activeConversationIdRef.current === conv.id) setConnected(false);
+      });
       socket.on("message:created", (payload: { conversationId: string; internalOnly?: boolean; message: WidgetMessage }) => {
-        if (payload.conversationId !== conv.id || payload.internalOnly) return;
+        if (activeConversationIdRef.current !== conv.id || payload.conversationId !== conv.id || payload.internalOnly) return;
         if (payload.message.senderType === "AI") {
           setAiTyping(false);
           if (agentRequested) {
@@ -110,17 +118,21 @@ export function useConversation(
         if (isReplyMessage(payload.message)) setLastIncomingReply(payload.message);
         setMessages((prev) => mergeMessage(prev, payload.message));
       });
-      socket.on("conversation:updated", (payload: { conversationId: string; status?: string; handlerType?: string }) => {
-        if (payload.conversationId !== conv.id) return;
+      socket.on("conversation:updated", (payload: { conversationId: string; status?: string; handlerType?: string; agentReplyTimeoutStartedAt?: string }) => {
+        if (activeConversationIdRef.current !== conv.id || payload.conversationId !== conv.id) return;
         setConversation((prev) => {
-          if (!prev) return prev;
+          if (!prev || prev.id !== payload.conversationId) return prev;
           const next = { ...prev, status: payload.status ?? prev.status, handlerType: payload.handlerType ?? prev.handlerType };
           const hasStateUpdate = payload.status !== undefined || payload.handlerType !== undefined;
           if (!hasStateUpdate) {
             return next;
           }
           if (isAwaitingAgentReply(next)) {
-            const storedStartedAt = widgetStorage.getAgentRequestStartedAt(next.id) ?? new Date().toISOString();
+            const storedStartedAt =
+              payload.agentReplyTimeoutStartedAt ??
+              (next.handlerType === "HUMAN" ? next.assignedAt : null) ??
+              widgetStorage.getAgentRequestStartedAt(next.id) ??
+              new Date().toISOString();
             widgetStorage.setAgentRequestStartedAt(next.id, storedStartedAt);
             setAgentRequestStartedAt(storedStartedAt);
           } else {
@@ -132,6 +144,7 @@ export function useConversation(
         });
       });
       socket.on("typing:updated", (payload: { from: string; typing: boolean; senderName?: string | null }) => {
+        if (activeConversationIdRef.current !== conv.id) return;
         if (payload.from === "AGENT") {
           setAgentTyping(payload.typing);
           setAgentTypingName(payload.typing ? payload.senderName ?? null : null);
@@ -154,16 +167,20 @@ export function useConversation(
   const loadConversation = useCallback(
     async (conversationId: string) => {
       if (!visitorToken) return;
+      const requestVersion = ++conversationRequestVersionRef.current;
       const detail = await api.get<{ conversation: ConversationState; messages: WidgetMessage[] }>(
         `/api/v1/widget/conversations/${conversationId}`,
         visitorToken,
       );
+      if (requestVersion !== conversationRequestVersionRef.current || detail.conversation.id !== conversationId) return;
       widgetStorage.setConversationId(detail.conversation.id);
       setMessages(detail.messages);
       setLastIncomingReply(null);
       setConversation(detail.conversation);
       setAgentRequested(false);
-      const storedStartedAt = widgetStorage.getAgentRequestStartedAt(detail.conversation.id);
+      const storedStartedAt =
+        (detail.conversation.handlerType === "HUMAN" ? detail.conversation.assignedAt : null) ??
+        widgetStorage.getAgentRequestStartedAt(detail.conversation.id);
       if (!isAwaitingAgentReply(detail.conversation)) {
         widgetStorage.clearAgentRequestStartedAt(detail.conversation.id);
       }
@@ -175,44 +192,63 @@ export function useConversation(
 
   const initializeConversation = useCallback(async () => {
     if (!visitorToken) return;
+    const requestVersion = ++conversationRequestVersionRef.current;
 
     const existingId = widgetStorage.getConversationId();
-    let conv: ConversationState;
-    try {
-      if (existingId) {
-        const detail = await api.get<{ conversation: ConversationState; messages: WidgetMessage[] }>(
-          `/api/v1/widget/conversations/${existingId}`,
-          visitorToken,
-        );
-        conv = detail.conversation;
-        setMessages(detail.messages);
-        setLastIncomingReply(null);
-      } else {
-        conv = await api.post<ConversationState>("/api/v1/widget/conversations", {}, visitorToken);
-        setMessages([]);
-        setLastIncomingReply(null);
-      }
-    } catch {
-      conv = await api.post<ConversationState>("/api/v1/widget/conversations", {}, visitorToken);
+    if (!existingId) {
+      if (requestVersion !== conversationRequestVersionRef.current) return;
+      setConversation(null);
       setMessages([]);
       setLastIncomingReply(null);
+      return;
     }
 
-    widgetStorage.setConversationId(conv.id);
-    setConversation(conv);
-    const storedStartedAt = widgetStorage.getAgentRequestStartedAt(conv.id);
-    if (!isAwaitingAgentReply(conv)) {
-      widgetStorage.clearAgentRequestStartedAt(conv.id);
+    try {
+      const detail = await api.get<{ conversation: ConversationState; messages: WidgetMessage[] }>(
+        `/api/v1/widget/conversations/${existingId}`,
+        visitorToken,
+      );
+      if (requestVersion !== conversationRequestVersionRef.current) return;
+      const ended = detail.conversation.status === "CLOSED" || detail.conversation.status === "RESOLVED";
+      if (ended) {
+        widgetStorage.clearConversationId();
+        widgetStorage.clearLeadConversationId();
+        setConversation(null);
+        setMessages([]);
+        setLastIncomingReply(null);
+        disconnectSocket();
+        return;
+      }
+
+      const conv = detail.conversation;
+      setMessages(detail.messages);
+      setLastIncomingReply(null);
+      widgetStorage.setConversationId(conv.id);
+      setConversation(conv);
+      const storedStartedAt =
+        (conv.handlerType === "HUMAN" ? conv.assignedAt : null) ?? widgetStorage.getAgentRequestStartedAt(conv.id);
+      if (!isAwaitingAgentReply(conv)) {
+        widgetStorage.clearAgentRequestStartedAt(conv.id);
+      }
+      setAgentRequestStartedAt(isAwaitingAgentReply(conv) ? storedStartedAt : null);
+      attachSocket(conv);
+    } catch {
+      if (requestVersion !== conversationRequestVersionRef.current) return;
+      widgetStorage.clearConversationId();
+      widgetStorage.clearLeadConversationId();
+      setConversation(null);
+      setMessages([]);
+      setLastIncomingReply(null);
+      disconnectSocket();
     }
-    setAgentRequestStartedAt(isAwaitingAgentReply(conv) ? storedStartedAt : null);
-    attachSocket(conv);
-  }, [attachSocket, visitorToken]);
+  }, [attachSocket, disconnectSocket, visitorToken]);
 
   useEffect(() => {
     if (!visitorToken) return;
 
     initializeConversation().catch(() => undefined);
     return () => {
+      conversationRequestVersionRef.current += 1;
       disconnectSocket();
     };
   }, [disconnectSocket, initializeConversation, visitorToken, siteId]);
@@ -256,11 +292,11 @@ export function useConversation(
           visitorToken,
         )
         .then(async ({ restored, conversation: updatedConversation }) => {
-          if (cancelled) return;
+          if (cancelled || activeConversationIdRef.current !== conversationId) return;
           setConversation((prev) =>
-            prev
+            prev?.id === conversationId
               ? { ...prev, status: updatedConversation.status, handlerType: updatedConversation.handlerType }
-              : updatedConversation,
+              : prev,
           );
           if (updatedConversation.handlerType === "AI") {
             setAgentRequested(false);
@@ -340,10 +376,11 @@ export function useConversation(
     api
       .post<ConversationState>(`/api/v1/widget/conversations/${conversation.id}/request-agent`, {}, visitorToken)
       .then((updatedConversation) => {
+        if (activeConversationIdRef.current !== updatedConversation.id) return;
         setConversation((prev) =>
-          prev
+          prev?.id === updatedConversation.id
             ? { ...prev, status: updatedConversation.status, handlerType: updatedConversation.handlerType }
-            : updatedConversation,
+            : prev,
         );
         if (isAwaitingAgentReply(updatedConversation)) {
           widgetStorage.setAgentRequestStartedAt(updatedConversation.id, startedAt);
@@ -356,6 +393,7 @@ export function useConversation(
         widgetStorage.clearAgentRequestStartedAt(updatedConversation.id);
       })
       .catch(() => {
+        if (activeConversationIdRef.current !== conversation.id) return;
         // Roll the notice back rather than leaving a permanent "connecting..." that never resolves.
         setAgentRequested(false);
         setAgentRequestStartedAt(null);
@@ -366,12 +404,31 @@ export function useConversation(
   const closeConversation = useCallback(() => {
     if (!conversation || !visitorToken) return;
     api.post<ConversationState>(`/api/v1/widget/conversations/${conversation.id}/close`, {}, visitorToken)
-      .then((updated) => setConversation((prev) => (prev ? { ...prev, status: updated.status, handlerType: updated.handlerType } : prev)))
+      .then((updated) =>
+        setConversation((prev) =>
+          prev?.id === updated.id ? { ...prev, status: updated.status, handlerType: updated.handlerType } : prev,
+        ),
+      )
       .catch(() => undefined);
   }, [conversation, visitorToken]);
 
+  const createNewConversation = useCallback(async () => {
+    if (!visitorToken) throw new Error("Session visitor belum siap.");
+    const requestVersion = ++conversationRequestVersionRef.current;
+    const conv = await api.post<ConversationState>("/api/v1/widget/conversations?forceNew=true", {}, visitorToken);
+    if (requestVersion !== conversationRequestVersionRef.current) {
+      throw new Error("Pembuatan percakapan baru dibatalkan oleh permintaan yang lebih baru.");
+    }
+    widgetStorage.setConversationId(conv.id);
+    setConversation(conv);
+    setMessages([]);
+    setLastIncomingReply(null);
+    attachSocket(conv);
+    return conv;
+  }, [attachSocket, visitorToken]);
+
   const startNewConversation = useCallback(async () => {
-    if (!visitorToken) return;
+    conversationRequestVersionRef.current += 1;
     disconnectSocket();
     widgetStorage.clearConversationId();
     setConversation(null);
@@ -382,11 +439,7 @@ export function useConversation(
       widgetStorage.clearAgentRequestStartedAt(conversation.id);
     }
     setAgentRequestStartedAt(null);
-    const conv = await api.post<ConversationState>("/api/v1/widget/conversations", {}, visitorToken);
-    widgetStorage.setConversationId(conv.id);
-    setConversation(conv);
-    attachSocket(conv);
-  }, [attachSocket, conversation, disconnectSocket, visitorToken]);
+  }, [conversation, disconnectSocket]);
 
   const submitFeedback = useCallback(
     (score: number, comment?: string) => {
@@ -450,6 +503,7 @@ export function useConversation(
     requestAgent,
     closeConversation,
     startNewConversation,
+    createNewConversation,
     submitFeedback,
     notifyTyping,
     loadConversation,

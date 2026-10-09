@@ -1,5 +1,4 @@
 import { Injectable, HttpStatus } from "@nestjs/common";
-import { hash } from "@node-rs/argon2";
 import { nanoid } from "nanoid";
 import { createHash } from "node:crypto";
 import { ErrorCode } from "@solidchat/shared";
@@ -7,6 +6,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import { AuditLogService } from "../common/audit/audit-log.service";
 import { ApiException, NotFoundApiException } from "../common/errors/api.exception";
 import type { CreateUserDto, InviteUserDto, UpdateUserDto } from "./dto/admin.dto";
+import { hashPassword } from "../auth/password-hashing.util";
 
 @Injectable()
 export class UsersService {
@@ -30,7 +30,7 @@ export class UsersService {
   }
 
   async create(organizationId: string, dto: CreateUserDto, actorId: string) {
-    const passwordHash = await hash(dto.password);
+    const passwordHash = await hashPassword(dto.password);
     const user = await this.prisma.user.create({
       data: { organizationId, email: dto.email, name: dto.name, passwordHash, isActive: true },
     });
@@ -46,7 +46,7 @@ export class UsersService {
 
   async update(id: string, dto: UpdateUserDto, organizationId: string, actorId: string) {
     const before = await this.prisma.user.findUniqueOrThrow({ where: { id } });
-    const passwordHash = dto.password ? await hash(dto.password) : undefined;
+    const passwordHash = dto.password ? await hashPassword(dto.password) : undefined;
     const user = await this.prisma.user.update({
       where: { id },
       data: { name: dto.name, passwordHash, isActive: dto.isActive, supervisorId: dto.supervisorId },

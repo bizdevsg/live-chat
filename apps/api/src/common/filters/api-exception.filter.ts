@@ -45,6 +45,14 @@ export class ApiExceptionFilter implements ExceptionFilter {
         // Kebutuhan API Live Chat §12: 429 responses must carry Retry-After so Clara backs off correctly.
         response.setHeader("Retry-After", "30");
       }
+    } else if (
+      exception instanceof Error &&
+      "status" in exception &&
+      exception.status === HttpStatus.PAYLOAD_TOO_LARGE
+    ) {
+      status = HttpStatus.PAYLOAD_TOO_LARGE;
+      code = ErrorCode.VALIDATION_ERROR;
+      message = "Ukuran request terlalu besar. Maksimal 1 MB.";
     } else if (exception instanceof Error) {
       // Never leak stack traces to clients — internal log only (§38).
       this.logger.error(exception.message, exception.stack, requestId);

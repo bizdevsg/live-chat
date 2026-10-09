@@ -7,12 +7,19 @@ import { apiClient, ApiError } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
+import {
+  getPasswordPolicyError,
+  PASSWORD_MAX_LENGTH,
+  PASSWORD_MIN_LENGTH,
+  PASSWORD_REQUIREMENTS,
+} from "@solidchat/shared";
 
 function ResetPasswordForm() {
   const params = useSearchParams();
   const router = useRouter();
   const token = params.get("token") ?? "";
   const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const mutation = useMutation({
@@ -28,6 +35,15 @@ function ResetPasswordForm() {
         onSubmit={(e) => {
           e.preventDefault();
           setError(null);
+          const passwordError = getPasswordPolicyError(newPassword);
+          if (passwordError) {
+            setError(passwordError);
+            return;
+          }
+          if (newPassword !== confirmPassword) {
+            setError("Password dan konfirmasi password harus sama.");
+            return;
+          }
           mutation.mutate();
         }}
         className="space-y-4"
@@ -38,11 +54,29 @@ function ResetPasswordForm() {
             id="newPassword"
             type="password"
             required
-            minLength={10}
+            minLength={PASSWORD_MIN_LENGTH}
+            maxLength={PASSWORD_MAX_LENGTH}
             value={newPassword}
             onChange={(e) => setNewPassword(e.target.value)}
           />
-          <p className="mt-1 text-xs text-zinc-500">Minimal 10 karakter, kombinasi huruf besar, kecil, dan angka.</p>
+          <ul className="mt-2 space-y-1 text-xs text-zinc-500" aria-label="Syarat password baru">
+            {PASSWORD_REQUIREMENTS.map((requirement) => (
+              <li key={requirement}>• {requirement}</li>
+            ))}
+          </ul>
+        </div>
+        <div>
+          <Label htmlFor="confirmPassword">Konfirmasi Password Baru</Label>
+          <Input
+            id="confirmPassword"
+            type="password"
+            required
+            minLength={PASSWORD_MIN_LENGTH}
+            maxLength={PASSWORD_MAX_LENGTH}
+            autoComplete="new-password"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+          />
         </div>
         {error && <p className="text-sm text-red-400">{error}</p>}
         <Button type="submit" className="w-full" disabled={mutation.isPending || !token}>

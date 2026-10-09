@@ -32,6 +32,29 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  flutter:
+    name: Flutter analyze and test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sdks/flutter
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install Flutter dependencies
+        run: flutter pub get
+
+      - name: Analyze Flutter SDK
+        run: flutter analyze
+
+      - name: Test Flutter SDK
+        run: flutter test
+
   android:
     name: Android build and publish
     runs-on: ubuntu-latest

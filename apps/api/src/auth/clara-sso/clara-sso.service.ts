@@ -1,5 +1,4 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { hash } from "@node-rs/argon2";
 import { nanoid } from "nanoid";
 import type { User } from "@solidchat/database";
 import { PrismaService } from "../../prisma/prisma.service";
@@ -10,6 +9,7 @@ import { ClaraSsoConfigService, type ClaraSsoConfig } from "./clara-sso.config";
 import { ClaraSsoStateService } from "./clara-sso-state.service";
 import { generatePkceAttempt } from "./pkce.util";
 import { ClaraIdTokenError, validateClaraIdToken, type ClaraIdTokenClaims } from "./clara-id-token.util";
+import { hashPassword } from "../password-hashing.util";
 
 interface ClaraTokenResponse {
   access_token: string;
@@ -233,7 +233,7 @@ export class ClaraSsoService {
     // No local password is ever set for an SSO-provisioned account — a random, never-shared
     // value locks out email/password login until someone deliberately sets a real password via
     // "forgot password".
-    const passwordHash = await hash(nanoid(64));
+    const passwordHash = await hashPassword(nanoid(64));
 
     const user = await this.prisma.$transaction(async (tx) => {
       const created = await tx.user.create({

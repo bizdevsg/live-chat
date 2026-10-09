@@ -221,6 +221,7 @@ describe("ConversationsService.requestAgent (agents handle up to 5 concurrent ch
         findUnique: jest.fn().mockResolvedValue({ id: "team-1" }),
       },
       site: { findUnique: jest.fn().mockResolvedValue({ organizationId: "org-1" }) },
+      siteSettings: { findUnique: jest.fn().mockResolvedValue({ agentReplyTimeoutSeconds: 60 }) },
       teamMember: {
         findMany: jest.fn().mockResolvedValue(
           (opts?.onlineAgents ?? []).map((a) => ({
@@ -261,7 +262,7 @@ describe("ConversationsService.requestAgent (agents handle up to 5 concurrent ch
       promptInjectionDetected: false,
     } as never);
 
-    return { service, prisma, realtime, notifications };
+    return { service, prisma, realtime, notifications, queue };
   }
 
   it("queues a visitor for manual pickup even when an agent is free", async () => {
@@ -361,6 +362,43 @@ describe("ConversationsService.requestAgent (agents handle up to 5 concurrent ch
     expect(prisma.conversationAssignment.create).toHaveBeenCalled();
   });
 
+  it("starts a fresh reply timeout when an agent accepts a conversation", async () => {
+    const { service, prisma, queue } = createService();
+    const oldStartedAt = "2026-09-01T10:00:00.000Z";
+    prisma.conversation.findUnique
+      .mockResolvedValueOnce({
+        id: "conv-1",
+        organizationId: "org-1",
+        siteId: "site-1",
+        assignedAgentId: null,
+        assignedTeamId: "team-1",
+        status: ConversationStatus.QUEUED,
+        handlerType: HandlerType.NONE,
+      })
+      .mockResolvedValue({
+        id: "conv-1",
+        organizationId: "org-1",
+        siteId: "site-1",
+        assignedAgentId: "agent-9",
+        assignedTeamId: "team-1",
+        status: ConversationStatus.AGENT_ACTIVE,
+        handlerType: HandlerType.HUMAN,
+      });
+    queue.getJob.mockResolvedValue({
+      data: { timeoutStartedAt: oldStartedAt },
+      remove: jest.fn().mockResolvedValue(undefined),
+    });
+
+    const beforeAccept = Date.now();
+    await service.accept("conv-1", "agent-9");
+
+    const timeoutJob = queue.add.mock.calls.find(([name]) => name === "agent-reply-timeout");
+    expect(timeoutJob).toBeDefined();
+    const timeoutStartedAt = (timeoutJob?.[1] as { timeoutStartedAt: string }).timeoutStartedAt;
+    expect(timeoutStartedAt).not.toBe(oldStartedAt);
+    expect(new Date(timeoutStartedAt).getTime()).toBeGreaterThanOrEqual(beforeAccept);
+  });
+
   it("tells the losing agent the chat is already taken when two accepts race", async () => {
     // The other agent's conditional UPDATE already flipped assignedAgentId, so this one matches 0 rows.
     const { service, prisma } = createService({ claimCount: 0 });
@@ -375,6 +413,59 @@ describe("ConversationsService.requestAgent (agents handle up to 5 concurrent ch
 });
 
 describe("ConversationsService.transfer (offline target)", () => {
+  it("notifies the target agent after a successful transfer", async () => {
+    const initialConversation = {
+      id: "conv-1",
+      organizationId: "org-1",
+      siteId: "site-1",
+      assignedAgentId: "agent-1",
+      assignedTeamId: "team-1",
+      status: ConversationStatus.AGENT_ACTIVE,
+      handlerType: HandlerType.HUMAN,
+    };
+    const transferredConversation = { ...initialConversation, assignedAgentId: "agent-2", assignedAt: new Date() };
+    const prisma = {
+      conversation: {
+        findUnique: jest.fn().mockResolvedValueOnce(initialConversation).mockResolvedValueOnce(initialConversation).mockResolvedValue(transferredConversation),
+        update: jest.fn().mockResolvedValue(transferredConversation),
+        count: jest.fn().mockResolvedValue(0),
+      },
+      agentProfile: {
+        findFirst: jest.fn().mockResolvedValue({ maxConcurrentChats: 5, availability: "ONLINE" }),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        update: jest.fn().mockResolvedValue({}),
+        upsert: jest.fn().mockResolvedValue({}),
+      },
+      conversationAssignment: { create: jest.fn().mockResolvedValue({}) },
+      conversationParticipant: { create: jest.fn().mockResolvedValue({}) },
+      user: { findUnique: jest.fn().mockResolvedValue({ name: "Agent Dua" }) },
+      siteSettings: { findUnique: jest.fn().mockResolvedValue({ agentReplyTimeoutSeconds: 60 }) },
+      $transaction: jest.fn().mockResolvedValue([]),
+    };
+    const notifications = { notifyAgent: jest.fn(), notifyTeam: jest.fn(), notifyOrganization: jest.fn() };
+    const queue = { getJob: jest.fn().mockResolvedValue(null), add: jest.fn() };
+    const service = new ConversationsService(
+      prisma as never,
+      { toConversation: jest.fn(), toTeam: jest.fn(), toAgent: jest.fn(), toSite: jest.fn() } as never,
+      { record: jest.fn() } as never,
+      { record: jest.fn() } as never,
+      notifications as never,
+      queue as never,
+    );
+    jest.spyOn(service, "logEvent").mockResolvedValue(undefined);
+    jest.spyOn(service, "postMessage").mockResolvedValue({ message: { id: "system-1" } } as never);
+
+    await service.transfer("conv-1", "agent-1", { toAgentId: "agent-2" });
+
+    expect(notifications.notifyAgent).toHaveBeenCalledWith(
+      "agent-2",
+      "AGENT_TRANSFER",
+      "Chat ditransfer kepada Anda",
+      "Ada percakapan baru hasil transfer yang perlu Anda tangani.",
+      { conversationId: "conv-1", siteId: "site-1", transferredByAgentId: "agent-1" },
+    );
+  });
+
   it("rejects a transfer to an OFFLINE agent before reserving a slot", async () => {
     const prisma = {
       conversation: {

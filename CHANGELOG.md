@@ -3,7 +3,188 @@
 Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
-- Belum ada perubahan terdeteksi.
+### Added
+- Menambahkan Chrome/Chromium extension `extensions/whatsapp-assistant` berbentuk native side panel untuk memindai chat aktif WhatsApp Web, menerima prompt agent, memasukkan draft ke composer, dan menjalankan guarded auto-reply.
+- Menambahkan `apps/api/src/admin/overview.controller.spec.ts`.
+- Menambahkan `apps/api/src/ai/whatsapp-assistant-api-key.guard.ts`.
+- Menambahkan `apps/api/src/ai/whatsapp-assistant.controller.ts`.
+- Menambahkan `apps/api/src/ai/whatsapp-assistant.service.spec.ts`.
+- Menambahkan `apps/api/src/ai/whatsapp-assistant.service.ts`.
+- Menambahkan `apps/api/src/auth/auth.service.change-password.spec.ts`.
+- Menambahkan `apps/api/src/auth/password-hashing.util.spec.ts`.
+- Menambahkan `apps/api/src/auth/password-hashing.util.ts`.
+- Menambahkan `apps/api/src/widget/widget.service.spec.ts`.
+- Menambahkan `apps/dashboard/public/notification/new-massages/universfield-ringtone-030-437513.mp3`.
+- Menambahkan `apps/dashboard/public/notification/new-massages/universfield-ringtone-060-495415.mp3`.
+- Menambahkan `apps/dashboard/public/notification/on-conversesion/universfield-new-notification-010-352755.mp3`.
+- Menambahkan `extensions/whatsapp-assistant/README.md`.
+- Menambahkan `extensions/whatsapp-assistant/background.js`.
+- Menambahkan `extensions/whatsapp-assistant/content.js`.
+- Menambahkan `extensions/whatsapp-assistant/manifest.json`.
+- Menambahkan `extensions/whatsapp-assistant/sidepanel.css`.
+- Menambahkan `extensions/whatsapp-assistant/sidepanel.html`.
+- Menambahkan `extensions/whatsapp-assistant/sidepanel.js`.
+- Menambahkan `extensions/whatsapp-assistant/system-prompt.md`.
+- Menambahkan `packages/shared/src/password-policy.ts`.
+- Menambahkan `scripts/test-whatsapp-extension-scanner.cjs`.
+- Menambahkan `sdks/flutter/.gitignore`.
+- Menambahkan `sdks/flutter/README.md`.
+- Menambahkan `sdks/flutter/analysis_options.yaml`.
+- Menambahkan `sdks/flutter/assets/conversation-bg.png`.
+- Menambahkan `sdks/flutter/assets/icon-header.png`.
+- Menambahkan `sdks/flutter/example/.gitignore`.
+- Menambahkan `sdks/flutter/example/.metadata`.
+- Menambahkan `sdks/flutter/example/README.md`.
+- Menambahkan `sdks/flutter/example/analysis_options.yaml`.
+- Menambahkan `sdks/flutter/example/android/.gitignore`.
+- Menambahkan `sdks/flutter/example/android/app/build.gradle.kts`.
+- Menambahkan `sdks/flutter/example/android/app/src/debug/AndroidManifest.xml`.
+- Menambahkan `sdks/flutter/example/android/app/src/main/AndroidManifest.xml`.
+- Menambahkan `sdks/flutter/example/android/app/src/main/kotlin/com/example/solidchat_flutter_example/MainActivity.kt`.
+- Menambahkan `sdks/flutter/example/android/app/src/main/res/drawable-v21/launch_background.xml`.
+- Menambahkan `sdks/flutter/example/android/app/src/main/res/drawable/launch_background.xml`.
+- Menambahkan `sdks/flutter/example/android/app/src/main/res/mipmap-hdpi/ic_launcher.png`.
+- Menambahkan `sdks/flutter/example/android/app/src/main/res/mipmap-mdpi/ic_launcher.png`.
+- Menambahkan `sdks/flutter/example/android/app/src/main/res/mipmap-xhdpi/ic_launcher.png`.
+- Menambahkan `sdks/flutter/example/android/app/src/main/res/mipmap-xxhdpi/ic_launcher.png`.
+- Menambahkan `sdks/flutter/example/android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png`.
+- Menambahkan `sdks/flutter/example/android/app/src/main/res/values-night/styles.xml`.
+- Menambahkan `sdks/flutter/example/android/app/src/main/res/values/styles.xml`.
+- Menambahkan `sdks/flutter/example/android/app/src/profile/AndroidManifest.xml`.
+- Menambahkan `sdks/flutter/example/android/build.gradle.kts`.
+- Menambahkan `sdks/flutter/example/android/gradle.properties`.
+- Menambahkan `sdks/flutter/example/android/gradle/wrapper/gradle-wrapper.properties`.
+- Menambahkan `sdks/flutter/example/android/settings.gradle.kts`.
+- Menambahkan `sdks/flutter/example/ios/.gitignore`.
+- Menambahkan `sdks/flutter/example/ios/Flutter/AppFrameworkInfo.plist`.
+- Menambahkan `sdks/flutter/example/ios/Flutter/Debug.xcconfig`.
+- Menambahkan `sdks/flutter/example/ios/Flutter/Release.xcconfig`.
+- Menambahkan `sdks/flutter/example/ios/Runner.xcodeproj/project.pbxproj`.
+- Menambahkan `sdks/flutter/example/ios/Runner.xcodeproj/project.xcworkspace/contents.xcworkspacedata`.
+- Menambahkan `sdks/flutter/example/ios/Runner.xcodeproj/project.xcworkspace/xcshareddata/IDEWorkspaceChecks.plist`.
+- Menambahkan `sdks/flutter/example/ios/Runner.xcodeproj/project.xcworkspace/xcshareddata/WorkspaceSettings.xcsettings`.
+- Menambahkan `sdks/flutter/example/ios/Runner.xcodeproj/xcshareddata/xcschemes/Runner.xcscheme`.
+- Menambahkan `sdks/flutter/example/ios/Runner.xcworkspace/contents.xcworkspacedata`.
+- Menambahkan `sdks/flutter/example/ios/Runner.xcworkspace/xcshareddata/IDEWorkspaceChecks.plist`.
+- Menambahkan `sdks/flutter/example/ios/Runner.xcworkspace/xcshareddata/WorkspaceSettings.xcsettings`.
+- Menambahkan `sdks/flutter/example/ios/Runner/AppDelegate.swift`.
+- Menambahkan `sdks/flutter/example/ios/Runner/Assets.xcassets/AppIcon.appiconset/Contents.json`.
+- Menambahkan `sdks/flutter/example/ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-1024x1024@1x.png`.
+- Menambahkan `sdks/flutter/example/ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-20x20@1x.png`.
+- Menambahkan `sdks/flutter/example/ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-20x20@2x.png`.
+- Menambahkan `sdks/flutter/example/ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-20x20@3x.png`.
+- Menambahkan `sdks/flutter/example/ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-29x29@1x.png`.
+- Menambahkan `sdks/flutter/example/ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-29x29@2x.png`.
+- Menambahkan `sdks/flutter/example/ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-29x29@3x.png`.
+- Menambahkan `sdks/flutter/example/ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-40x40@1x.png`.
+- Menambahkan `sdks/flutter/example/ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-40x40@2x.png`.
+- Menambahkan `sdks/flutter/example/ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-40x40@3x.png`.
+- Menambahkan `sdks/flutter/example/ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-60x60@2x.png`.
+- Menambahkan `sdks/flutter/example/ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-60x60@3x.png`.
+- Menambahkan `sdks/flutter/example/ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-76x76@1x.png`.
+- Menambahkan `sdks/flutter/example/ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-76x76@2x.png`.
+- Menambahkan `sdks/flutter/example/ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-83.5x83.5@2x.png`.
+- Menambahkan `sdks/flutter/example/ios/Runner/Assets.xcassets/LaunchImage.imageset/Contents.json`.
+- Menambahkan `sdks/flutter/example/ios/Runner/Assets.xcassets/LaunchImage.imageset/LaunchImage.png`.
+- Menambahkan `sdks/flutter/example/ios/Runner/Assets.xcassets/LaunchImage.imageset/LaunchImage@2x.png`.
+- Menambahkan `sdks/flutter/example/ios/Runner/Assets.xcassets/LaunchImage.imageset/LaunchImage@3x.png`.
+- Menambahkan `sdks/flutter/example/ios/Runner/Assets.xcassets/LaunchImage.imageset/README.md`.
+- Menambahkan `sdks/flutter/example/ios/Runner/Base.lproj/LaunchScreen.storyboard`.
+- Menambahkan `sdks/flutter/example/ios/Runner/Base.lproj/Main.storyboard`.
+- Menambahkan `sdks/flutter/example/ios/Runner/Info.plist`.
+- Menambahkan `sdks/flutter/example/ios/Runner/Runner-Bridging-Header.h`.
+- Menambahkan `sdks/flutter/example/ios/RunnerTests/RunnerTests.swift`.
+- Menambahkan `sdks/flutter/example/lib/main.dart`.
+- Menambahkan `sdks/flutter/example/pubspec.yaml`.
+- Menambahkan `sdks/flutter/example/test/widget_test.dart`.
+- Menambahkan `sdks/flutter/lib/solidchat_flutter.dart`.
+- Menambahkan `sdks/flutter/lib/src/api_client.dart`.
+- Menambahkan `sdks/flutter/lib/src/models.dart`.
+- Menambahkan `sdks/flutter/lib/src/realtime.dart`.
+- Menambahkan `sdks/flutter/lib/src/solidchat_controller.dart`.
+- Menambahkan `sdks/flutter/lib/src/solidchat_view.dart`.
+- Menambahkan `sdks/flutter/lib/src/storage.dart`.
+- Menambahkan `sdks/flutter/pubspec.yaml`.
+- Menambahkan `sdks/flutter/test/models_test.dart`.
+- Menambahkan `sdks/flutter` sebagai SDK null-safe dengan UI Material siap pakai untuk Android dan iOS, default production otomatis, visitor-session persistence, Widget REST API, Socket.IO realtime, pre-chat, AI/agent handoff, upload gambar, offline ticket, close/new conversation, rating, dan identity token opsional.
+- Menambahkan contoh aplikasi Flutter satu layar beserta scaffold Android/iOS yang dapat langsung dijalankan, permission internet Android release, pengujian model/configuration dasar, dokumentasi integrasi tanpa perakitan UI/API, serta job analyze dan test Flutter pada workflow Mobile SDK.
+- Menambahkan daftar agent online pada halaman Dashboard yang menampilkan nama, email, dan kapasitas chat aktif serta diperbarui secara realtime saat agent login, logout, atau mengganti status.
+- Menambahkan endpoint khusus `api/v1/whatsapp-assistant` dengan constant-time API-key guard, konfigurasi site opsional, validasi payload, dan regression test service.
+- Menambahkan fitur ganti password pada halaman Profile Agent/Admin dengan verifikasi password saat ini, konfirmasi password baru, kontrol tampil/sembunyikan, Argon2id salt baru, pencabutan sesi lain, dan audit log keamanan.
+- Menambahkan kontrol tampilkan/sembunyikan password yang accessible pada halaman login Agent/Admin.
+- Menambahkan notifikasi realtime khusus kepada agent tujuan ketika sebuah chat ditransfer, termasuk toast, browser notification, unread conversation, dan ringtone **New Messages**.
+- Menambahkan presence otomatis untuk CS Agent: login password maupun SSO mengubah status menjadi **ONLINE**, sedangkan logout mengubahnya menjadi **OFFLINE** hanya ketika tidak ada sesi aktif lain; perubahan disiarkan realtime ke dashboard dan widget.
+- Menambahkan system prompt khusus WhatsApp Extension sebagai `extensions/whatsapp-assistant/system-prompt.md` yang dibundel langsung di paket extension dan terpisah dari prompt Widget/Live Chat; backend hanya mengambil knowledge dari database dan tidak menyimpan prompt extension.
+- Menyamakan behavior dan bentuk UI Flutter dengan widget website, termasuk bootstrap session terbaru, header/logo/status, background pola, bubble per role dan system message, rich text, typing animation, handoff agent dengan countdown persisten dan fallback AI, composer berbasis status realtime, staged image/caption dengan validasi, emoji picker, kategori offline ticket, ended state, dan rating overlay otomatis.
+
+### Changed
+- Memakai instruksi tambahan agent pada suggested reply tanpa menjadikannya sumber fakta atau mengesampingkan aturan grounding.
+- Memasukkan seluruh file audio dari `public/notification/new-massages` ke daftar notifikasi **New Messages** Agent/Admin dan menjadikan `universfield-ringtone-030-437513.mp3` sebagai default; pilihan suara lama tetap tersedia untuk user yang telah memilihnya.
+- Membatasi auto-reply untuk chat aktif dan memblokir pengiriman otomatis pada data sensitif, prompt injection, intent berisiko, jawaban kosong, atau confidence rendah.
+- Memperbarui `.env.example`.
+- Memperbarui `.github/workflows/mobile-sdk.yml`.
+- Memperbarui `README.md`.
+- Memperbarui `apps/api/src/admin/dto/admin.dto.ts`.
+- Memperbarui `apps/api/src/admin/overview.controller.ts`.
+- Memperbarui `apps/api/src/admin/users.service.ts`.
+- Memperbarui `apps/api/src/agent/agent.service.spec.ts`.
+- Memperbarui `apps/api/src/agent/agent.service.ts`.
+- Memperbarui `apps/api/src/ai/ai.module.ts`.
+- Memperbarui `apps/api/src/ai/dto/ai.dto.ts`.
+- Memperbarui `apps/api/src/auth/account-settings.constants.ts`.
+- Memperbarui `apps/api/src/auth/auth.controller.ts`.
+- Memperbarui `apps/api/src/auth/auth.service.ts`.
+- Memperbarui `apps/api/src/auth/clara-sso/clara-sso.service.ts`.
+- Memperbarui `apps/api/src/auth/dto/auth.dto.ts`.
+- Memperbarui `apps/api/src/common/filters/api-exception.filter.ts`.
+- Memperbarui `apps/api/src/config/env.validation.ts`.
+- Memperbarui `apps/api/src/conversations/conversations.service.spec.ts`.
+- Memperbarui `apps/api/src/conversations/conversations.service.ts`.
+- Memperbarui `apps/api/src/leads/leads.service.spec.ts`.
+- Memperbarui `apps/api/src/leads/leads.service.ts`.
+- Memperbarui `apps/api/src/main.ts`.
+- Memperbarui `apps/api/src/widget/widget.controller.ts`.
+- Memperbarui `apps/api/src/widget/widget.service.ts`.
+- Memperbarui `apps/dashboard/src/app/(dashboard)/dashboard/page.tsx`.
+- Memperbarui `apps/dashboard/src/app/(dashboard)/layout.tsx`.
+- Memperbarui `apps/dashboard/src/app/(dashboard)/profile/page.tsx`.
+- Memperbarui `apps/dashboard/src/app/(dashboard)/users/page.tsx`.
+- Memperbarui `apps/dashboard/src/app/login/page.tsx`.
+- Memperbarui `apps/dashboard/src/app/reset-password/page.tsx`.
+- Memperbarui `apps/dashboard/src/lib/account-settings.ts`.
+- Memperbarui `apps/dashboard/src/lib/notification-sounds.ts`.
+- Memperbarui `apps/widget/src/App.tsx`.
+- Memperbarui `apps/widget/src/hooks/use-conversation.ts`.
+- Memperbarui `docs/api.md`.
+- Memperbarui `packages/ai-core/src/providers/openai-provider.spec.ts`.
+- Memperbarui `packages/ai-core/src/providers/openai-provider.ts`.
+- Memperbarui `packages/shared/src/index.ts`.
+- Memperbarui `sdks/README.md`.
+- Memperbesar teks bubble percakapan WhatsApp Assistant Extension agar lebih mudah dibaca dan menaikkan versi source extension menjadi `0.2.8`.
+- Memperketat aturan password Agent/Admin menjadi 8–64 karakter, wajib mengandung huruf besar, huruf kecil, angka, karakter khusus `! @ # $ % ^ & *`, tanpa spasi, serta mewajibkan konfirmasi yang sama pada form ganti dan reset password; seluruh pembuatan serta reset password API tetap memakai helper Argon2id terpusat dengan random salt 128-bit yang tertanam pada setiap hash.
+- Menaikkan versi WhatsApp Assistant extension ke `0.2.0` untuk menandai perubahan autentikasi independen.
+- Menghapus editor serta versioning system prompt WhatsApp Extension dari Dashboard/API configuration, mengirim prompt bundled bersama request assistant, dan menaikkan versi extension ke `0.2.5`.
+- Menghapus login akun CS/Admin dari WhatsApp Assistant extension dan menggantinya dengan Extension Key khusus, sehingga extension berjalan independen dari sesi Dashboard tetapi tetap memakai AI serta knowledge base SolidChat.
+- Menghapus seluruh UI konfigurasi koneksi WhatsApp Assistant dan membuat API URL, site, serta Extension Key terisi otomatis saat build; versi extension menjadi `0.2.1` dan koneksi diperiksa otomatis ketika side panel dibuka.
+- Menghubungkan WhatsApp Assistant ke knowledge base `PUBLIC` dan `AGENT_ONLY` serta konfigurasi AI site yang sudah ada tanpa bergantung pada identitas agent Dashboard.
+- Mengisi Extension Key pada artefak build extension tanpa menyimpan nilai rahasia tersebut di source repository, sehingga paket hasil build dapat langsung digunakan tanpa setup akun.
+- Mengubah format file system prompt bundled WhatsApp Extension dari `system-prompt.txt` menjadi Markdown `system-prompt.md` dan menaikkan versi extension ke `0.2.6`.
+- Mengubah notifikasi **New Messages** di Dashboard agar ringtone berulang terus-menerus selama maksimal 30 detik; event baru memperpanjang durasi tanpa menumpuk beberapa audio, dan suara langsung berhenti ketika opsi notifikasi dimatikan.
+- Menyiapkan rilis production WhatsApp Assistant Extension `1.0.0` sebagai paket terpisah dari build lokal, menggunakan endpoint resmi, Extension Key bundled, UI teks percakapan yang diperbesar, animasi mengetik AI, dan tanpa izin host localhost.
+- Menyiapkan varian production WhatsApp Assistant Extension terpisah sebagai versi `0.2.7.1`, terhubung langsung ke `https://live-chat.sg-berjangka.com`, memakai Extension Key bundled, dan tidak menyertakan izin host localhost.
+
+### Fixed
+- Memperbaiki error `Could not establish connection. Receiving end does not exist.` dengan injeksi content script otomatis dan retry ketika tab WhatsApp telah terbuka sebelum extension dimuat; versi extension menjadi `0.2.2`.
+- Memperbaiki kegagalan menyimpan system prompt Widget atau mengirim prompt bundled WhatsApp Extension yang panjang dengan menaikkan batas JSON API secara terkontrol dari default 100 KB menjadi 1 MB serta mengembalikan pesan validasi yang jelas untuk payload berlebih.
+- Memperbaiki opsi ringtone tambahan pada Account Settings dengan menyinkronkan ID **Xylophone**, **Knock**, dan **Bubble** ke allowlist API, memberi ID unik pada tiap suara, serta memperbaiki path preview audio Bubble.
+- Memperbaiki scanner WhatsApp Extension yang melewatkan bubble terbaru tanpa ikon `tail-in`/`tail-out`: scanner kini menggabungkan seluruh variasi message row, menghapus duplikasi, mempertahankan urutan DOM, serta menentukan arah pesan melalui marker pengirim, pola `data-id`, dan posisi visual; versi extension menjadi `0.2.7`.
+- Memperbaiki scanner WhatsApp Web yang selalu menampilkan `0 pesan` pada DOM terbaru dengan mendeteksi `conv-msg-*`, `msg-container`, serta arah bubble `tail-in`/`tail-out`; versi extension menjadi `0.2.3`.
+- Memperbaiki transfer atau accept conversation yang mewarisi sisa timeout dari antrean/agent sebelumnya; setiap assignment agent kini mendapat waktu balas penuh dan countdown widget disinkronkan ulang dari waktu assignment terbaru.
+- Memperbaiki warna teks input Flutter agar selalu putih dan terbaca pada composer, pre-chat, offline ticket, dropdown kategori, serta komentar rating meskipun theme aplikasi host menggunakan warna teks gelap.
+- Memperbaiki widget website dan Flutter yang memulihkan conversation lama berstatus `CLOSED`/`RESOLVED`; aksi **Pesan Baru** kini hanya membuka pre-chat dan ID conversation baru dibuat setelah pengguna mengirim form, sedangkan backend mencegah pesan ditambahkan ke transcript yang sudah ditutup.
+- Menambahkan indikator animasi tiga titik saat WhatsApp Assistant menunggu jawaban AI, termasuk fallback tanpa animasi untuk preferensi reduced motion dan pembersihan indikator ketika request berhasil atau gagal.
+- Mencegah event realtime, bootstrap, atau response HTTP lama menimpa status conversation baru setelah pre-chat disubmit; submit pre-chat kini selalu membuat transcript baru sehingga kondisi **Percakapan berakhir** dari chat sebelumnya tidak terbawa ke visitor yang baru bergabung.
+- Mengizinkan origin Chrome Extension yang memiliki format ID valid ketika WhatsApp Assistant dikonfigurasi, sehingga request reply tidak lagi gagal karena CORS; versi extension menjadi `0.2.4`.
 
 ## [0.17.0] - 2026-10-06
 ### Changed

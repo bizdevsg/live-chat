@@ -4,7 +4,7 @@ import { FileInterceptor } from "@nestjs/platform-express";
 import type { Request, Response } from "express";
 import { ApiTags } from "@nestjs/swagger";
 import { AuthService } from "./auth.service";
-import { ForgotPasswordDto, LoginDto, RefreshDto, ResetPasswordDto, UpdateAccountSettingsDto, UpdateProfileDto, UploadNotificationSoundDto } from "./dto/auth.dto";
+import { ChangePasswordDto, ForgotPasswordDto, LoginDto, RefreshDto, ResetPasswordDto, UpdateAccountSettingsDto, UpdateProfileDto, UploadNotificationSoundDto } from "./dto/auth.dto";
 import { Public } from "../common/decorators/public.decorator";
 import { CurrentUser } from "../common/decorators/current-user.decorator";
 import type { JwtAccessPayload } from "@solidchat/shared";
@@ -64,7 +64,7 @@ export class AuthController {
     await this.authService.logout(user.sessionId);
     clearAuthCookies(req, res, this.config);
     // Best-effort — a logout must never fail because presence bookkeeping hiccuped.
-    this.agentService.markOfflineOnLogout(user.sub, user.organizationId).catch(() => undefined);
+    await this.agentService.markOfflineOnLogout(user.sub, user.organizationId).catch(() => undefined);
     return { success: true, data: null };
   }
 
@@ -73,7 +73,7 @@ export class AuthController {
   async logoutAll(@CurrentUser() user: JwtAccessPayload, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
     await this.authService.logoutAll(user.sub);
     clearAuthCookies(req, res, this.config);
-    this.agentService.markOfflineOnLogout(user.sub, user.organizationId).catch(() => undefined);
+    await this.agentService.markOfflineOnLogout(user.sub, user.organizationId).catch(() => undefined);
     return { success: true, data: null };
   }
 
@@ -139,6 +139,12 @@ export class AuthController {
   @Put("profile")
   async updateProfile(@CurrentUser() user: JwtAccessPayload, @Body() dto: UpdateProfileDto) {
     return { success: true, data: await this.authService.updateProfile(user.sub, dto) };
+  }
+
+  @Put("profile/password")
+  async changePassword(@CurrentUser() user: JwtAccessPayload, @Body() dto: ChangePasswordDto) {
+    await this.authService.changePassword(user.sub, user.sessionId, dto.currentPassword, dto.newPassword);
+    return { success: true, data: null };
   }
 
   @Post("profile/avatar")

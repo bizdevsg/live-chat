@@ -254,14 +254,26 @@ export class AgentService {
   }
 
   /**
-   * Called from logout / logout-all: an agent whose session just ended can't still be "Online" or
-   * "Busy" in the eyes of transfer pickers or the widget's presence check. Only touches an
-   * existing AgentProfile row — never creates one, so logging out a non-agent (admin, auditor, …)
-   * is a no-op instead of quietly turning them into an agent.
+   * Called after a successful password or SSO login. Only existing agent profiles are touched,
+   * so administrators and other dashboard roles are not accidentally turned into agents.
+   */
+  async markOnlineOnLogin(userId: string, organizationId: string) {
+    const profile = await this.prisma.agentProfile.findUnique({ where: { userId }, select: { availability: true } });
+    if (!profile || profile.availability === AgentAvailability.ONLINE) return;
+    await this.setStatus(userId, organizationId, AgentAvailability.ONLINE);
+  }
+
+  /**
+   * Called after logout / logout-all. Keep the agent online while another unexpired session is
+   * still active, and only touch existing AgentProfile rows so non-agent roles remain unaffected.
    */
   async markOfflineOnLogout(userId: string, organizationId: string) {
     const profile = await this.prisma.agentProfile.findUnique({ where: { userId }, select: { availability: true } });
     if (!profile || profile.availability === AgentAvailability.OFFLINE) return;
+    const activeSessionCount = await this.prisma.session.count({
+      where: { userId, revokedAt: null, expiresAt: { gt: new Date() } },
+    });
+    if (activeSessionCount > 0) return;
     await this.setStatus(userId, organizationId, AgentAvailability.OFFLINE);
   }
 

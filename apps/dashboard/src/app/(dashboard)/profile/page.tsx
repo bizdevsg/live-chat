@@ -7,6 +7,8 @@ import {
   BellRing,
   Building2,
   Camera,
+  Eye,
+  EyeOff,
   KeyRound,
   LockKeyhole,
   LogOut,
@@ -30,6 +32,12 @@ import { type UserAccountSettings } from "@/lib/account-settings";
 import { apiClient, ApiError } from "@/lib/api-client";
 import { useAuthStore, type AuthUser } from "@/lib/auth-store";
 import { useToast } from "@/components/ui/toast";
+import {
+  getPasswordPolicyError,
+  PASSWORD_MAX_LENGTH,
+  PASSWORD_MIN_LENGTH,
+  PASSWORD_REQUIREMENTS,
+} from "@solidchat/shared";
 
 const ALLOWED_AVATAR_TYPES = ["image/png", "image/jpeg", "image/webp"];
 const MAX_AVATAR_BYTES = 3 * 1024 * 1024;
@@ -270,11 +278,133 @@ function EditProfileModal({ open, onClose, user }: { open: boolean; onClose: () 
   );
 }
 
+function PasswordInput({
+  id,
+  value,
+  onChange,
+  autoComplete,
+  resetKey,
+}: {
+  id: string;
+  value: string;
+  onChange: (value: string) => void;
+  autoComplete: "current-password" | "new-password";
+  resetKey: boolean;
+}) {
+  const [visible, setVisible] = useState(false);
+  const label = visible ? "Sembunyikan password" : "Tampilkan password";
+
+  useEffect(() => setVisible(false), [resetKey]);
+
+  return (
+    <div className="relative">
+      <Input
+        id={id}
+        type={visible ? "text" : "password"}
+        required
+        minLength={autoComplete === "new-password" ? PASSWORD_MIN_LENGTH : 1}
+        maxLength={autoComplete === "new-password" ? PASSWORD_MAX_LENGTH : 512}
+        autoComplete={autoComplete}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="pr-11"
+      />
+      <button
+        type="button"
+        onClick={() => setVisible((current) => !current)}
+        aria-label={label}
+        aria-pressed={visible}
+        title={label}
+        className="absolute inset-y-0 right-0 flex w-11 items-center justify-center rounded-r-lg text-zinc-400 transition hover:text-zinc-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-gold-500/60"
+      >
+        {visible ? <EyeOff aria-hidden="true" className="h-4 w-4" /> : <Eye aria-hidden="true" className="h-4 w-4" />}
+      </button>
+    </div>
+  );
+}
+
+function ChangePasswordModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const toast = useToast();
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+
+  useEffect(() => {
+    if (open) {
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+    }
+  }, [open]);
+
+  const mutation = useMutation({
+    mutationFn: () => apiClient.put("/api/v1/auth/profile/password", { currentPassword, newPassword }),
+    onSuccess: () => {
+      toast.push("Password berhasil diganti. Sesi lain telah dicabut.", "success");
+      onClose();
+    },
+    onError: (error) => toast.push(error instanceof ApiError ? error.message : "Gagal mengganti password.", "error"),
+  });
+
+  return (
+    <Modal open={open} title="Ganti Password" onClose={onClose}>
+      <form
+        className="space-y-4"
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (newPassword !== confirmPassword) {
+            toast.push("Konfirmasi password baru tidak cocok.", "error");
+            return;
+          }
+          const passwordError = getPasswordPolicyError(newPassword);
+          if (passwordError) {
+            toast.push(passwordError, "error");
+            return;
+          }
+          if (currentPassword === newPassword) {
+            toast.push("Password baru harus berbeda dari password saat ini.", "error");
+            return;
+          }
+          mutation.mutate();
+        }}
+      >
+        <div>
+          <Label htmlFor="current-password">Password Saat Ini</Label>
+          <PasswordInput id="current-password" value={currentPassword} onChange={setCurrentPassword} autoComplete="current-password" resetKey={open} />
+        </div>
+        <div>
+          <Label htmlFor="new-password">Password Baru</Label>
+          <PasswordInput id="new-password" value={newPassword} onChange={setNewPassword} autoComplete="new-password" resetKey={open} />
+          <ul className="mt-2 space-y-1 text-xs text-zinc-500" aria-label="Syarat password baru">
+            {PASSWORD_REQUIREMENTS.map((requirement) => (
+              <li key={requirement}>• {requirement}</li>
+            ))}
+          </ul>
+        </div>
+        <div>
+          <Label htmlFor="confirm-password">Konfirmasi Password Baru</Label>
+          <PasswordInput id="confirm-password" value={confirmPassword} onChange={setConfirmPassword} autoComplete="new-password" resetKey={open} />
+        </div>
+        <p className="text-xs leading-5 text-zinc-500">Setelah berhasil, seluruh sesi selain perangkat ini akan dicabut.</p>
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="secondary" onClick={onClose} disabled={mutation.isPending}>
+            Batal
+          </Button>
+          <Button type="submit" disabled={mutation.isPending}>
+            {mutation.isPending ? "Mengganti…" : "Ganti Password"}
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
 export default function ProfilePage() {
   const user = useAuthStore((s) => s.user);
   const toast = useToast();
   const router = useRouter();
   const [editOpen, setEditOpen] = useState(false);
+  const [passwordOpen, setPasswordOpen] = useState(false);
   // Called before the `if (!user)` guard below, per rules of hooks — safe with a null user since
   // useAvatarUrl only enables its query once a storage key is actually present.
   const avatarSrc = useAvatarUrl(user?.avatarStorageKey ?? null);
@@ -349,6 +479,10 @@ export default function ProfilePage() {
                   <UserPen className="h-4 w-4" />
                   Edit Profil
                 </Button>
+                <Button variant="secondary" size="sm" onClick={() => setPasswordOpen(true)}>
+                  <KeyRound className="h-4 w-4" />
+                  Ganti Password
+                </Button>
                 <Button
                   variant="secondary"
                   size="sm"
@@ -421,6 +555,7 @@ export default function ProfilePage() {
         </div>
       </DashboardPage>
       <EditProfileModal open={editOpen} onClose={() => setEditOpen(false)} user={user} />
+      <ChangePasswordModal open={passwordOpen} onClose={() => setPasswordOpen(false)} />
     </>
   );
 }

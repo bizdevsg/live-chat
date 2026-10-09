@@ -1,8 +1,8 @@
-import { BadRequestException, Body, Controller, Get, HttpCode, HttpStatus, Param, Post, Req, UploadedFile, UseGuards, UseInterceptors } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Get, HttpCode, HttpStatus, Param, Post, Query, Req, UploadedFile, UseGuards, UseInterceptors } from "@nestjs/common";
 import { Throttle } from "@nestjs/throttler";
 import { ApiTags } from "@nestjs/swagger";
 import type { Request } from "express";
-import { HandoffReason, HandoffSource, HandlerType, MAX_ATTACHMENT_SIZE_BYTES, MessageType, SenderType } from "@solidchat/shared";
+import { ConversationStatus, HandoffReason, HandoffSource, HandlerType, MAX_ATTACHMENT_SIZE_BYTES, MessageType, SenderType } from "@solidchat/shared";
 import { FileInterceptor } from "@nestjs/platform-express";
 import { Public } from "../common/decorators/public.decorator";
 import { WidgetService } from "./widget.service";
@@ -54,13 +54,22 @@ export class WidgetController {
 
   @UseGuards(VisitorAuthGuard)
   @Post("conversations")
-  async createConversation(@Req() req: VisitorRequest, @Body() dto: Partial<CreateWidgetSessionDto>) {
+  async createConversation(
+    @Req() req: VisitorRequest,
+    @Body() dto: Partial<CreateWidgetSessionDto>,
+    @Query("forceNew") forceNew?: string,
+  ) {
     await this.widgetRateLimit.consume("conversation", req.visitor.siteId, req.visitor.visitorId, {
       limit: 6,
       windowMs: 60 * 60_000,
       message: "Terlalu banyak percakapan baru. Coba lagi nanti.",
     });
-    const conversation = await this.widgetService.ensureConversation(req.visitor.siteId, req.visitor.visitorId, dto as CreateWidgetSessionDto);
+    const conversation = await this.widgetService.ensureConversation(
+      req.visitor.siteId,
+      req.visitor.visitorId,
+      dto as CreateWidgetSessionDto,
+      forceNew === "true",
+    );
     return { success: true, data: conversation };
   }
 
@@ -85,7 +94,10 @@ export class WidgetController {
       windowMs: 60_000,
       message: "Terlalu banyak pesan. Tunggu sebentar sebelum mengirim lagi.",
     });
-    await this.widgetService.assertOwnership(id, req.visitor.visitorId);
+    const conversation = await this.widgetService.assertOwnership(id, req.visitor.visitorId);
+    if (conversation.status === ConversationStatus.CLOSED || conversation.status === ConversationStatus.RESOLVED) {
+      throw new BadRequestException("Percakapan ini sudah selesai. Mulai percakapan baru untuk mengirim pesan.");
+    }
     // If the visitor is stuck in a "waiting for an agent" queue whose wait has already elapsed,
     // hand the conversation back to the AI first — otherwise this message would sit unseen in a
     // queue nobody is watching. Safe no-op while the wait is still running or an agent is active.

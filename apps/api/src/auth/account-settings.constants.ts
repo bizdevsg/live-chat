@@ -1,5 +1,16 @@
-export const ON_CONVERSATION_SOUND_IDS = ["ding-sound-effect", "y2mate-alert"] as const;
-export const NEW_MESSAGES_SOUND_IDS = ["funny-laugh", "man-snoring-meme"] as const;
+export const ON_CONVERSATION_SOUND_IDS = [
+  "ding-sound-effect",
+  "y2mate-alert",
+  "universfield-new-notification-012",
+  "universfield-new-notification-010",
+] as const;
+export const NEW_MESSAGES_SOUND_IDS = [
+  "universfield-ringtone-030",
+  "universfield-new-notification-022",
+  "universfield-ringtone-060-495415",
+  "funny-laugh",
+  "man-snoring-meme",
+] as const;
 export const CUSTOM_ON_CONVERSATION_SOUND_ID = "custom-on-conversation";
 export const CUSTOM_NEW_MESSAGES_SOUND_ID = "custom-new-messages";
 
