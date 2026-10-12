@@ -33,6 +33,22 @@ export class RealtimeEmitterService {
     this.dashboardServer?.to(`agent:${agentId}`).emit(event, payload);
   }
 
+  disconnectAgent(agentId: string) {
+    const room = `agent:${agentId}`;
+    this.dashboardServer?.to(room).emit("auth:revoked", { message: "Sesi Anda telah dicabut." });
+    this.dashboardServer?.in(room).disconnectSockets(true);
+  }
+
+  async connectedDashboardUserIds(organizationId: string): Promise<string[]> {
+    if (!this.dashboardServer) return [];
+
+    const sockets = await this.dashboardServer.in(`org:${organizationId}`).fetchSockets();
+    const userIds = sockets
+      .map((socket) => (socket.data as { user?: { sub?: string } }).user?.sub)
+      .filter((userId): userId is string => Boolean(userId));
+    return [...new Set(userIds)];
+  }
+
   toTeam(teamId: string, event: string, payload: unknown) {
     this.dashboardServer?.to(`team:${teamId}`).emit(event, payload);
   }

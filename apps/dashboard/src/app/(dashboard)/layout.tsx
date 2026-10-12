@@ -12,6 +12,7 @@ import { DashboardShellProvider } from "@/components/layout/dashboard-shell";
 import { PermissionRouteGuard } from "@/components/layout/permission-route-guard";
 import { Sidebar } from "@/components/layout/sidebar";
 import { getDashboardSocket, disconnectDashboardSocket } from "@/lib/socket";
+import { authTokenStore } from "@/lib/auth-token-store";
 import type { ConversationDetail, ConversationSummary } from "@/lib/types";
 import { useToast } from "@/components/ui/toast";
 
@@ -105,11 +106,19 @@ export default function DashboardGroupLayout({ children }: { children: ReactNode
       playNotificationSoundForType(payload.type, accountSettings);
     };
 
+    const handleAuthRevoked = () => {
+      authTokenStore.clear();
+      useAuthStore.getState().setUser(null);
+      router.replace("/login");
+    };
+
     socket.on("notification:new", handleNotification);
+    socket.on("auth:revoked", handleAuthRevoked);
     return () => {
       socket.off("notification:new", handleNotification);
+      socket.off("auth:revoked", handleAuthRevoked);
     };
-  }, [status, accountSettings, activeConversationId, clearUnread, markUnread, queryClient, resetConversationRealtime, toast]);
+  }, [status, accountSettings, activeConversationId, clearUnread, markUnread, queryClient, resetConversationRealtime, router, toast]);
 
   useEffect(() => {
     if (status !== "authenticated") return;

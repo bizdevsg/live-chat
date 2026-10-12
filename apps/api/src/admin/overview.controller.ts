@@ -2,13 +2,14 @@ import { InjectQueue } from "@nestjs/bullmq";
 import { Body, Controller, Delete, Get, Param, Post, Put, Query, UseGuards } from "@nestjs/common";
 import { ApiTags } from "@nestjs/swagger";
 import type { Queue } from "bullmq";
-import { ConversationStatus, Permission, QUEUE_NAMES, type JwtAccessPayload } from "@solidchat/shared";
+import { AgentAvailability, ConversationStatus, HandlerType, Permission, QUEUE_NAMES, type JwtAccessPayload } from "@solidchat/shared";
 import { PermissionsGuard } from "../common/guards/permissions.guard";
 import { RequirePermissions } from "../common/decorators/permissions.decorator";
 import { CurrentUser } from "../common/decorators/current-user.decorator";
 import { PrismaService } from "../prisma/prisma.service";
 import { AuditLogService } from "../common/audit/audit-log.service";
 import { CreateIntegrationDto, UpdateIntegrationDto } from "./dto/admin.dto";
+import { RealtimeEmitterService } from "../realtime/realtime-emitter.service";
 
 @ApiTags("admin-overview")
 @UseGuards(PermissionsGuard)
@@ -18,12 +19,14 @@ export class OverviewController {
     private readonly prisma: PrismaService,
     private readonly auditLog: AuditLogService,
     @InjectQueue(QUEUE_NAMES.CLEANUP) private readonly cleanupQueue: Queue,
+    private readonly realtime: RealtimeEmitterService,
   ) {}
 
   @Get("overview")
   async overview(@CurrentUser() user: JwtAccessPayload) {
     const startOfDay = new Date();
     startOfDay.setHours(0, 0, 0, 0);
+    const connectedUserIds = await this.realtime.connectedDashboardUserIds(user.organizationId);
 
     const [
       totalToday,
@@ -34,6 +37,7 @@ export class OverviewController {
       unresolved,
       openTickets,
       onlineAgents,
+      activeChatCounts,
       csatAgg,
     ] = await Promise.all([
       this.prisma.conversation.count({ where: { organizationId: user.organizationId, createdAt: { gte: startOfDay } } }),
@@ -46,17 +50,35 @@ export class OverviewController {
       this.prisma.conversation.count({ where: { organizationId: user.organizationId, status: { notIn: [ConversationStatus.RESOLVED, ConversationStatus.CLOSED] } } }),
       this.prisma.ticket.count({ where: { organizationId: user.organizationId, status: { in: ["OPEN", "IN_PROGRESS"] } } }),
       this.prisma.agentProfile.findMany({
-        where: { availability: "ONLINE", user: { organizationId: user.organizationId, isActive: true } },
+        where: {
+          userId: { in: connectedUserIds },
+          availability: { in: [AgentAvailability.ONLINE, AgentAvailability.BUSY] },
+          user: { organizationId: user.organizationId, isActive: true },
+        },
         orderBy: { user: { name: "asc" } },
         select: {
           userId: true,
-          activeChatCount: true,
+          availability: true,
           maxConcurrentChats: true,
           user: { select: { name: true, email: true } },
         },
       }),
+      this.prisma.conversation.groupBy({
+        by: ["assignedAgentId"],
+        where: {
+          organizationId: user.organizationId,
+          assignedAgentId: { in: connectedUserIds },
+          status: ConversationStatus.AGENT_ACTIVE,
+          handlerType: HandlerType.HUMAN,
+        },
+        _count: { _all: true },
+      }),
       this.prisma.customerFeedback.aggregate({ _avg: { score: true }, where: { conversation: { organizationId: user.organizationId } } }),
     ]);
+
+    const activeChatCountByAgent = new Map(
+      activeChatCounts.flatMap((row) => row.assignedAgentId ? [[row.assignedAgentId, row._count._all] as const] : []),
+    );
 
     const totalConversations = await this.prisma.conversation.count({ where: { organizationId: user.organizationId } });
     const aiHandled = await this.prisma.conversation.count({ where: { organizationId: user.organizationId, handlerType: "AI" } });
@@ -76,7 +98,8 @@ export class OverviewController {
           userId: agent.userId,
           name: agent.user.name,
           email: agent.user.email,
-          activeChatCount: agent.activeChatCount,
+          availability: agent.availability,
+          activeChatCount: activeChatCountByAgent.get(agent.userId) ?? 0,
           maxConcurrentChats: agent.maxConcurrentChats,
         })),
         aiContainmentRate: totalConversations > 0 ? aiHandled / totalConversations : 0,

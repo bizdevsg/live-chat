@@ -4,6 +4,7 @@ import { authTokenStore } from "./auth-token-store";
 
 let socket: Socket | null = null;
 let refreshingForSocket = false;
+let dashboardSocketReady = false;
 
 /**
  * One shared connection to the /dashboard namespace. Auth is a Bearer access token read
@@ -25,6 +26,18 @@ export function getDashboardSocket(): Socket {
     reconnectionDelayMax: 5000,
   });
 
+  socket.on("connect", () => {
+    dashboardSocketReady = false;
+  });
+
+  socket.on("dashboard:ready", () => {
+    dashboardSocketReady = true;
+  });
+
+  socket.on("disconnect", () => {
+    dashboardSocketReady = false;
+  });
+
   socket.on("connect_error", async () => {
     if (refreshingForSocket) return;
     refreshingForSocket = true;
@@ -38,7 +51,12 @@ export function getDashboardSocket(): Socket {
   return socket;
 }
 
+export function isDashboardSocketReady() {
+  return dashboardSocketReady;
+}
+
 export function disconnectDashboardSocket() {
   socket?.disconnect();
   socket = null;
+  dashboardSocketReady = false;
 }

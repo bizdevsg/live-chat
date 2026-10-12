@@ -1,18 +1,20 @@
 import { Injectable, HttpStatus } from "@nestjs/common";
 import { nanoid } from "nanoid";
 import { createHash } from "node:crypto";
-import { ErrorCode } from "@solidchat/shared";
+import { ErrorCode, SystemRole } from "@solidchat/shared";
 import { PrismaService } from "../prisma/prisma.service";
 import { AuditLogService } from "../common/audit/audit-log.service";
-import { ApiException, NotFoundApiException } from "../common/errors/api.exception";
+import { ApiException, ForbiddenApiException, NotFoundApiException } from "../common/errors/api.exception";
 import type { CreateUserDto, InviteUserDto, UpdateUserDto } from "./dto/admin.dto";
 import { hashPassword } from "../auth/password-hashing.util";
+import { RealtimeEmitterService } from "../realtime/realtime-emitter.service";
 
 @Injectable()
 export class UsersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditLog: AuditLogService,
+    private readonly realtime: RealtimeEmitterService,
   ) {}
 
   async list(organizationId: string) {
@@ -65,9 +67,53 @@ export class UsersService {
     return user;
   }
 
-  async revokeSessions(id: string, actorId: string) {
+  async revokeSessions(id: string, organizationId: string, actorId: string) {
+    const target = await this.prisma.user.findFirst({
+      where: { id, organizationId },
+      select: { roles: { select: { role: { select: { slug: true } } } } },
+    });
+    if (!target) throw new NotFoundApiException(ErrorCode.NOT_FOUND, "User tidak ditemukan.");
+    if (target.roles.some(({ role }) => role.slug === SystemRole.SUPER_ADMIN)) {
+      throw new ForbiddenApiException("Sesi Superadmin tidak dapat dicabut melalui manajemen user.");
+    }
+
     await this.prisma.session.updateMany({ where: { userId: id, revokedAt: null }, data: { revokedAt: new Date() } });
-    await this.auditLog.record({ actorType: "USER", actorId, action: "user.sessions_revoked", resourceType: "user", resourceId: id });
+    await this.auditLog.record({ organizationId, actorType: "USER", actorId, action: "user.sessions_revoked", resourceType: "user", resourceId: id });
+    this.realtime.disconnectAgent(id);
+  }
+
+  async revokeAllNonSuperAdminSessions(organizationId: string, actorId: string, actorRoles: string[]) {
+    if (!actorRoles.includes(SystemRole.SUPER_ADMIN)) {
+      throw new ForbiddenApiException("Hanya Superadmin yang dapat mencabut sesi seluruh user sekaligus.");
+    }
+
+    const targets = await this.prisma.user.findMany({
+      where: {
+        organizationId,
+        roles: { none: { role: { slug: SystemRole.SUPER_ADMIN } } },
+      },
+      select: { id: true },
+    });
+    const targetIds = targets.map(({ id }) => id);
+    const result = targetIds.length
+      ? await this.prisma.session.updateMany({
+          where: { userId: { in: targetIds }, revokedAt: null },
+          data: { revokedAt: new Date() },
+        })
+      : { count: 0 };
+
+    await this.auditLog.record({
+      organizationId,
+      actorType: "USER",
+      actorId,
+      action: "users.sessions_revoked",
+      resourceType: "organization",
+      resourceId: organizationId,
+      afterData: { usersRevoked: targetIds.length, sessionsRevoked: result.count },
+    });
+    for (const targetId of targetIds) this.realtime.disconnectAgent(targetId);
+
+    return { usersRevoked: targetIds.length, sessionsRevoked: result.count };
   }
 
   async remove(id: string, organizationId: string, actorId: string) {

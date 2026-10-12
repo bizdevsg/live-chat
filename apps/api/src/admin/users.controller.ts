@@ -34,6 +34,14 @@ export class UsersController {
     return { success: true, data: await this.usersService.invite(user.organizationId, dto, user.sub) };
   }
 
+  @Post("revoke-sessions")
+  async revokeAll(@CurrentUser() user: JwtAccessPayload) {
+    return {
+      success: true,
+      data: await this.usersService.revokeAllNonSuperAdminSessions(user.organizationId, user.sub, user.roles),
+    };
+  }
+
   @Put(":id")
   async update(@Param("id") id: string, @Body() dto: UpdateUserDto, @CurrentUser() user: JwtAccessPayload) {
     return { success: true, data: await this.usersService.update(id, dto, user.organizationId, user.sub) };
@@ -41,7 +49,7 @@ export class UsersController {
 
   @Post(":id/revoke-sessions")
   async revoke(@Param("id") id: string, @CurrentUser() user: JwtAccessPayload) {
-    await this.usersService.revokeSessions(id, user.sub);
+    await this.usersService.revokeSessions(id, user.organizationId, user.sub);
     return { success: true, data: null };
   }
 

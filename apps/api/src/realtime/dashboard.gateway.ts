@@ -19,12 +19,13 @@ import { ConversationsService } from "../conversations/conversations.service";
 import { TicketsService } from "../tickets/tickets.service";
 import { RealtimeEmitterService } from "./realtime-emitter.service";
 import { AgentService } from "../agent/agent.service";
+import { AuthService } from "../auth/auth.service";
 
 interface DashboardSocket extends Socket {
   data: { user: JwtAccessPayload };
 }
 
-export const DASHBOARD_DISCONNECT_GRACE_MS = 45_000;
+export const DASHBOARD_DISCONNECT_GRACE_MS = 10_000;
 
 /**
  * Authenticated namespace for the Admin/CS dashboard (§15). Marked @Public() for the same
@@ -38,14 +39,14 @@ export class DashboardGateway implements OnGatewayInit, OnGatewayConnection, OnG
   server!: Server;
 
   private readonly logger = new Logger(DashboardGateway.name);
-  private readonly pendingOfflineTimers = new Map<string, ReturnType<typeof setTimeout>>();
-  private readonly autoOfflinedAgentIds = new Set<string>();
+  private readonly pendingLogoutTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
   constructor(
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
     private readonly prisma: PrismaService,
     private readonly agentService: AgentService,
+    private readonly authService: AuthService,
     private readonly conversations: ConversationsService,
     private readonly tickets: TicketsService,
     private readonly realtime: RealtimeEmitterService,
@@ -70,18 +71,15 @@ export class DashboardGateway implements OnGatewayInit, OnGatewayConnection, OnG
       client.data = { user: payload };
       await client.join(`agent:${payload.sub}`);
       await client.join(`org:${payload.organizationId}`);
-
-      this.cancelPendingOffline(payload.sub);
-      if (this.autoOfflinedAgentIds.has(payload.sub)) {
-        await this.agentService.markOnlineOnLogin(payload.sub, payload.organizationId);
-        this.autoOfflinedAgentIds.delete(payload.sub);
-      }
+      this.cancelPendingLogout(payload.sub);
 
       const teams = await this.prisma.teamMember.findMany({ where: { userId: payload.sub } });
       for (const team of teams) await client.join(`team:${team.teamId}`);
 
       const sites = await this.prisma.site.findMany({ where: { organizationId: payload.organizationId } });
       for (const site of sites) await client.join(`site:${site.id}`);
+
+      client.emit("dashboard:ready", { userId: payload.sub });
     } catch {
       this.reject(client, "Token akses tidak valid.");
     }
@@ -91,32 +89,32 @@ export class DashboardGateway implements OnGatewayInit, OnGatewayConnection, OnG
     const user = client.data?.user;
     if (!user) return;
 
-    this.cancelPendingOffline(user.sub);
+    this.cancelPendingLogout(user.sub);
     const timer = setTimeout(() => {
-      this.pendingOfflineTimers.delete(user.sub);
-      void this.markOfflineIfDisconnected(user).catch((error: unknown) => {
+      this.pendingLogoutTimers.delete(user.sub);
+      void this.logoutIfDisconnected(user).catch((error: unknown) => {
         this.logger.error(
-          `Gagal memperbarui status offline agent ${user.sub} setelah dashboard terputus.`,
+          `Gagal logout dan memperbarui status offline agent ${user.sub} setelah dashboard ditutup.`,
           error instanceof Error ? error.stack : undefined,
         );
       });
     }, DASHBOARD_DISCONNECT_GRACE_MS);
-    this.pendingOfflineTimers.set(user.sub, timer);
+    this.pendingLogoutTimers.set(user.sub, timer);
   }
 
-  private cancelPendingOffline(userId: string) {
-    const timer = this.pendingOfflineTimers.get(userId);
+  private cancelPendingLogout(userId: string) {
+    const timer = this.pendingLogoutTimers.get(userId);
     if (!timer) return;
     clearTimeout(timer);
-    this.pendingOfflineTimers.delete(userId);
+    this.pendingLogoutTimers.delete(userId);
   }
 
-  private async markOfflineIfDisconnected(user: JwtAccessPayload) {
+  private async logoutIfDisconnected(user: JwtAccessPayload) {
     const connectedSockets = await this.server.in(`agent:${user.sub}`).fetchSockets();
     if (connectedSockets.length > 0) return;
 
-    const changed = await this.agentService.markOfflineOnDisconnect(user.sub, user.organizationId);
-    if (changed) this.autoOfflinedAgentIds.add(user.sub);
+    await this.authService.logout(user.sessionId);
+    await this.agentService.markOfflineOnDisconnect(user.sub, user.organizationId);
   }
 
   private extractCookie(client: Socket, name: string): string | undefined {

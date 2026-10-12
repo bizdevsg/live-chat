@@ -5,11 +5,12 @@ import { AiModule } from "../ai/ai.module";
 import { TicketsModule } from "../tickets/tickets.module";
 import { WidgetModule } from "../widget/widget.module";
 import { AgentModule } from "../agent/agent.module";
+import { AuthModule } from "../auth/auth.module";
 import { WidgetGateway } from "./widget.gateway";
 import { DashboardGateway } from "./dashboard.gateway";
 
 @Module({
-  imports: [JwtModule.register({}), ConversationsModule, AiModule, TicketsModule, WidgetModule, AgentModule],
+  imports: [JwtModule.register({}), ConversationsModule, AiModule, TicketsModule, WidgetModule, AgentModule, AuthModule],
   providers: [WidgetGateway, DashboardGateway],
 })
 export class RealtimeModule {}

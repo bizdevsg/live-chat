@@ -3,8 +3,35 @@
 Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
+### Added
+- Menambahkan `apps/api/src/admin/users.service.spec.ts`.
+- Menambahkan pengujian service untuk pencabutan seluruh sesi user non-Superadmin, perlindungan akun Superadmin, dan isolasi antar-organisasi.
+- Menambahkan tombol `Cabut Semua Sesi` khusus Superadmin pada halaman Users untuk mencabut sekaligus seluruh session akun non-Superadmin dalam organisasi yang sama.
+
 ### Changed
+- Memastikan panel Agent online hanya menampilkan agent dengan koneksi dashboard aktif dan availability `ONLINE`/`BUSY`, melakukan refresh data saat socket tersambung, serta menghitung beban chat dari conversation aktif sebenarnya agar status stale dan angka negatif seperti `-1/5` tidak ditampilkan.
+- Membatasi aksi `Cabut Sesi` pada halaman Users hanya untuk akun non-Superadmin, dengan validasi organisasi dan perlindungan Superadmin yang sama pada endpoint backend agar tidak dapat dilewati melalui request manual; koneksi dashboard target juga langsung diputus dan diarahkan ke halaman login setelah seluruh session dicabut.
+- Memberikan grace period 10 detik pada koneksi dashboard yang terputus agar refresh halaman dapat tersambung kembali tanpa logout; session hanya dicabut dan agent dibuat `OFFLINE` jika tidak ada reconnect selama periode tersebut.
+- Memperbaiki halaman Beranda Dashboard dengan header responsif, sapaan user, skeleton delapan metrik, state loading/error/kosong untuk grafik, tombol retry tanpa logout, format tanggal lokal, serta shortcut yang mengikuti permission user.
+- Memperbaiki race condition status Agent aktif setelah refresh dengan menahan request overview sampai sinyal `dashboard:ready` diterima dari backend setelah autentikasi dan join room Socket.IO selesai, sehingga hasil request sebelum socket siap tidak lagi mengosongkan daftar agent.
+- Memperbarui `apps/api/src/admin/overview.controller.spec.ts`.
+- Memperbarui `apps/api/src/admin/overview.controller.ts`.
+- Memperbarui `apps/api/src/admin/users.controller.ts`.
+- Memperbarui `apps/api/src/admin/users.service.ts`.
+- Memperbarui `apps/api/src/realtime/dashboard.gateway.spec.ts`.
+- Memperbarui `apps/api/src/realtime/dashboard.gateway.ts`.
+- Memperbarui `apps/api/src/realtime/realtime-emitter.service.ts`.
+- Memperbarui `apps/api/src/realtime/realtime.module.ts`.
+- Memperbarui `apps/dashboard/src/app/(dashboard)/dashboard/page.tsx`.
+- Memperbarui `apps/dashboard/src/app/(dashboard)/layout.tsx`.
+- Memperbarui `apps/dashboard/src/app/(dashboard)/users/page.tsx`.
+- Memperbarui `apps/dashboard/src/lib/socket.ts`.
 - Memperbarui `package.json`.
+- Mendesain ulang Beranda Dashboard menjadi operational command center yang lebih padat dan mudah dipindai, dengan live-status header, hierarki metrik utama, grafik traffic sebagai fokus, roster agent aktif, action queue, dan metrik sekunder yang responsif.
+- Mengubah penanganan koneksi dashboard yang ditutup agar session agent langsung dicabut dan availability langsung menjadi `OFFLINE` setelah tab terakhir ditutup; tab dashboard lain yang masih aktif tetap mempertahankan session dan status agent.
+
+### Fixed
+- Memperbaiki kegagalan build API pada test Dashboard Gateway dengan mempertahankan referensi mock `emit` sebelum socket fixture dicast ke tipe gateway.
 
 ## [0.19.0] - 2026-10-12
 ### Added

@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient, ApiError } from "@/lib/api-client";
 import { useToast } from "@/components/ui/toast";
 import { useAuthStore } from "@/lib/auth-store";
+import { isSuperAdminRole } from "@/lib/is-super-admin";
 import { Topbar } from "@/components/layout/topbar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -37,9 +38,12 @@ export default function UsersPage() {
   const queryClient = useQueryClient();
   const toast = useToast();
   const currentUserId = useAuthStore((s) => s.user?.userId);
+  const currentUserRoles = useAuthStore((s) => s.user?.roles);
+  const currentUserIsSuperAdmin = isSuperAdminRole(currentUserRoles);
   const [open, setOpen] = useState(false);
+  const [revokeAllOpen, setRevokeAllOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<UserRow | null>(null);
-  const [revokeTarget, setRevokeTarget] = useState<string | null>(null);
+  const [revokeTarget, setRevokeTarget] = useState<UserRow | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<UserRow | null>(null);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [email, setEmail] = useState("");
@@ -102,8 +106,21 @@ export default function UsersPage() {
 
   const revokeSessions = useMutation({
     mutationFn: (id: string) => apiClient.post(`/api/v1/admin/users/${id}/revoke-sessions`),
-    onSuccess: () => toast.push("Seluruh sesi user telah dicabut.", "success"),
+    onSuccess: () => {
+      toast.push("Seluruh sesi user telah dicabut.", "success");
+      setRevokeTarget(null);
+    },
     onError: (err) => toast.push(err instanceof ApiError ? err.message : "Gagal mencabut sesi.", "error"),
+  });
+
+  const revokeAllSessions = useMutation({
+    mutationFn: () =>
+      apiClient.post<{ usersRevoked: number; sessionsRevoked: number }>("/api/v1/admin/users/revoke-sessions"),
+    onSuccess: ({ usersRevoked, sessionsRevoked }) => {
+      toast.push(`Berhasil mencabut ${sessionsRevoked} sesi dari ${usersRevoked} user.`, "success");
+      setRevokeAllOpen(false);
+    },
+    onError: (err) => toast.push(err instanceof ApiError ? err.message : "Gagal mencabut seluruh sesi user.", "error"),
   });
 
   const deleteUser = useMutation({
@@ -126,18 +143,25 @@ export default function UsersPage() {
             title="Users"
             description="Manajemen user ditata ulang agar role, status, dan aksi keamanan penting seperti revoke session atau delete account lebih mudah dipindai."
             actions={
-              <Button
-                onClick={() => {
-                  setEmail("");
-                  setName("");
-                  setPassword("");
-                  setConfirmPassword("");
-                  setRoleSlug("cs_agent");
-                  setOpen(true);
-                }}
-              >
-                + User Baru
-              </Button>
+              <div className="flex flex-wrap gap-2">
+                {currentUserIsSuperAdmin ? (
+                  <Button variant="danger" onClick={() => setRevokeAllOpen(true)}>
+                    Cabut Semua Sesi
+                  </Button>
+                ) : null}
+                <Button
+                  onClick={() => {
+                    setEmail("");
+                    setName("");
+                    setPassword("");
+                    setConfirmPassword("");
+                    setRoleSlug("cs_agent");
+                    setOpen(true);
+                  }}
+                >
+                  + User Baru
+                </Button>
+              </div>
             }
           />
           <DashboardPageMetrics
@@ -198,9 +222,11 @@ export default function UsersPage() {
                           <Button size="sm" variant="secondary" onClick={() => toggleActive.mutate({ id: user.id, isActive: !user.isActive })}>
                             {user.isActive ? "Nonaktifkan" : "Aktifkan"}
                           </Button>
-                          <Button size="sm" variant="ghost" onClick={() => setRevokeTarget(user.id)}>
-                            Cabut Sesi
-                          </Button>
+                          {!isSuperAdminRole(user.roles.map(({ role }) => role.slug)) ? (
+                            <Button size="sm" variant="ghost" onClick={() => setRevokeTarget(user)}>
+                              Cabut Sesi
+                            </Button>
+                          ) : null}
                           <Button
                             size="sm"
                             variant="ghost"
@@ -387,12 +413,22 @@ export default function UsersPage() {
       </Modal>
 
       <ConfirmModal
+        open={revokeAllOpen}
+        title="Cabut Semua Sesi User"
+        description="Seluruh sesi milik user non-Superadmin akan langsung dicabut dari semua perangkat. Akun Superadmin tetap aktif. Lanjutkan?"
+        confirmLabel="Cabut Semua Sesi"
+        danger
+        onConfirm={() => revokeAllSessions.mutate()}
+        onClose={() => setRevokeAllOpen(false)}
+      />
+
+      <ConfirmModal
         open={!!revokeTarget}
         title="Cabut Semua Sesi"
-        description="User ini akan langsung logout dari semua perangkat. Lanjutkan?"
+        description={`${revokeTarget?.name ?? "User ini"} akan langsung logout dari semua perangkat. Lanjutkan?`}
         confirmLabel="Cabut Sesi"
         danger
-        onConfirm={() => revokeTarget && revokeSessions.mutate(revokeTarget)}
+        onConfirm={() => revokeTarget && revokeSessions.mutate(revokeTarget.id)}
         onClose={() => setRevokeTarget(null)}
       />
 

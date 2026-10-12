@@ -19,8 +19,8 @@ describe("DashboardGateway automatic disconnect presence", () => {
     };
     const agentService = {
       markOfflineOnDisconnect: jest.fn().mockResolvedValue(true),
-      markOnlineOnLogin: jest.fn().mockResolvedValue(undefined),
     };
+    const authService = { logout: jest.fn().mockResolvedValue(undefined) };
     const fetchSockets = jest.fn().mockResolvedValue(connectedSockets);
     const server = { in: jest.fn().mockReturnValue({ fetchSockets }) };
     const gateway = new DashboardGateway(
@@ -28,13 +28,14 @@ describe("DashboardGateway automatic disconnect presence", () => {
       config as never,
       prisma as never,
       agentService as never,
+      authService as never,
       {} as never,
       {} as never,
       {} as never,
     );
     gateway.server = server as never;
 
-    return { gateway, agentService, fetchSockets };
+    return { gateway, agentService, authService, fetchSockets };
   }
 
   function disconnectedClient() {
@@ -49,54 +50,48 @@ describe("DashboardGateway automatic disconnect presence", () => {
     jest.useRealTimers();
   });
 
-  it("marks the agent offline only after the disconnect grace period", async () => {
-    const { gateway, agentService } = createGateway();
+  it("revokes the session and marks the agent offline after ten seconds without a reconnect", async () => {
+    const { gateway, agentService, authService } = createGateway();
 
     gateway.handleDisconnect(disconnectedClient());
     await jest.advanceTimersByTimeAsync(DASHBOARD_DISCONNECT_GRACE_MS - 1);
+    expect(authService.logout).not.toHaveBeenCalled();
     expect(agentService.markOfflineOnDisconnect).not.toHaveBeenCalled();
 
     await jest.advanceTimersByTimeAsync(1);
+
+    expect(authService.logout).toHaveBeenCalledWith("session-1");
     expect(agentService.markOfflineOnDisconnect).toHaveBeenCalledWith("agent-1", "org-1");
   });
 
-  it("keeps the agent online while another dashboard socket remains", async () => {
-    const { gateway, agentService } = createGateway([{ id: "other-tab" }]);
+  it("keeps the session active and agent online while another dashboard tab remains", async () => {
+    const { gateway, agentService, authService } = createGateway([{ id: "other-tab" }]);
 
     gateway.handleDisconnect(disconnectedClient());
     await jest.advanceTimersByTimeAsync(DASHBOARD_DISCONNECT_GRACE_MS);
 
+    expect(authService.logout).not.toHaveBeenCalled();
     expect(agentService.markOfflineOnDisconnect).not.toHaveBeenCalled();
   });
 
-  it("cancels pending auto-offline when the dashboard reconnects", async () => {
-    const { gateway, agentService } = createGateway();
+  it("cancels logout when the dashboard reconnects during the grace period", async () => {
+    const { gateway, agentService, authService } = createGateway();
+    const emit = jest.fn();
     const reconnectingClient = {
       data: {},
       handshake: { auth: { accessToken: "access-token" }, headers: {} },
       join: jest.fn().mockResolvedValue(undefined),
+      emit,
+      disconnect: jest.fn(),
     } as never;
 
     gateway.handleDisconnect(disconnectedClient());
+    await jest.advanceTimersByTimeAsync(DASHBOARD_DISCONNECT_GRACE_MS - 1);
     await gateway.handleConnection(reconnectingClient);
-    await jest.advanceTimersByTimeAsync(DASHBOARD_DISCONNECT_GRACE_MS);
+    await jest.advanceTimersByTimeAsync(1);
 
+    expect(authService.logout).not.toHaveBeenCalled();
     expect(agentService.markOfflineOnDisconnect).not.toHaveBeenCalled();
-  });
-
-  it("restores ONLINE after an agent reconnects following an automatic offline", async () => {
-    const { gateway, agentService } = createGateway();
-    const reconnectingClient = {
-      data: {},
-      handshake: { auth: { accessToken: "access-token" }, headers: {} },
-      join: jest.fn().mockResolvedValue(undefined),
-    } as never;
-
-    gateway.handleDisconnect(disconnectedClient());
-    await jest.advanceTimersByTimeAsync(DASHBOARD_DISCONNECT_GRACE_MS);
-    await gateway.handleConnection(reconnectingClient);
-
-    expect(agentService.markOfflineOnDisconnect).toHaveBeenCalledWith("agent-1", "org-1");
-    expect(agentService.markOnlineOnLogin).toHaveBeenCalledWith("agent-1", "org-1");
+    expect(emit).toHaveBeenCalledWith("dashboard:ready", { userId: "agent-1" });
   });
 });
