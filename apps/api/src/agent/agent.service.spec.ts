@@ -220,6 +220,27 @@ describe("AgentService automatic auth presence", () => {
     expect(presence.broadcastPresence).not.toHaveBeenCalled();
   });
 
+  it("flips an ONLINE agent to OFFLINE after their final dashboard socket disconnects even if an auth session remains", async () => {
+    const { service, prisma, realtime, presence } = createPresenceService("ONLINE", 1);
+
+    await expect(service.markOfflineOnDisconnect("agent-a", "org-1")).resolves.toBe(true);
+
+    expect(prisma.session.count).not.toHaveBeenCalled();
+    expect(prisma.agentProfile.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { userId: "agent-a" }, update: expect.objectContaining({ availability: "OFFLINE" }) }),
+    );
+    expect(realtime.toOrganizationDashboard).toHaveBeenCalledWith("org-1", "agent:status", { userId: "agent-a", availability: "OFFLINE" });
+    expect(presence.broadcastPresence).toHaveBeenCalledWith("org-1");
+  });
+
+  it("does not auto-offline an agent who was already manually OFFLINE", async () => {
+    const { service, prisma } = createPresenceService("OFFLINE", 1);
+
+    await expect(service.markOfflineOnDisconnect("agent-a", "org-1")).resolves.toBe(false);
+
+    expect(prisma.agentProfile.upsert).not.toHaveBeenCalled();
+  });
+
   it("does nothing for an agent already OFFLINE", async () => {
     const { service, prisma, realtime } = createPresenceService("OFFLINE");
 

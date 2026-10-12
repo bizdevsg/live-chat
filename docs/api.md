@@ -46,6 +46,10 @@ Users (`/users`, `/users/roles`, `/users/invite`, `/users/:id`, `/users/:id/revo
 
 `GET/POST /documents`, `GET/PUT /documents/:id`, `POST /documents/:id/{submit-review,approve,reject,publish,archive,reprocess}`, `POST /upload` (multipart), `GET /categories`.
 
+## Public Knowledge (`/api/v1/public/knowledge`)
+
+API eksternal read-only menggunakan header `X-Knowledge-API-Key`. `GET /documents` mengembalikan seluruh artikel yang cocok tanpa pagination dan mendukung query opsional `siteId`, `search`, serta `category`; `GET /documents/:slug` menerima `siteId` opsional. Jika `siteId` tidak dikirim, API memakai `PUBLIC_KNOWLEDGE_SITE_ID`, lalu `WHATSAPP_ASSISTANT_SITE_ID`, atau site tertua. Hanya artikel audience `PUBLIC` yang aktif dan berada dalam periode berlaku yang dikembalikan. Kredensial memakai `PUBLIC_KNOWLEDGE_API_KEY` dan fallback ke `WHATSAPP_ASSISTANT_API_KEY` bila dedicated key belum diisi.
+
 ## AI (`/api/v1/ai`)
 
 `GET /configuration`, `PUT /configuration/:id`, `GET /runs`, `POST /runs/:id/feedback`.

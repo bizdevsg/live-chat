@@ -9,6 +9,7 @@ coverage
 .env
 .env.local
 .env.*.local
+extensions/whatsapp-assistant/config.local.js
 .DS_Store
 Thumbs.db
 apps/api/generated

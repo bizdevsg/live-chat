@@ -1,12 +1,12 @@
 import { HttpStatus, Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { chunkText } from "@solidchat/ai-core";
-import { AI_MODELS, KnowledgeStatus, ErrorCode, normalizeWikiLinksForIndexing } from "@solidchat/shared";
+import { AI_MODELS, KnowledgeAudience, KnowledgeStatus, ErrorCode, normalizeWikiLinksForIndexing } from "@solidchat/shared";
 import { PrismaService } from "../prisma/prisma.service";
 import { AuditLogService } from "../common/audit/audit-log.service";
 import { AiProviderFactory } from "../ai/ai-provider.factory";
 import { ApiException, NotFoundApiException } from "../common/errors/api.exception";
-import type { CreateKnowledgeDocumentDto, ListKnowledgeQueryDto, UpdateKnowledgeDocumentDto } from "./dto/knowledge.dto";
+import type { CreateKnowledgeDocumentDto, ListKnowledgeQueryDto, PublicKnowledgeQueryDto, UpdateKnowledgeDocumentDto } from "./dto/knowledge.dto";
 import { StorageService } from "../storage/storage.service";
 import { normalizeOfficialSourceUrl, parseOfficialSourceHosts } from "./official-source-url";
 
@@ -132,6 +132,64 @@ export class KnowledgeService {
     const total = ranked.length;
     const items = ranked.slice((page - 1) * pageSize, (page - 1) * pageSize + pageSize).map(({ doc }) => doc);
     return { items: items.map((item) => this.serializeDocument(item)), total, page, pageSize };
+  }
+
+  async listPublic(query: PublicKnowledgeQueryDto, configuredSiteId?: string) {
+    const siteId = await this.resolvePublicSiteId(query.siteId, configuredSiteId);
+    const now = new Date();
+    const search = query.search?.trim();
+    const category = query.category?.trim();
+    const where = {
+      siteId,
+      audience: KnowledgeAudience.PUBLIC,
+      status: { in: [...ACTIVE_STATUSES] },
+      AND: [
+        { OR: [{ effectiveDate: null }, { effectiveDate: { lte: now } }] },
+        { OR: [{ expiredDate: null }, { expiredDate: { gt: now } }] },
+      ],
+      ...(category ? { category: { is: { OR: [{ id: category }, { slug: category }] } } } : {}),
+      ...(search
+        ? {
+            OR: [
+              { title: { contains: search } },
+              { summary: { contains: search } },
+              { content: { contains: search } },
+            ],
+          }
+        : {}),
+    };
+    const documents = await this.prisma.knowledgeDocument.findMany({
+      where,
+      orderBy: { updatedAt: "desc" },
+      include: { category: true },
+    });
+
+    return {
+      items: documents.map((document) => this.serializePublicDocument(document)),
+      total: documents.length,
+    };
+  }
+
+  async getPublicBySlug(slug: string, requestedSiteId?: string, configuredSiteId?: string) {
+    const siteId = await this.resolvePublicSiteId(requestedSiteId, configuredSiteId);
+    const now = new Date();
+    const document = await this.prisma.knowledgeDocument.findFirst({
+      where: {
+        siteId,
+        slug,
+        audience: KnowledgeAudience.PUBLIC,
+        status: { in: [...ACTIVE_STATUSES] },
+        AND: [
+          { OR: [{ effectiveDate: null }, { effectiveDate: { lte: now } }] },
+          { OR: [{ expiredDate: null }, { expiredDate: { gt: now } }] },
+        ],
+      },
+      include: { category: true },
+    });
+    if (!document) {
+      throw new NotFoundApiException(ErrorCode.NOT_FOUND, "Artikel knowledge publik tidak ditemukan.");
+    }
+    return this.serializePublicDocument(document);
   }
 
   async getOrThrow(id: string) {
@@ -314,6 +372,47 @@ export class KnowledgeService {
 
   async listCategories(organizationId: string) {
     return this.prisma.knowledgeCategory.findMany({ where: { organizationId } });
+  }
+
+  private async resolvePublicSiteId(requestedSiteId?: string, configuredSiteId?: string): Promise<string> {
+    const siteIdentifier = requestedSiteId?.trim() || configuredSiteId?.trim();
+    const site = await this.prisma.site.findFirst({
+      where: siteIdentifier ? { OR: [{ id: siteIdentifier }, { siteKey: siteIdentifier }] } : undefined,
+      orderBy: { createdAt: "asc" },
+      select: { id: true },
+    });
+    if (!site) {
+      throw new NotFoundApiException(ErrorCode.SITE_NOT_FOUND, "Site untuk Public Knowledge API tidak ditemukan.");
+    }
+    return site.id;
+  }
+
+  private serializePublicDocument(document: {
+    id: string;
+    slug: string;
+    title: string;
+    content: string;
+    summary: string | null;
+    sourceUrl: string | null;
+    effectiveDate: Date | null;
+    expiredDate: Date | null;
+    version: number;
+    updatedAt: Date;
+    category: { id: string; name: string; slug: string } | null;
+  }) {
+    return {
+      id: document.id,
+      slug: document.slug,
+      title: document.title,
+      content: document.content,
+      summary: document.summary,
+      category: document.category,
+      sourceUrl: document.sourceUrl,
+      effectiveDate: document.effectiveDate,
+      expiredDate: document.expiredDate,
+      version: document.version,
+      updatedAt: document.updatedAt,
+    };
   }
 
   private serializeDocument<T extends { status: string }>(doc: T) {

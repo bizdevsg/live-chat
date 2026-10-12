@@ -3,6 +3,46 @@
 Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
+### Added
+- Menambahkan Public Knowledge API read-only pada `GET /api/v1/public/knowledge/documents` dan `GET /api/v1/public/knowledge/documents/:slug`, dengan API key khusus, pagination, pencarian, filter kategori/site, rate limit, dan sanitasi respons; hanya knowledge audience `PUBLIC` yang aktif serta masih berlaku yang dapat diakses consumer eksternal.
+- Menambahkan `apps/api/src/knowledge/knowledge.service.public.spec.ts`.
+- Menambahkan `apps/api/src/knowledge/public-knowledge-api-key.guard.spec.ts`.
+- Menambahkan `apps/api/src/knowledge/public-knowledge-api-key.guard.ts`.
+- Menambahkan `apps/api/src/knowledge/public-knowledge.controller.ts`.
+- Menambahkan `apps/api/src/realtime/dashboard.gateway.spec.ts`.
+
+### Changed
+- Memindahkan project WhatsApp Assistant extension dari `extensions/whatsapp-assistant` ke project mandiri `C:\Website JS\whatsapp-assistant` agar pengembangan extension terpisah dari repository `live-chat`.
+- Memperbarui WhatsApp Assistant extension ke versi `0.2.9` agar dapat membaca konfigurasi koneksi lokal dari `config.local.js` tanpa menyimpan Extension Key ke Git.
+- Memperbarui `.env.example`.
+- Memperbarui `.gitignore`.
+- Memperbarui `apps/api/src/agent/agent.service.spec.ts`.
+- Memperbarui `apps/api/src/agent/agent.service.ts`.
+- Memperbarui `apps/api/src/config/env.validation.ts`.
+- Memperbarui `apps/api/src/knowledge/dto/knowledge.dto.ts`.
+- Memperbarui `apps/api/src/knowledge/knowledge.module.ts`.
+- Memperbarui `apps/api/src/knowledge/knowledge.service.ts`.
+- Memperbarui `apps/api/src/main.ts`.
+- Memperbarui `apps/api/src/realtime/dashboard.gateway.ts`.
+- Memperbarui `docs/api.md`.
+- Memperbarui `package.json`.
+- Mengonfigurasi Public Knowledge API untuk site `solid-gold-main` dan memakai WhatsApp Assistant key sebagai fallback ketika dedicated Public Knowledge key belum diisi, sehingga integrasi eksternal dapat diaktifkan tanpa menyalin secret ke konfigurasi baru.
+- Mengubah `GET /api/v1/public/knowledge/documents` agar mengembalikan seluruh knowledge publik yang cocok tanpa pagination; filter site, pencarian, dan kategori tetap tersedia.
+
+### Fixed
+- Membuat status agent otomatis berubah menjadi `OFFLINE` setelah seluruh koneksi dashboard terputus selama 45 detik, termasuk saat tab atau browser ditutup tanpa logout; reconnect dan tab/perangkat lain tetap mencegah false offline.
+
+### Removed
+- Menghapus `extensions/whatsapp-assistant/README.md`.
+- Menghapus `extensions/whatsapp-assistant/background.js`.
+- Menghapus `extensions/whatsapp-assistant/content.js`.
+- Menghapus `extensions/whatsapp-assistant/manifest.json`.
+- Menghapus `extensions/whatsapp-assistant/sidepanel.css`.
+- Menghapus `extensions/whatsapp-assistant/sidepanel.html`.
+- Menghapus `extensions/whatsapp-assistant/sidepanel.js`.
+- Menghapus `extensions/whatsapp-assistant/system-prompt.md`.
+
+## [0.18.2] - 2026-10-09
 ### Changed
 - Memperbarui `package.json`.
 
@@ -940,7 +980,8 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 - Memperbarui `apps/dashboard/src/app/(dashboard)/knowledge/page.tsx`.
 - Memperbarui `package.json`.
 
-[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.18.1...HEAD
+[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.18.2...HEAD
+[0.18.2]: https://github.com/bizdevsg/live-chat/compare/v0.18.1...v0.18.2
 [0.18.1]: https://github.com/bizdevsg/live-chat/compare/v0.18.0...v0.18.1
 [0.18.0]: https://github.com/bizdevsg/live-chat/compare/v0.17.0...v0.18.0
 [0.17.0]: https://github.com/bizdevsg/live-chat/compare/v0.16.4...v0.17.0

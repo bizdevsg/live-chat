@@ -108,3 +108,20 @@ export class ListKnowledgeQueryDto {
   @Min(1)
   pageSize?: number = 20;
 }
+
+export class PublicKnowledgeQueryDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(191)
+  siteId?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  search?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(191)
+  category?: string;
+}

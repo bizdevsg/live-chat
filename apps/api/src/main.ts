@@ -72,12 +72,13 @@ async function bootstrap() {
   const whatsappAssistantEnabled = Boolean(
     config.get<string>("WHATSAPP_ASSISTANT_API_KEY")?.trim() || config.get<string>("CRM_API_KEY")?.trim(),
   );
+  const publicKnowledgeEnabled = Boolean(config.get<string>("PUBLIC_KNOWLEDGE_API_KEY")?.trim());
   const chromeExtensionOriginPattern = /^chrome-extension:\/\/[a-p]{32}$/;
 
   app.enableCors({
     origin: async (origin, callback) => {
       if (!origin || allowedOrigins.has(origin)) return callback(null, true);
-      if (whatsappAssistantEnabled && chromeExtensionOriginPattern.test(origin)) {
+      if ((whatsappAssistantEnabled || publicKnowledgeEnabled) && chromeExtensionOriginPattern.test(origin)) {
         return callback(null, true);
       }
 

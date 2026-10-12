@@ -278,6 +278,19 @@ export class AgentService {
   }
 
   /**
+   * Marks an agent offline after their final dashboard socket disappears. Socket presence,
+   * rather than refresh-session lifetime, is authoritative here because closing a tab does not
+   * revoke its session. Returns whether the status actually changed so a later reconnect can
+   * safely restore only agents that were auto-offlined by the disconnect flow.
+   */
+  async markOfflineOnDisconnect(userId: string, organizationId: string): Promise<boolean> {
+    const profile = await this.prisma.agentProfile.findUnique({ where: { userId }, select: { availability: true } });
+    if (!profile || profile.availability === AgentAvailability.OFFLINE) return false;
+    await this.setStatus(userId, organizationId, AgentAvailability.OFFLINE);
+    return true;
+  }
+
+  /**
    * Transfer targets are every individual, active CS Agent in the same organization — not
    * supervisors, admins, or any other role. Queried from User (not AgentProfile): some agents
    * predate the AgentProfile row being created on user creation, or had their role changed to

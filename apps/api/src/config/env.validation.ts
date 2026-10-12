@@ -52,6 +52,8 @@ const envSchema = z.object({
   OPENAI_API_KEY: z.string().min(1, "OPENAI_API_KEY is required — there is no mock AI mode"),
   WHATSAPP_ASSISTANT_API_KEY: z.string().min(16).optional(),
   WHATSAPP_ASSISTANT_SITE_ID: z.string().optional(),
+  PUBLIC_KNOWLEDGE_API_KEY: z.string().min(16).optional(),
+  PUBLIC_KNOWLEDGE_SITE_ID: z.string().optional(),
 
   CRM_PROVIDER: z.enum(["mock", "rest"]).default("mock"),
   CRM_BASE_URL: z.string().optional(),

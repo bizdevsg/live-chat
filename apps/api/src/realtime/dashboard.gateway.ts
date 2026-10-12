@@ -2,11 +2,13 @@ import {
   ConnectedSocket,
   MessageBody,
   OnGatewayConnection,
+  OnGatewayDisconnect,
   OnGatewayInit,
   SubscribeMessage,
   WebSocketGateway,
   WebSocketServer,
 } from "@nestjs/websockets";
+import { Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { JwtService } from "@nestjs/jwt";
 import type { Server, Socket } from "socket.io";
@@ -22,6 +24,8 @@ interface DashboardSocket extends Socket {
   data: { user: JwtAccessPayload };
 }
 
+export const DASHBOARD_DISCONNECT_GRACE_MS = 45_000;
+
 /**
  * Authenticated namespace for the Admin/CS dashboard (§15). Marked @Public() for the same
  * reason as WidgetGateway — the global HTTP JwtAuthGuard can't run against a ws context,
@@ -29,9 +33,13 @@ interface DashboardSocket extends Socket {
  */
 @Public()
 @WebSocketGateway({ namespace: "/dashboard", cors: { origin: true, credentials: true } })
-export class DashboardGateway implements OnGatewayInit, OnGatewayConnection {
+export class DashboardGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server!: Server;
+
+  private readonly logger = new Logger(DashboardGateway.name);
+  private readonly pendingOfflineTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  private readonly autoOfflinedAgentIds = new Set<string>();
 
   constructor(
     private readonly jwt: JwtService,
@@ -63,6 +71,12 @@ export class DashboardGateway implements OnGatewayInit, OnGatewayConnection {
       await client.join(`agent:${payload.sub}`);
       await client.join(`org:${payload.organizationId}`);
 
+      this.cancelPendingOffline(payload.sub);
+      if (this.autoOfflinedAgentIds.has(payload.sub)) {
+        await this.agentService.markOnlineOnLogin(payload.sub, payload.organizationId);
+        this.autoOfflinedAgentIds.delete(payload.sub);
+      }
+
       const teams = await this.prisma.teamMember.findMany({ where: { userId: payload.sub } });
       for (const team of teams) await client.join(`team:${team.teamId}`);
 
@@ -71,6 +85,38 @@ export class DashboardGateway implements OnGatewayInit, OnGatewayConnection {
     } catch {
       this.reject(client, "Token akses tidak valid.");
     }
+  }
+
+  handleDisconnect(client: DashboardSocket) {
+    const user = client.data?.user;
+    if (!user) return;
+
+    this.cancelPendingOffline(user.sub);
+    const timer = setTimeout(() => {
+      this.pendingOfflineTimers.delete(user.sub);
+      void this.markOfflineIfDisconnected(user).catch((error: unknown) => {
+        this.logger.error(
+          `Gagal memperbarui status offline agent ${user.sub} setelah dashboard terputus.`,
+          error instanceof Error ? error.stack : undefined,
+        );
+      });
+    }, DASHBOARD_DISCONNECT_GRACE_MS);
+    this.pendingOfflineTimers.set(user.sub, timer);
+  }
+
+  private cancelPendingOffline(userId: string) {
+    const timer = this.pendingOfflineTimers.get(userId);
+    if (!timer) return;
+    clearTimeout(timer);
+    this.pendingOfflineTimers.delete(userId);
+  }
+
+  private async markOfflineIfDisconnected(user: JwtAccessPayload) {
+    const connectedSockets = await this.server.in(`agent:${user.sub}`).fetchSockets();
+    if (connectedSockets.length > 0) return;
+
+    const changed = await this.agentService.markOfflineOnDisconnect(user.sub, user.organizationId);
+    if (changed) this.autoOfflinedAgentIds.add(user.sub);
   }
 
   private extractCookie(client: Socket, name: string): string | undefined {
