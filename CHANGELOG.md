@@ -3,6 +3,9 @@
 Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
+- Belum ada perubahan terdeteksi.
+
+## [0.20.0] - 2026-10-12
 ### Added
 - Menambahkan `apps/api/src/admin/users.service.spec.ts`.
 - Menambahkan pengujian service untuk pencabutan seluruh sesi user non-Superadmin, perlindungan akun Superadmin, dan isolasi antar-organisasi.
@@ -1011,7 +1014,8 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 - Memperbarui `apps/dashboard/src/app/(dashboard)/knowledge/page.tsx`.
 - Memperbarui `package.json`.
 
-[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.19.0...HEAD
+[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.20.0...HEAD
+[0.20.0]: https://github.com/bizdevsg/live-chat/compare/v0.19.0...v0.20.0
 [0.19.0]: https://github.com/bizdevsg/live-chat/compare/v0.18.2...v0.19.0
 [0.18.2]: https://github.com/bizdevsg/live-chat/compare/v0.18.1...v0.18.2
 [0.18.1]: https://github.com/bizdevsg/live-chat/compare/v0.18.0...v0.18.1
