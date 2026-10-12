@@ -3,6 +3,10 @@
 Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
+### Changed
+- Memperbarui `package.json`.
+
+## [0.19.0] - 2026-10-12
 ### Added
 - Menambahkan Public Knowledge API read-only pada `GET /api/v1/public/knowledge/documents` dan `GET /api/v1/public/knowledge/documents/:slug`, dengan API key khusus, pagination, pencarian, filter kategori/site, rate limit, dan sanitasi respons; hanya knowledge audience `PUBLIC` yang aktif serta masih berlaku yang dapat diakses consumer eksternal.
 - Menambahkan `apps/api/src/knowledge/knowledge.service.public.spec.ts`.
@@ -980,7 +984,8 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 - Memperbarui `apps/dashboard/src/app/(dashboard)/knowledge/page.tsx`.
 - Memperbarui `package.json`.
 
-[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.18.2...HEAD
+[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.19.0...HEAD
+[0.19.0]: https://github.com/bizdevsg/live-chat/compare/v0.18.2...v0.19.0
 [0.18.2]: https://github.com/bizdevsg/live-chat/compare/v0.18.1...v0.18.2
 [0.18.1]: https://github.com/bizdevsg/live-chat/compare/v0.18.0...v0.18.1
 [0.18.0]: https://github.com/bizdevsg/live-chat/compare/v0.17.0...v0.18.0
