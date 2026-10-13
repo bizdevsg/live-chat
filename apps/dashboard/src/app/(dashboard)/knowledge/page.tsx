@@ -922,7 +922,7 @@ export default function KnowledgePage() {
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <div>
               <h3 className="text-sm font-semibold text-zinc-100">Filter dan Pencarian</h3>
-              <p className="mt-1 text-sm text-zinc-400">Cari artikel berdasarkan konten, lalu saring dengan status, audience, dan kategori.</p>
+              <p className="mt-1 text-sm text-zinc-400">Cari berdasarkan nama artikel, lalu saring dengan status, audience, dan kategori.</p>
             </div>
             <div className="flex items-center gap-2 text-xs text-zinc-500">
               <span>{totalDocuments} artikel ditemukan</span>
@@ -938,7 +938,7 @@ export default function KnowledgePage() {
                   setSearch(e.target.value);
                   setPage(1);
                 }}
-                placeholder="Cari judul, ringkasan, atau isi markdown..."
+                placeholder="Cari nama artikel..."
               />
             </div>
             <div>

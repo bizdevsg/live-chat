@@ -3,7 +3,14 @@
 Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
-- Belum ada perubahan terdeteksi.
+### Added
+- Menambahkan `apps/api/src/knowledge/knowledge.service.list.spec.ts`.
+- Menambahkan pengujian pencarian daftar Knowledge Dashboard berdasarkan nama artikel.
+
+### Changed
+- Memperbarui `apps/api/src/knowledge/knowledge.service.ts`.
+- Memperbarui `apps/dashboard/src/app/(dashboard)/knowledge/page.tsx`.
+- Mengubah pencarian pada halaman `/knowledge` agar hanya mencocokkan nama atau judul artikel per kata, tanpa mencari pada ringkasan maupun isi artikel.
 
 ## [0.20.0] - 2026-10-12
 ### Added

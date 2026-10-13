@@ -88,49 +88,21 @@ export class KnowledgeService {
       return { items: items.map((item) => this.serializeDocument(item)), total, page, pageSize };
     }
 
-    // A plain content LIKE also matches nodes that only *mention* the search term in a
-    // cross-reference/disambiguation note (e.g. an Akun Reguler node saying "beda dari Akun
-    // Mini..."), which buried the actual Akun Mini nodes under a pile of unrelated Akun Reguler
-    // results. Fetch every match, then rank title/summary hits (the doc is actually ABOUT this)
-    // above content-only hits (the doc merely mentions it) before paginating in memory — the KB is
-    // small enough (low hundreds of docs) that this is cheap.
-    const matches = await this.prisma.knowledgeDocument.findMany({
-      where: {
-        ...baseWhere,
-        OR: [
-          { title: { contains: search } },
-          { summary: { contains: search } },
-          { content: { contains: search } },
-        ],
-      },
-      orderBy: { updatedAt: "desc" },
-      include: { category: true },
-    });
-    // Titles are written camelCase/hyphenated ("KB-Node-AkunMini-...") with no spaces, so a
-    // literal `.includes("akun mini")` never matches the title text at all — every doc fell
-    // through to the same rank and the sort became a no-op. Split camelCase/hyphen boundaries into
-    // spaces before comparing, and require every search word to appear (not the exact phrase), so
-    // "akun mini" matches the title "AkunMini" the same way a human reads it.
-    const normalize = (text: string) =>
-      text
-        .replace(/[-_]/g, " ")
-        .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
-        .toLowerCase();
-    const searchWords = search.toLowerCase().split(/\s+/).filter(Boolean);
-    const allWordsIn = (text: string) => {
-      const normalized = normalize(text);
-      return searchWords.every((word) => normalized.includes(word));
+    const searchWords = search.split(/[\s_-]+/).filter(Boolean);
+    const where = {
+      ...baseWhere,
+      AND: searchWords.map((word) => ({ title: { contains: word } })),
     };
-    const rank = (doc: (typeof matches)[number]) => {
-      if (allWordsIn(doc.title)) return 0;
-      if (doc.summary && allWordsIn(doc.summary)) return 1;
-      return 2;
-    };
-    const ranked = matches
-      .map((doc, index) => ({ doc, rank: rank(doc), index }))
-      .sort((a, b) => a.rank - b.rank || a.index - b.index);
-    const total = ranked.length;
-    const items = ranked.slice((page - 1) * pageSize, (page - 1) * pageSize + pageSize).map(({ doc }) => doc);
+    const [items, total] = await Promise.all([
+      this.prisma.knowledgeDocument.findMany({
+        where,
+        orderBy: { updatedAt: "desc" },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        include: { category: true },
+      }),
+      this.prisma.knowledgeDocument.count({ where }),
+    ]);
     return { items: items.map((item) => this.serializeDocument(item)), total, page, pageSize };
   }
 
