@@ -3,6 +3,10 @@
 Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
+### Changed
+- Memperbarui `package.json`.
+
+## [0.20.1] - 2026-10-13
 ### Added
 - Menambahkan `apps/api/src/knowledge/knowledge.service.list.spec.ts`.
 - Menambahkan pengujian pencarian daftar Knowledge Dashboard berdasarkan nama artikel.
@@ -1021,7 +1025,8 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 - Memperbarui `apps/dashboard/src/app/(dashboard)/knowledge/page.tsx`.
 - Memperbarui `package.json`.
 
-[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.20.0...HEAD
+[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.20.1...HEAD
+[0.20.1]: https://github.com/bizdevsg/live-chat/compare/v0.20.0...v0.20.1
 [0.20.0]: https://github.com/bizdevsg/live-chat/compare/v0.19.0...v0.20.0
 [0.19.0]: https://github.com/bizdevsg/live-chat/compare/v0.18.2...v0.19.0
 [0.18.2]: https://github.com/bizdevsg/live-chat/compare/v0.18.1...v0.18.2
