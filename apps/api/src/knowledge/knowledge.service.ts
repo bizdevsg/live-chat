@@ -18,6 +18,10 @@ function slugify(title: string): string {
     .slice(0, 80);
 }
 
+function titleFromFileName(fileName: string): string {
+  return fileName.trim().replace(/\.[^.]+$/, "");
+}
+
 const ACTIVE_STATUSES = [KnowledgeStatus.ACTIVE, KnowledgeStatus.PUBLISHED] as const;
 const NON_ACTIVE_STATUSES = [
   KnowledgeStatus.NON_ACTIVE,
@@ -207,6 +211,68 @@ export class KnowledgeService {
       resourceId: doc.id,
     });
     return this.serializeDocument(doc);
+  }
+
+  async findUploadConflicts(siteId: string, fileNames: string[]) {
+    const requested = fileNames
+      .map((fileName) => {
+        const title = titleFromFileName(fileName);
+        return { fileName, title, slug: slugify(title) };
+      })
+      .filter((item) => item.title.length > 0);
+    const titles = [...new Set(requested.map((item) => item.title))];
+    const slugs = [...new Set(requested.map((item) => item.slug))];
+    if (titles.length === 0) return [];
+
+    const existing = await this.prisma.knowledgeDocument.findMany({
+      where: { siteId, OR: [{ title: { in: titles } }, { slug: { in: slugs } }] },
+      select: { id: true, slug: true, title: true, status: true, version: true },
+    });
+    const existingByTitle = new Map(existing.map((document) => [document.title.toLocaleLowerCase("id-ID"), document]));
+    const existingBySlug = new Map(existing.map((document) => [document.slug, document]));
+    return requested.flatMap((item) => {
+      const document = existingBySlug.get(item.slug) ?? existingByTitle.get(item.title.toLocaleLowerCase("id-ID"));
+      return document
+        ? [{ fileName: item.fileName, id: document.id, title: document.title, status: document.status, version: document.version }]
+        : [];
+    });
+  }
+
+  async overwriteFromUpload(
+    id: string,
+    input: { title: string; content: string; sourceFile: string },
+    userId: string,
+  ) {
+    const before = await this.getRawOrThrow(id);
+    const updated = await this.prisma.knowledgeDocument.update({
+      where: { id },
+      data: {
+        title: input.title,
+        content: input.content,
+        sourceFile: input.sourceFile,
+        status: KnowledgeStatus.NON_ACTIVE,
+        version: { increment: 1 },
+      },
+    });
+    await this.prisma.knowledgeChunk.deleteMany({ where: { documentId: id } });
+    await this.auditLog.record({
+      actorType: "USER",
+      actorId: userId,
+      action: "knowledge.upload_overwritten",
+      resourceType: "knowledge_document",
+      resourceId: id,
+      beforeData: { title: before.title, status: before.status, version: before.version, sourceFile: before.sourceFile },
+      afterData: { title: updated.title, status: KnowledgeStatus.NON_ACTIVE, version: updated.version, sourceFile: input.sourceFile },
+    });
+
+    if (before.sourceFile && before.sourceFile !== input.sourceFile) {
+      try {
+        await this.storage.remove(before.sourceFile);
+      } catch (error) {
+        this.logger.warn(`Failed to remove replaced knowledge source file ${before.sourceFile}: ${(error as Error).message}`);
+      }
+    }
+    return this.serializeDocument(updated);
   }
 
   async update(id: string, dto: UpdateKnowledgeDocumentDto, userId: string) {

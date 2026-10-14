@@ -80,6 +80,9 @@ export interface ClassificationResult {
   promptInjectionDetected: boolean;
   /** AI-generated semantic query for retrieving the official knowledge needed to answer. */
   retrievalQuery?: string;
+  /** Routing is produced with classification to avoid a second model call on every message. */
+  handoffAction?: "NONE" | "OFFER" | "TRANSFER" | "OUT_OF_SCOPE";
+  handoffReply?: string;
 }
 
 export interface ConversationSummaryResult {

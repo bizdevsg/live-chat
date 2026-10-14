@@ -112,7 +112,16 @@ interface UploadFailure {
 
 interface UploadReport {
   succeeded: number;
+  overwritten: number;
   failed: UploadFailure[];
+}
+
+interface UploadConflict {
+  id: string;
+  fileName: string;
+  title: string;
+  status: string;
+  version: number;
 }
 
 interface KnowledgeListResponse {
@@ -204,6 +213,8 @@ export default function KnowledgePage() {
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [isDraggingFiles, setIsDraggingFiles] = useState(false);
   const [selectedUploadFiles, setSelectedUploadFiles] = useState<File[]>([]);
+  const [uploadConflicts, setUploadConflicts] = useState<UploadConflict[]>([]);
+  const [isCheckingUploadConflicts, setIsCheckingUploadConflicts] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const previewStateRef = useRef<StoredKnowledgePreviewState>(readKnowledgePreviewState());
   const [testMessage, setTestMessage] = useState(previewStateRef.current.draft);
@@ -244,7 +255,7 @@ export default function KnowledgePage() {
   });
 
   const upload = useMutation({
-    mutationFn: async (selected: File[]): Promise<UploadReport> => {
+    mutationFn: async ({ selected, overwriteFileNames }: { selected: File[]; overwriteFileNames: string[] }): Promise<UploadReport> => {
       const failed: UploadFailure[] = [];
       const markdownFiles: File[] = [];
       for (const file of selected) {
@@ -259,13 +270,20 @@ export default function KnowledgePage() {
       // Sequential on purpose: the API slugs titles with check-then-insert, so parallel uploads of
       // same-named files could collide, and the global throttle allows 120 requests per minute.
       let succeeded = 0;
+      let overwritten = 0;
+      const overwriteNames = new Set(overwriteFileNames.map((name) => name.toLocaleLowerCase("id-ID")));
       setUploadProgress({ done: 0, total: queue.length });
       for (const [index, file] of queue.entries()) {
         try {
           const formData = new FormData();
           formData.append("file", file);
-          await apiClient.upload("/api/v1/knowledge/upload", formData);
+          const shouldOverwrite = overwriteNames.has(file.name.toLocaleLowerCase("id-ID"));
+          const result = await apiClient.upload<{ overwritten?: boolean }>(
+            `/api/v1/knowledge/upload${shouldOverwrite ? "?overwrite=true" : ""}`,
+            formData,
+          );
           succeeded += 1;
+          if (result.overwritten) overwritten += 1;
         } catch (err) {
           failed.push({ name: file.name, reason: err instanceof ApiError ? err.message : "Gagal mengunggah dokumen." });
           if (err instanceof ApiError && STOP_BATCH_UPLOAD_STATUSES.includes(err.status)) {
@@ -277,12 +295,13 @@ export default function KnowledgePage() {
         }
         setUploadProgress({ done: index + 1, total: queue.length });
       }
-      return { succeeded, failed };
+      return { succeeded, overwritten, failed };
     },
     onSuccess: (report) => {
       setIsUploadModalOpen(false);
       setIsDraggingFiles(false);
       setSelectedUploadFiles([]);
+      setUploadConflicts([]);
       if (report.succeeded > 0) {
         queryClient.invalidateQueries({ queryKey: ["knowledge"] });
         queryClient.invalidateQueries({ queryKey: ["knowledge-overview"] });
@@ -291,8 +310,10 @@ export default function KnowledgePage() {
       if (report.failed.length === 0) {
         toast.push(
           report.succeeded === 1
-            ? "Dokumen markdown berhasil diunggah sebagai NON_ACTIVE."
-            : `${report.succeeded} dokumen markdown berhasil diunggah sebagai NON_ACTIVE.`,
+            ? report.overwritten === 1
+              ? "Dokumen lama berhasil ditimpa dan dinonaktifkan untuk diperiksa ulang."
+              : "Dokumen markdown berhasil diunggah sebagai NON_ACTIVE."
+            : `${report.succeeded} dokumen berhasil diproses (${report.overwritten} ditimpa).`,
           "success",
         );
       } else if (report.succeeded === 0 && report.failed.length === 1 && report.failed[0]) {
@@ -394,19 +415,45 @@ export default function KnowledgePage() {
   }
 
   function stageUploadFiles(files: File[]) {
-    if (upload.isPending || files.length === 0) return;
+    if (upload.isPending || isCheckingUploadConflicts || files.length === 0) return;
     setUploadReport(null);
     const markdownFiles = files.filter((file) => file.name.toLowerCase().endsWith(".md"));
     const rejectedCount = files.length - markdownFiles.length;
-    const acceptedFiles = markdownFiles.slice(0, MAX_BATCH_UPLOAD_FILES);
+    const uniqueByName = new Map<string, File>();
+    for (const file of markdownFiles) uniqueByName.set(file.name.toLocaleLowerCase("id-ID"), file);
+    const deduplicatedFiles = [...uniqueByName.values()];
+    const acceptedFiles = deduplicatedFiles.slice(0, MAX_BATCH_UPLOAD_FILES);
 
     if (rejectedCount > 0) {
       toast.push(`${rejectedCount} file dilewati karena bukan Markdown (.md).`, "error");
     }
-    if (markdownFiles.length > MAX_BATCH_UPLOAD_FILES) {
+    if (deduplicatedFiles.length < markdownFiles.length) {
+      toast.push(`${markdownFiles.length - deduplicatedFiles.length} file duplikat dalam pilihan dilewati.`, "error");
+    }
+    if (deduplicatedFiles.length > MAX_BATCH_UPLOAD_FILES) {
       toast.push(`Maksimal ${MAX_BATCH_UPLOAD_FILES} file dapat diunggah sekaligus.`, "error");
     }
+    setUploadConflicts([]);
     setSelectedUploadFiles(acceptedFiles);
+  }
+
+  async function requestBatchUpload() {
+    if (selectedUploadFiles.length === 0 || upload.isPending || isCheckingUploadConflicts) return;
+    setIsCheckingUploadConflicts(true);
+    try {
+      const result = await apiClient.post<{ conflicts: UploadConflict[] }>("/api/v1/knowledge/upload-conflicts", {
+        fileNames: selectedUploadFiles.map((file) => file.name),
+      });
+      if (result.conflicts.length > 0) {
+        setUploadConflicts(result.conflicts);
+        return;
+      }
+      upload.mutate({ selected: selectedUploadFiles, overwriteFileNames: [] });
+    } catch (error) {
+      toast.push(error instanceof ApiError ? error.message : "Gagal memeriksa file knowledge yang sudah ada.", "error");
+    } finally {
+      setIsCheckingUploadConflicts(false);
+    }
   }
 
   function handleFileDrag(event: DragEvent<HTMLDivElement>) {
@@ -1464,10 +1511,11 @@ export default function KnowledgePage() {
         open={isUploadModalOpen}
         title="Upload Knowledge"
         onClose={() => {
-          if (upload.isPending) return;
+          if (upload.isPending || isCheckingUploadConflicts) return;
           setIsUploadModalOpen(false);
           setIsDraggingFiles(false);
           setSelectedUploadFiles([]);
+          setUploadConflicts([]);
         }}
         panelClassName="max-w-xl overflow-hidden"
       >
@@ -1477,14 +1525,14 @@ export default function KnowledgePage() {
           </p>
           <div
             role="button"
-            tabIndex={upload.isPending ? -1 : 0}
-            aria-disabled={upload.isPending}
+            tabIndex={upload.isPending || isCheckingUploadConflicts ? -1 : 0}
+            aria-disabled={upload.isPending || isCheckingUploadConflicts}
             aria-label="Upload file Markdown dengan drag and drop atau pilih file"
             onClick={() => {
-              if (!upload.isPending) fileInputRef.current?.click();
+              if (!upload.isPending && !isCheckingUploadConflicts) fileInputRef.current?.click();
             }}
             onKeyDown={(event) => {
-              if (!upload.isPending && (event.key === "Enter" || event.key === " ")) {
+              if (!upload.isPending && !isCheckingUploadConflicts && (event.key === "Enter" || event.key === " ")) {
                 event.preventDefault();
                 fileInputRef.current?.click();
               }
@@ -1503,7 +1551,7 @@ export default function KnowledgePage() {
               isDraggingFiles
                 ? "border-gold-400 bg-gold-500/10"
                 : "border-ink-500 bg-ink-900/45 hover:border-gold-500/50 hover:bg-ink-900/70",
-              upload.isPending && "cursor-wait opacity-75",
+              (upload.isPending || isCheckingUploadConflicts) && "cursor-wait opacity-75",
             )}
           >
             {upload.isPending ? (
@@ -1535,6 +1583,7 @@ export default function KnowledgePage() {
                 <button
                   type="button"
                   onClick={() => setSelectedUploadFiles([])}
+                  disabled={isCheckingUploadConflicts}
                   className="text-xs text-zinc-500 transition-colors hover:text-zinc-200"
                 >
                   Hapus pilihan
@@ -1557,19 +1606,22 @@ export default function KnowledgePage() {
                 setIsUploadModalOpen(false);
                 setIsDraggingFiles(false);
                 setSelectedUploadFiles([]);
+                setUploadConflicts([]);
               }}
-              disabled={upload.isPending}
+              disabled={upload.isPending || isCheckingUploadConflicts}
             >
               Batal
             </Button>
             <Button
-              onClick={() => upload.mutate(selectedUploadFiles)}
-              disabled={upload.isPending || selectedUploadFiles.length === 0}
+              onClick={() => requestBatchUpload().catch(() => undefined)}
+              disabled={upload.isPending || isCheckingUploadConflicts || selectedUploadFiles.length === 0}
             >
-              {upload.isPending && <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />}
+              {(upload.isPending || isCheckingUploadConflicts) && <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />}
               {upload.isPending
                 ? "Mengunggah..."
-                : `Konfirmasi Upload${selectedUploadFiles.length > 0 ? ` (${selectedUploadFiles.length})` : ""}`}
+                : isCheckingUploadConflicts
+                  ? "Memeriksa file..."
+                  : `Konfirmasi Upload${selectedUploadFiles.length > 0 ? ` (${selectedUploadFiles.length})` : ""}`}
             </Button>
           </div>
         </div>
@@ -1578,7 +1630,8 @@ export default function KnowledgePage() {
         {uploadReport && (
           <>
             <p className="mb-3 text-sm text-zinc-300">
-              {uploadReport.succeeded} file berhasil diunggah sebagai NON_ACTIVE, {uploadReport.failed.length} file gagal.
+              {uploadReport.succeeded} file berhasil diproses sebagai NON_ACTIVE
+              {uploadReport.overwritten > 0 ? ` (${uploadReport.overwritten} file lama ditimpa)` : ""}, {uploadReport.failed.length} file gagal.
             </p>
             <ul className="scrollbar-thin mb-4 max-h-64 space-y-2 overflow-y-auto">
               {uploadReport.failed.map((item, index) => (
@@ -1596,6 +1649,24 @@ export default function KnowledgePage() {
           </>
         )}
       </Modal>
+      <ConfirmModal
+        open={uploadConflicts.length > 0}
+        title={`Timpa ${uploadConflicts.length} knowledge yang sudah ada?`}
+        description={
+          uploadConflicts.length > 0
+            ? `File berikut sudah ada: ${uploadConflicts.slice(0, 5).map((item) => item.fileName).join(", ")}${uploadConflicts.length > 5 ? `, dan ${uploadConflicts.length - 5} lainnya` : ""}. Konten lama akan diganti, versi dinaikkan, dan artikel dibuat NON_ACTIVE agar dapat diperiksa sebelum dipakai AI.`
+            : ""
+        }
+        confirmLabel="Ya, Timpa File"
+        danger
+        onConfirm={() =>
+          upload.mutate({
+            selected: selectedUploadFiles,
+            overwriteFileNames: uploadConflicts.map((item) => item.fileName),
+          })
+        }
+        onClose={() => setUploadConflicts([])}
+      />
       <ConfirmModal
         open={Boolean(deletingDoc)}
         title="Hapus artikel knowledge?"

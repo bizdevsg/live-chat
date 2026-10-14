@@ -47,9 +47,10 @@ const envSchema = z.object({
   CUSTOMER_IDENTITY_ISSUER: z.string().default("sg-berjangka.com"),
   CUSTOMER_IDENTITY_AUDIENCE: z.string().default("solidchat"),
 
-  // Model names are fixed constants in @solidchat/shared (AI_MODELS) — there is no mock
-  // provider anymore, so the API refuses to boot without a real OpenAI key.
+  // A single chat model is shared by every AI task. There is no mock provider anymore,
+  // so the API refuses to boot without a real OpenAI key.
   OPENAI_API_KEY: z.string().min(1, "OPENAI_API_KEY is required — there is no mock AI mode"),
+  OPENAI_DEFAULT_MODEL: z.enum(["gpt-4o-mini", "gpt-4o", "gpt-4.1-mini", "gpt-4.1"]).default("gpt-4o-mini"),
   WHATSAPP_ASSISTANT_API_KEY: z.string().min(16).optional(),
   WHATSAPP_ASSISTANT_SITE_ID: z.string().optional(),
   PUBLIC_KNOWLEDGE_API_KEY: z.string().min(16).optional(),

@@ -72,6 +72,8 @@ export class MockAiProvider implements AiProvider {
       containsSensitiveData,
       promptInjectionDetected,
       retrievalQuery: input.message,
+      handoffAction: "NONE",
+      handoffReply: "",
     };
   }
 

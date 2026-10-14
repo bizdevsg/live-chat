@@ -104,7 +104,7 @@ export default function AiConfigurationPage() {
                     </option>
                   ))}
                 </Select>
-                <p className="mt-2 text-xs leading-5 text-zinc-500">Perubahan berlaku untuk conversation baru setelah konfigurasi disimpan.</p>
+                <p className="mt-2 text-xs leading-5 text-zinc-500">Model pilihan ini dipakai untuk seluruh proses AI setelah konfigurasi disimpan.</p>
               </div>
 
               <div>

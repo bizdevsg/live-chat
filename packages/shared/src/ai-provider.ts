@@ -72,6 +72,11 @@ export interface EmbeddingInput {
   text: string;
 }
 
+export interface AiTokenUsage {
+  inputTokens: number;
+  outputTokens: number;
+}
+
 /**
  * Provider-agnostic AI interface. Business logic (AiOrchestrator) depends only on this,
  * never on a concrete SDK, so providers can be swapped via AI_PROVIDER env var.
@@ -84,6 +89,8 @@ export interface AiProvider {
   summarizeConversation(input: SummaryInput): Promise<ConversationSummaryResult>;
   generateSuggestedReply(input: SuggestedReplyInput): Promise<SuggestedReplyResult>;
   createEmbedding(input: EmbeddingInput): Promise<number[]>;
+  /** Returns usage accumulated since the previous read and resets the counter. */
+  consumeTokenUsage?(): AiTokenUsage;
 }
 
 export interface CrmCustomerResult {

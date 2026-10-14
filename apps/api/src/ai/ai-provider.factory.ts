@@ -1,14 +1,14 @@
 import { Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { OpenAiProvider } from "@solidchat/ai-core";
-import { AI_MAX_RETRIES, AI_MODELS, AI_TIMEOUT_MS, type AiChatModel } from "@solidchat/shared";
+import { AI_CHAT_MODELS, AI_MAX_RETRIES, AI_MODELS, AI_TIMEOUT_MS, type AiChatModel } from "@solidchat/shared";
 import type { AiProvider } from "@solidchat/shared";
 import { PrismaService } from "../prisma/prisma.service";
 import type { AiConfiguration } from "@solidchat/database";
 
 /**
  * Resolves the active AiConfiguration for a site (falling back to the org-level config)
- * and builds an OpenAI provider with the configuration's selected chat model.
+ * and builds an OpenAI provider with the single chat model selected in Dashboard.
  *
  * Always builds a real OpenAiProvider — there is no mock/dummy fallback. Previously, a missing
  * or misread OPENAI_API_KEY silently degraded every conversation to a canned mock template with
@@ -47,6 +47,11 @@ export class AiProviderFactory {
     });
   }
 
+  private resolveChatModel(configuredModel: string): AiChatModel {
+    if (AI_CHAT_MODELS.includes(configuredModel as AiChatModel)) return configuredModel as AiChatModel;
+    return this.config.get<AiChatModel>("OPENAI_DEFAULT_MODEL") ?? "gpt-4o-mini";
+  }
+
   buildProvider(model: AiChatModel): AiProvider {
     const apiKey = this.config.get<string>("OPENAI_API_KEY");
     if (!apiKey) {
@@ -58,16 +63,19 @@ export class AiProviderFactory {
       apiKey,
       classifierModel: model,
       answerModel: model,
+      reviewModel: model,
       summaryModel: model,
       suggestedReplyModel: model,
       embeddingModel: AI_MODELS.embedding,
       timeoutMs: AI_TIMEOUT_MS,
       maxRetries: AI_MAX_RETRIES,
+      maxOutputTokens: 900,
     });
   }
 
-  async getProviderForSite(siteId: string): Promise<{ provider: AiProvider; config: AiConfiguration }> {
+  async getProviderForSite(siteId: string): Promise<{ provider: AiProvider; config: AiConfiguration; model: AiChatModel }> {
     const config = await this.getConfigForSite(siteId);
-    return { provider: this.buildProvider(config.model as AiChatModel), config };
+    const model = this.resolveChatModel(config.model);
+    return { provider: this.buildProvider(model), config, model };
   }
 }

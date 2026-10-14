@@ -1,5 +1,5 @@
 import type { KnowledgeSource } from "@solidchat/shared";
-import { formatAnswerForCustomer } from "./ai-orchestrator.service";
+import { formatAnswerForCustomer, shouldUseContextualRetrieval } from "./ai-orchestrator.service";
 
 const officialSource: KnowledgeSource = {
   documentId: "doc_1",
@@ -31,5 +31,20 @@ describe("AI answer official source links", () => {
     const result = formatAnswerForCustomer("Silakan ikuti langkah berikut.", [officialSource, { ...officialSource, chunkId: "chunk_2" }], true);
     expect(result.match(/https:\/\/sg-berjangka\.com\/id\/register/g)).toHaveLength(1);
     expect(result).toContain("Sumber:");
+  });
+});
+
+describe("contextual knowledge retrieval", () => {
+  const priorHistory = [
+    { senderType: "VISITOR" as const, content: "Berapa minimum deposit akun Mini?", createdAt: "2026-10-14T00:00:00.000Z" },
+    { senderType: "AI" as const, content: "Minimum depositnya IDR 5.000.000.", createdAt: "2026-10-14T00:00:01.000Z" },
+  ];
+
+  it("skips the second embedding search for a standalone question", () => {
+    expect(shouldUseContextualRetrieval("Bagaimana cara membuka akun baru?", priorHistory)).toBe(false);
+  });
+
+  it("uses recent context for an ambiguous follow-up", () => {
+    expect(shouldUseContextualRetrieval("Kalau yang itu prosesnya bagaimana?", priorHistory)).toBe(true);
   });
 });

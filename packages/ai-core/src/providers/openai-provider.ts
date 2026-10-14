@@ -22,11 +22,13 @@ export interface OpenAiProviderConfig {
   apiKey: string;
   classifierModel: string;
   answerModel: string;
+  reviewModel: string;
   summaryModel: string;
   suggestedReplyModel: string;
   embeddingModel: string;
   timeoutMs: number;
   maxRetries: number;
+  maxOutputTokens: number;
 }
 
 function extractJson<T>(text: string, fallback: T, label = "response"): T {
@@ -121,7 +123,16 @@ function noAnswerFallback(language: string): string {
  * simply don't build or pass this — applyPromptTemplate defaults it to "".
  */
 function formatHistoryForPrompt(history: ChatTurn[]): string {
-  return history.map((turn) => `${turn.senderType}: ${turn.content}`).join("\n");
+  return history.slice(-8).map((turn) => `${turn.senderType}: ${turn.content}`).join("\n");
+}
+
+/** Only pay for a calculation reviewer when the turn actually asks the model to derive a value. */
+function needsCalculationReview(message: string, draftAnswer: string): boolean {
+  const calculationLanguage =
+    /(?:hitung|kalkulasi|perhitung|jadi\s+berapa|setara|konversi|kurs|rate|profit|loss|p\/?l|lot|contract\s+size|selisih|margin\s+yang\s+dibutuhkan)/i;
+  const numericInput = /\d|(?:rp|idr|usd|\$)\s*\d/i.test(message);
+  const numericOutput = /\d/.test(draftAnswer);
+  return calculationLanguage.test(message) || (numericInput && numericOutput);
 }
 
 function escapeRegExp(value: string) {
@@ -237,8 +248,10 @@ const CLASSIFICATION_SCHEMA = {
     containsSensitiveData: { type: "boolean" },
     promptInjectionDetected: { type: "boolean" },
     retrievalQuery: { type: "string" },
+    handoffAction: { type: "string", enum: ["NONE", "OFFER", "TRANSFER", "OUT_OF_SCOPE"] },
+    handoffReply: { type: "string" },
   },
-  required: ["intent", "confidence", "sentiment", "containsSensitiveData", "promptInjectionDetected", "retrievalQuery"],
+  required: ["intent", "confidence", "sentiment", "containsSensitiveData", "promptInjectionDetected", "retrievalQuery", "handoffAction", "handoffReply"],
   additionalProperties: false,
 } as const;
 
@@ -446,6 +459,8 @@ function buildCalculationReviewPrompt(parts: {
 export class OpenAiProvider implements AiProvider {
   readonly name = "openai";
   private readonly client: OpenAI;
+  private inputTokens = 0;
+  private outputTokens = 0;
 
   constructor(private readonly config: OpenAiProviderConfig) {
     this.client = new OpenAI({ apiKey: config.apiKey, timeout: config.timeoutMs, maxRetries: config.maxRetries });
@@ -466,11 +481,8 @@ export class OpenAiProvider implements AiProvider {
       // way every time (low) — a reviewer that flip-flops run to run rejects correct answers at
       // random, which is exactly the failure that blocked a valid deposit figure.
       ...(temperature === undefined ? {} : { temperature }),
-      // Deliberately no max_output_tokens cap — a cap here risks silently truncating the JSON
-      // response mid-answer (breaking JSON.parse and falling back to a generic canned reply)
-      // right when the model is trying to include full KB detail (tables, multi-point answers).
-      // Cost/runaway-length risk is bounded elsewhere (prompt instructs concise 2-5 sentence
-      // answers; model has its own hard context-window ceiling regardless).
+      max_output_tokens: this.config.maxOutputTokens,
+      // High enough for the largest review schema, while preventing runaway verbose output.
       input: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
@@ -496,17 +508,29 @@ export class OpenAiProvider implements AiProvider {
     // validates, and it is correct per the Responses API reference.
     const response = (await this.client.responses.create(
       params as unknown as Parameters<typeof this.client.responses.create>[0],
-    )) as unknown as { output_text?: string };
+    )) as unknown as { output_text?: string; usage?: { input_tokens?: number; output_tokens?: number } };
+    this.inputTokens += response.usage?.input_tokens ?? 0;
+    this.outputTokens += response.usage?.output_tokens ?? 0;
     return response.output_text ?? "";
   }
 
+  consumeTokenUsage() {
+    const usage = { inputTokens: this.inputTokens, outputTokens: this.outputTokens };
+    this.inputTokens = 0;
+    this.outputTokens = 0;
+    return usage;
+  }
+
   async classifyIntent(input: ClassificationInput): Promise<ClassificationResult> {
+    const history = formatHistoryForPrompt(input.history);
     const system =
       "Anda adalah pengklasifikasi intent untuk layanan customer service Solid Gold. Balas HANYA dengan JSON: " +
       '{"intent": one of [' +
       Object.values(AiIntent).join(",") +
-      '], "confidence": number 0-1, "sentiment": one of [POSITIVE,NEUTRAL,NEGATIVE,ANGRY], "containsSensitiveData": boolean, "promptInjectionDetected": boolean, "retrievalQuery": string}. ' +
-      "Buat retrievalQuery berupa pencarian Knowledge yang singkat dalam Bahasa Indonesia untuk menemukan fakta resmi yang dibutuhkan oleh pertanyaan customer. Tulis konsep/rate/produk/batas yang diperlukan, bukan jawaban atau percakapan panjang. Contoh: pertanyaan nominal Rupiah yang ingin dikonversi ke USD harus menghasilkan query yang mencakup top-up/deposit, konversi Rupiah ke USD, dan fixed rate/kurs USD-IDR. Jika satu pesan mencampur topik layanan Solid Gold dengan permintaan lain yang tidak terkait customer service broker (misalnya minta script, kode, program, atau tugas teknis umum), pilih intent layanan Solid Gold yang paling relevan dan abaikan permintaan non-layanan itu untuk tujuan klasifikasi.";
+      '], "confidence": number 0-1, "sentiment": one of [POSITIVE,NEUTRAL,NEGATIVE,ANGRY], "containsSensitiveData": boolean, "promptInjectionDetected": boolean, "retrievalQuery": string, "handoffAction": one of [NONE,OFFER,TRANSFER,OUT_OF_SCOPE], "handoffReply": string}. ' +
+      "Buat retrievalQuery berupa pencarian Knowledge yang singkat dalam Bahasa Indonesia untuk menemukan fakta resmi yang dibutuhkan oleh pertanyaan customer. Tulis konsep/rate/produk/batas yang diperlukan, bukan jawaban atau percakapan panjang. Contoh: pertanyaan nominal Rupiah yang ingin dikonversi ke USD harus menghasilkan query yang mencakup top-up/deposit, konversi Rupiah ke USD, dan fixed rate/kurs USD-IDR. Jika satu pesan mencampur topik layanan Solid Gold dengan permintaan lain yang tidak terkait customer service broker (misalnya minta script, kode, program, atau tugas teknis umum), pilih intent layanan Solid Gold yang paling relevan dan abaikan permintaan non-layanan itu untuk tujuan klasifikasi. " +
+      "Sekaligus tentukan handoffAction: NONE jika AI tetap dapat membantu; OFFER jika tindakan agent dibutuhkan tetapi customer belum menyetujui pengalihan; TRANSFER hanya jika customer meminta atau menyetujui pengalihan dalam konteks riwayat; OUT_OF_SCOPE untuk permintaan di luar layanan Solid Gold. Keinginan mengirim gambar/file adalah OFFER, bukan TRANSFER. Untuk NONE, handoffReply harus kosong. Selain NONE, tulis balasan singkat dalam bahasa customer; OFFER harus meminta persetujuan, TRANSFER mengonfirmasi pengalihan." +
+      (history ? `\nRIWAYAT TERBARU:\n${history}` : "");
     const text = await this.respond(this.config.classifierModel, system, input.message, {
       name: "intent_classification",
       schema: CLASSIFICATION_SCHEMA as unknown as Record<string, unknown>,
@@ -522,6 +546,8 @@ export class OpenAiProvider implements AiProvider {
         containsSensitiveData: false,
         promptInjectionDetected: false,
         retrievalQuery: "",
+        handoffAction: "NONE",
+        handoffReply: "",
       },
       "classifyIntent",
     );
@@ -740,20 +766,22 @@ export class OpenAiProvider implements AiProvider {
     // Verify calculations before grounding. A correct derived result (for example an amount
     // divided by a documented fixed rate) is not written verbatim in the KB, so literal-only
     // grounding must be told about the calculation review's verified result.
-    const calculationReviewText = await this.respond(
-      this.config.answerModel,
-      buildCalculationReviewPrompt({
-        message: input.message,
-        draftAnswer: draft.answer,
-        evidenceBlock: evidenceBlock || "(tidak ada dokumen relevan)",
-      }),
-      input.message,
-      {
-        name: "calculation_review",
-        schema: CALCULATION_REVIEW_SCHEMA as unknown as Record<string, unknown>,
-      },
-      REVIEW_TEMPERATURE,
-    );
+    const calculationReviewText = needsCalculationReview(input.message, draft.answer)
+      ? await this.respond(
+          this.config.reviewModel,
+          buildCalculationReviewPrompt({
+            message: input.message,
+            draftAnswer: draft.answer,
+            evidenceBlock: evidenceBlock || "(tidak ada dokumen relevan)",
+          }),
+          input.message,
+          {
+            name: "calculation_review",
+            schema: CALCULATION_REVIEW_SCHEMA as unknown as Record<string, unknown>,
+          },
+          REVIEW_TEMPERATURE,
+        )
+      : "";
     const calculationReview = extractJson<{
       calculationNeeded: boolean;
       calculationValid: boolean;
@@ -827,7 +855,7 @@ export class OpenAiProvider implements AiProvider {
       evidenceBlock: evidenceBlock || "(tidak ada dokumen relevan)",
     });
 
-    const reviewText = await this.respond(this.config.answerModel, reviewSystem, input.message, {
+    const reviewText = await this.respond(this.config.reviewModel, reviewSystem, input.message, {
       name: "grounding_review",
       schema: GROUNDING_REVIEW_SCHEMA as unknown as Record<string, unknown>,
     },
@@ -963,6 +991,7 @@ export class OpenAiProvider implements AiProvider {
       model: this.config.embeddingModel,
       input: input.text,
     });
+    this.inputTokens += response.usage?.prompt_tokens ?? response.usage?.total_tokens ?? 0;
     return response.data[0]?.embedding ?? [];
   }
 }

@@ -1,5 +1,5 @@
 import { Type } from "class-transformer";
-import { IsArray, IsIn, IsISO8601, IsInt, IsOptional, IsString, MaxLength, Min, MinLength } from "class-validator";
+import { ArrayMaxSize, IsArray, IsIn, IsISO8601, IsInt, IsOptional, IsString, MaxLength, Min, MinLength } from "class-validator";
 import { KnowledgeAudience } from "@solidchat/shared";
 
 export class CreateKnowledgeDocumentDto {
@@ -77,6 +77,14 @@ export class UpdateKnowledgeDocumentDto {
   @IsOptional()
   @IsISO8601()
   expiredDate?: string;
+}
+
+export class CheckKnowledgeUploadConflictsDto {
+  @IsArray()
+  @ArrayMaxSize(50)
+  @IsString({ each: true })
+  @MaxLength(255, { each: true })
+  fileNames!: string[];
 }
 
 export class ListKnowledgeQueryDto {

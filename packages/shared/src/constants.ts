@@ -1,12 +1,12 @@
 /**
- * Shared OpenAI runtime settings. The chat model is configured per AI configuration; the
- * embedding model and request limits remain application-level settings.
+ * Shared OpenAI runtime settings. The chat model is selected per AI configuration in
+ * Dashboard; the embedding model remains an application-level setting.
  */
 export const AI_MODELS = {
   embedding: "text-embedding-3-small",
 } as const;
 
-/** Chat models an administrator can select for a site's AI configuration. */
+/** Chat models administrators can select in Dashboard and use as the environment fallback. */
 export const AI_CHAT_MODELS = ["gpt-4o-mini", "gpt-4o", "gpt-4.1-mini", "gpt-4.1"] as const;
 export type AiChatModel = (typeof AI_CHAT_MODELS)[number];
 
@@ -25,7 +25,7 @@ export const AI_MAX_RETRIES = 2;
  * disconnected snippets. Kept well under gpt-4o-mini's context window since this budget is
  * for evidence text alone (system prompt + history + evidence all need to fit together).
  */
-export const KNOWLEDGE_FULL_CONTEXT_MAX_TOKENS = 6000;
+export const KNOWLEDGE_FULL_CONTEXT_MAX_TOKENS = 3000;
 
 /** Consecutive low-confidence/failed AI answers before forcing a handoff, per §18. */
 export const MAX_AI_FAILURES_BEFORE_HANDOFF = 2;
@@ -70,4 +70,4 @@ export const PROMPT_INJECTION_PATTERNS: RegExp[] = [
 // headroom to grow; a real KB this size overflowing that limit is the signal to move to a
 // proper ANN/vector index instead of raising this number further.
 export const KNOWLEDGE_RETRIEVAL_CANDIDATE_LIMIT = 2000;
-export const KNOWLEDGE_RETRIEVAL_TOP_K = 8;
+export const KNOWLEDGE_RETRIEVAL_TOP_K = 5;

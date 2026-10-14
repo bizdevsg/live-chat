@@ -31,6 +31,15 @@ function isTransientAiProviderError(error: unknown): boolean {
   return /timed out|timeout|ECONNRESET|ETIMEDOUT|fetch failed/i.test(error.message);
 }
 
+/** A second retrieval query is only useful when the latest message depends on earlier turns. */
+export function shouldUseContextualRetrieval(message: string, history: ChatTurn[]): boolean {
+  if (history.length <= 1) return false;
+  const normalized = message.trim().toLowerCase();
+  if (!normalized || normalized.length > 140) return false;
+  return /\b(?:itu|tadi|tersebut|yang sama|kalau begitu|gimana dengan|bagaimana dengan|lanjut|that|those|earlier|how about)\b/i.test(normalized) ||
+    /^(?:berapa|gimana|bagaimana|kenapa|why|how)(?:\s|[?!.]|$)/i.test(normalized);
+}
+
 export function formatAnswerForCustomer(answer: string, sources: KnowledgeSource[], showSources: boolean): string {
   const allowedUrls = new Set(sources.map((source) => source.sourceUrl).filter((url): url is string => Boolean(url)));
   const safeAnswer = answer
@@ -258,7 +267,7 @@ export class AiOrchestratorService {
     this.realtime.toConversation(conversationId, "typing:updated", { from: "AI", typing: true });
     let activeAiRunId: string | null = null;
     try {
-      const { provider, config } = await this.aiProviderFactory.getProviderForSite(conversation.siteId);
+      const { provider, config, model } = await this.aiProviderFactory.getProviderForSite(conversation.siteId);
 
       const classifyStart = Date.now();
       const classification = await provider.classifyIntent({
@@ -266,10 +275,11 @@ export class AiOrchestratorService {
         history,
         language: conversation.language,
       });
-      const classificationRun = await this.recordAiRun(conversationId, "CLASSIFY", provider.name, config.model, {
+      const classificationRun = await this.recordAiRun(conversationId, "CLASSIFY", provider.name, model, {
         latencyMs: Date.now() - classifyStart,
         confidence: classification.confidence,
         intent: classification.intent,
+        ...provider.consumeTokenUsage?.(),
       });
       activeAiRunId = classificationRun.id;
 
@@ -293,11 +303,10 @@ export class AiOrchestratorService {
         return;
       }
 
-      const handoffDecision = await provider.decideHandoff({
-        message: lastVisitorMessage.content,
-        history,
-        language: conversation.language,
-      });
+      const handoffDecision = {
+        action: classification.handoffAction ?? "NONE",
+        reply: classification.handoffReply ?? "",
+      };
       if (handoffDecision.action !== "NONE") {
         await this.conversations.postMessage({
           conversationId,
@@ -326,10 +335,13 @@ export class AiOrchestratorService {
       const contextualRetrievalQuery = [...history.slice(-6).map((turn) => turn.content), focusedRetrievalQuery]
         .filter(Boolean)
         .join("\n");
+      const useContextualRetrieval = shouldUseContextualRetrieval(lastVisitorMessage.content, history);
       const [marketEvidence, focusedKnowledgeEvidence, contextualKnowledgeEvidence] = await Promise.all([
         Promise.resolve(this.marketData.getRealtimePriceEvidence(lastVisitorMessage.content, history.map((turn) => turn.content).join("\n"))),
         this.retrieval.retrieveForCustomer(conversation.siteId, focusedRetrievalQuery),
-        this.retrieval.retrieveForCustomer(conversation.siteId, contextualRetrievalQuery, { topK: 3, includeFullContext: false }),
+        useContextualRetrieval
+          ? this.retrieval.retrieveForCustomer(conversation.siteId, contextualRetrievalQuery, { topK: 3, includeFullContext: false })
+          : Promise.resolve([]),
       ]);
       const focusedChunkIds = new Set(focusedKnowledgeEvidence.map((item) => item.chunkId));
       const knowledgeEvidence = [
@@ -376,7 +388,7 @@ export class AiOrchestratorService {
             organizationName: "PT Solid Gold Berjangka",
             systemPrompt: answerPrompt?.content ?? null,
           });
-      const aiRun = await this.recordAiRun(conversationId, "ANSWER", provider.name, config.model, {
+      const aiRun = await this.recordAiRun(conversationId, "ANSWER", provider.name, model, {
         latencyMs: Date.now() - answerStart,
         confidence: answer.confidence,
         intent: answer.intent,
@@ -385,6 +397,7 @@ export class AiOrchestratorService {
         // `generateAnswer` may still mark a reply as uncertain for wording/audit purposes, but
         // that is not consent from the customer and must not switch the handler to HUMAN.
         handoffRequired: false,
+        ...provider.consumeTokenUsage?.(),
       });
       activeAiRunId = aiRun.id;
 
@@ -440,10 +453,13 @@ export class AiOrchestratorService {
       createdAt: m.createdAt.toISOString(),
     }));
 
-    const { provider, config } = await this.aiProviderFactory.getProviderForSite(conversation.siteId);
+    const { provider, model } = await this.aiProviderFactory.getProviderForSite(conversation.siteId);
     const start = Date.now();
     const summary = await provider.summarizeConversation({ history, language: conversation.language });
-    await this.recordAiRun(conversationId, "SUMMARY", provider.name, config.model, { latencyMs: Date.now() - start });
+    await this.recordAiRun(conversationId, "SUMMARY", provider.name, model, {
+      latencyMs: Date.now() - start,
+      ...provider.consumeTokenUsage?.(),
+    });
 
     return this.prisma.conversationSummary.create({
       data: {
@@ -470,7 +486,7 @@ export class AiOrchestratorService {
     }));
     const lastVisitorMessage = [...messages].reverse().find((m) => m.senderType === SenderType.VISITOR || m.senderType === SenderType.CUSTOMER);
 
-    const { provider, config } = await this.aiProviderFactory.getProviderForSite(conversation.siteId);
+    const { provider, config, model } = await this.aiProviderFactory.getProviderForSite(conversation.siteId);
     const [evidence, answerPrompt, site, agent] = await Promise.all([
       lastVisitorMessage ? this.retrieval.retrieveForAgent(conversation.siteId, lastVisitorMessage.content) : Promise.resolve([]),
       this.prisma.aiPrompt.findFirst({
@@ -491,9 +507,10 @@ export class AiOrchestratorService {
       organizationName: "PT Solid Gold Berjangka",
       systemPrompt: answerPrompt?.content ?? null,
     });
-    const aiRun = await this.recordAiRun(conversationId, "SUGGESTED_REPLY", provider.name, config.model, {
+    const aiRun = await this.recordAiRun(conversationId, "SUGGESTED_REPLY", provider.name, model, {
       latencyMs: Date.now() - start,
       confidence: result.confidence,
+      ...provider.consumeTokenUsage?.(),
     });
 
     return { aiRunId: aiRun.id, reply: result.reply, sources: result.sources, confidence: result.confidence };
@@ -523,7 +540,7 @@ export class AiOrchestratorService {
     purpose: "CLASSIFY" | "ANSWER" | "SUMMARY" | "SUGGESTED_REPLY" | "EMBEDDING",
     provider: string,
     model: string,
-    extra: { latencyMs?: number; confidence?: number; intent?: string; handoffRequired?: boolean; status?: "SUCCESS" | "ERROR" | "TIMEOUT" },
+    extra: { inputTokens?: number; outputTokens?: number; latencyMs?: number; confidence?: number; intent?: string; handoffRequired?: boolean; status?: "SUCCESS" | "ERROR" | "TIMEOUT" },
   ) {
     return this.prisma.aiRun.create({
       data: {
@@ -532,6 +549,8 @@ export class AiOrchestratorService {
         provider,
         model,
         status: extra.status ?? "SUCCESS",
+        inputTokens: extra.inputTokens,
+        outputTokens: extra.outputTokens,
         latencyMs: extra.latencyMs,
         confidence: extra.confidence,
         intent: extra.intent,

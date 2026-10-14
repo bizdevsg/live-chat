@@ -19,14 +19,14 @@ interface AiRun {
   confidence: number | null;
   intent: string | null;
   latencyMs: number | null;
+  inputTokens: number | null;
+  outputTokens: number | null;
   handoffRequired: boolean | null;
   createdAt: string;
 }
 
 interface AiRunDetail extends AiRun {
   errorMessage: string | null;
-  inputTokens: number | null;
-  outputTokens: number | null;
   requestId: string | null;
   handoffReason: string | null;
   handoffSource: string | null;
@@ -153,6 +153,7 @@ export default function AiRunsPage() {
                 <th className="px-5 py-4">Intent</th>
                 <th className="px-5 py-4">Confidence</th>
                 <th className="px-5 py-4">Latensi</th>
+                <th className="px-5 py-4">Token</th>
                 <th className="px-5 py-4">Handoff</th>
                 <th className="px-5 py-4 text-right">Aksi</th>
               </tr>
@@ -169,6 +170,11 @@ export default function AiRunsPage() {
                   <td className="px-5 py-4 text-zinc-400">{run.intent ?? "-"}</td>
                   <td className="px-5 py-4 text-zinc-400">{run.confidence != null ? `${Math.round(run.confidence * 100)}%` : "-"}</td>
                   <td className="px-5 py-4 text-zinc-400">{run.latencyMs ? `${run.latencyMs} ms` : "-"}</td>
+                  <td className="px-5 py-4 text-zinc-400">
+                    {run.inputTokens != null || run.outputTokens != null
+                      ? `${(run.inputTokens ?? 0) + (run.outputTokens ?? 0)} total`
+                      : "-"}
+                  </td>
                   <td className="px-5 py-4">{run.handoffRequired ? <Badge tone="amber">Handoff</Badge> : <span className="text-zinc-600">-</span>}</td>
                   <td className="px-5 py-4 text-right">
                     <Button variant="secondary" size="sm" onClick={() => setSelectedRunId(run.id)}>
@@ -179,7 +185,7 @@ export default function AiRunsPage() {
               ))}
               {!query.isLoading && runs.length === 0 ? (
                 <tr>
-                  <td colSpan={8}>
+                  <td colSpan={9}>
                     <DashboardEmpty>Belum ada AI run yang tercatat.</DashboardEmpty>
                   </td>
                 </tr>
@@ -254,6 +260,16 @@ export default function AiRunsPage() {
                 <DetailItem label="Intent" value={detail.intent ?? "-"} />
                 <DetailItem label="Confidence" value={detail.confidence != null ? `${Math.round(detail.confidence * 100)}%` : "-"} />
                 <DetailItem label="Latensi" value={detail.latencyMs != null ? `${detail.latencyMs} ms` : "-"} />
+                <DetailItem label="Input token" value={detail.inputTokens?.toLocaleString("id-ID") ?? "-"} />
+                <DetailItem label="Output token" value={detail.outputTokens?.toLocaleString("id-ID") ?? "-"} />
+                <DetailItem
+                  label="Total token"
+                  value={
+                    detail.inputTokens != null || detail.outputTokens != null
+                      ? ((detail.inputTokens ?? 0) + (detail.outputTokens ?? 0)).toLocaleString("id-ID")
+                      : "-"
+                  }
+                />
                 <DetailItem label="Handler conversation" value={detail.conversation.handlerType} />
               </div>
 

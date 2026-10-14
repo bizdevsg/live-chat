@@ -24,7 +24,7 @@ import { KnowledgeService } from "./knowledge.service";
 import { StorageService } from "../storage/storage.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { extractTextFromFile } from "./text-extraction.util";
-import { CreateKnowledgeDocumentDto, ListKnowledgeQueryDto, UpdateKnowledgeDocumentDto } from "./dto/knowledge.dto";
+import { CheckKnowledgeUploadConflictsDto, CreateKnowledgeDocumentDto, ListKnowledgeQueryDto, UpdateKnowledgeDocumentDto } from "./dto/knowledge.dto";
 import { ApiException, ForbiddenApiException } from "../common/errors/api.exception";
 import { ErrorCode } from "@solidchat/shared";
 
@@ -170,13 +170,27 @@ export class KnowledgeController {
   @Post("upload")
   @RequirePermissions(Permission.KNOWLEDGE_EDIT)
   @UseInterceptors(FileInterceptor("file", { limits: { fileSize: MAX_UPLOAD_BYTES } }))
-  async upload(@UploadedFile() file: Express.Multer.File, @CurrentUser() user: JwtAccessPayload) {
+  async upload(
+    @UploadedFile() file: Express.Multer.File,
+    @Query("overwrite") overwrite: string | undefined,
+    @CurrentUser() user: JwtAccessPayload,
+  ) {
     this.assertSuperAdmin(user);
     if (!file) throw new BadRequestException("File tidak ditemukan pada request.");
     if (!file.originalname.toLowerCase().endsWith(MARKDOWN_EXTENSION)) {
       throw new BadRequestException("Knowledge hanya menerima file Markdown (.md).");
     }
     const siteId = await this.resolveSiteId(user);
+    const title = file.originalname.replace(/\.[^.]+$/, "");
+    const [conflict] = await this.knowledgeService.findUploadConflicts(siteId, [file.originalname]);
+    if (conflict && overwrite !== "true") {
+      throw new ApiException(
+        ErrorCode.CONFLICT,
+        `Knowledge "${conflict.title}" sudah ada. Konfirmasi overwrite sebelum melanjutkan.`,
+        HttpStatus.CONFLICT,
+        { conflicts: [conflict] },
+      );
+    }
 
     const text = await extractTextFromFile(file.buffer, file.mimetype, file.originalname);
     if (text.trim().length < 20) {
@@ -186,13 +200,34 @@ export class KnowledgeController {
     const storageKey = this.storage.buildStorageKey(`knowledge/${siteId}`, file.originalname);
     await this.storage.upload(storageKey, file.buffer, file.mimetype);
 
-    const data = await this.knowledgeService.create(
-      siteId,
-      { title: file.originalname.replace(/\.[^.]+$/, ""), content: text },
-      user.sub,
-    );
-    await this.prisma.knowledgeDocument.update({ where: { id: data.id }, data: { sourceFile: storageKey } });
+    let data: Awaited<ReturnType<KnowledgeService["create"]>>;
+    try {
+      if (conflict) {
+        data = await this.knowledgeService.overwriteFromUpload(
+          conflict.id,
+          { title, content: text, sourceFile: storageKey },
+          user.sub,
+        );
+      } else {
+        data = await this.knowledgeService.create(siteId, { title, content: text }, user.sub);
+        await this.prisma.knowledgeDocument.update({ where: { id: data.id }, data: { sourceFile: storageKey } });
+      }
+    } catch (error) {
+      // For overwrite, the document may already reference the new object even if a later audit
+      // or cleanup step failed. Keep it to avoid leaving the database pointed at a removed file.
+      if (!conflict) await this.storage.remove(storageKey).catch(() => undefined);
+      throw error;
+    }
 
-    return { success: true, data: { ...data, sourceFile: storageKey, status: "NON_ACTIVE" } };
+    return { success: true, data: { ...data, sourceFile: storageKey, status: "NON_ACTIVE", overwritten: Boolean(conflict) } };
+  }
+
+  @Post("upload-conflicts")
+  @RequirePermissions(Permission.KNOWLEDGE_EDIT)
+  async uploadConflicts(@Body() dto: CheckKnowledgeUploadConflictsDto, @CurrentUser() user: JwtAccessPayload) {
+    this.assertSuperAdmin(user);
+    const siteId = await this.resolveSiteId(user);
+    const conflicts = await this.knowledgeService.findUploadConflicts(siteId, dto.fileNames);
+    return { success: true, data: { conflicts } };
   }
 }

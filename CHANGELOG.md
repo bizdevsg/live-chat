@@ -3,8 +3,38 @@
 Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
+### Added
+- Menambahkan `apps/api/src/knowledge/knowledge.service.upload.spec.ts` untuk menguji deteksi file duplikat dan overwrite Knowledge.
+- Menambahkan `apps/api/src/knowledge/knowledge.service.upload.spec.ts`.
+- Menambahkan preflight konflik nama file pada batch upload Knowledge dan modal konfirmasi khusus sebelum file Markdown yang sudah ada ditimpa.
+
 ### Changed
+- Memperbarui `.env.example`.
+- Memperbarui `apps/api/src/ai/ai-answer-source.spec.ts`.
+- Memperbarui `apps/api/src/ai/ai-orchestrator.service.ts`.
+- Memperbarui `apps/api/src/ai/ai-provider.factory.ts`.
+- Memperbarui `apps/api/src/config/env.validation.ts`.
+- Memperbarui `apps/api/src/knowledge/dto/knowledge.dto.ts`.
+- Memperbarui `apps/api/src/knowledge/knowledge.controller.ts`.
+- Memperbarui `apps/api/src/knowledge/knowledge.service.ts`.
+- Memperbarui `apps/dashboard/src/app/(dashboard)/ai/configuration/page.tsx`.
+- Memperbarui `apps/dashboard/src/app/(dashboard)/ai/runs/page.tsx`.
+- Memperbarui `apps/dashboard/src/app/(dashboard)/knowledge/page.tsx`.
 - Memperbarui `package.json`.
+- Memperbarui `packages/ai-core/src/providers/mock-provider.ts`.
+- Memperbarui `packages/ai-core/src/providers/openai-provider.spec.ts`.
+- Memperbarui `packages/ai-core/src/providers/openai-provider.ts`.
+- Memperbarui `packages/shared/src/ai-provider.ts`.
+- Memperbarui `packages/shared/src/constants.ts`.
+- Memperbarui `packages/shared/src/types.ts`.
+- Memperbarui pengujian provider AI dan retrieval kontekstual untuk mencakup jalur hemat kredit baru.
+- Menampilkan total token pada tabel AI Runs serta rincian input, output, dan total token pada modal Detail untuk memudahkan verifikasi biaya setiap chat.
+- Mencatat pemakaian input/output token aktual dari OpenAI ke `ai_runs` untuk klasifikasi, jawaban, ringkasan, dan suggested reply agar konsumsi kredit dapat diaudit dari Dashboard.
+- Mengoptimalkan pipeline AI customer service agar klasifikasi intent sekaligus menghasilkan keputusan handoff, sehingga satu request model terpisah dihilangkan dari setiap pesan visitor.
+- Mengubah upload Markdown bernama sama agar memperbarui artikel yang sudah ada, menaikkan versi, menghapus chunk lama, dan mengembalikan statusnya ke `NON_ACTIVE` untuk ditinjau ulang; upload baru tetap diproses berurutan hingga 50 file agar penggunaan memory server terkontrol.
+- Mengurangi konteks Knowledge maksimum dari 6.000 menjadi 3.000 token dan hasil retrieval utama dari 8 menjadi 5 chunk; retrieval kontekstual kedua kini hanya dijalankan untuk pertanyaan lanjutan yang bergantung pada riwayat.
+- Menjalankan calculation review hanya untuk pesan yang benar-benar membutuhkan perhitungan, membatasi output setiap request AI hingga 900 token, dan membatasi riwayat prompt jawaban ke delapan turn terbaru.
+- Menyatukan model chat OpenAI untuk classify, answer, review, summary, dan suggested reply menggunakan satu model yang dipilih per-site dari Dashboard; `OPENAI_DEFAULT_MODEL` hanya menjadi fallback tanpa konfigurasi classifier atau summary terpisah.
 
 ## [0.20.1] - 2026-10-13
 ### Added
