@@ -3,6 +3,10 @@
 Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
+### Changed
+- Memperbarui `package.json`.
+
+## [0.21.0] - 2026-10-14
 ### Added
 - Menambahkan `apps/api/src/knowledge/knowledge.service.upload.spec.ts` untuk menguji deteksi file duplikat dan overwrite Knowledge.
 - Menambahkan `apps/api/src/knowledge/knowledge.service.upload.spec.ts`.
@@ -1055,7 +1059,8 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 - Memperbarui `apps/dashboard/src/app/(dashboard)/knowledge/page.tsx`.
 - Memperbarui `package.json`.
 
-[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.20.1...HEAD
+[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.21.0...HEAD
+[0.21.0]: https://github.com/bizdevsg/live-chat/compare/v0.20.1...v0.21.0
 [0.20.1]: https://github.com/bizdevsg/live-chat/compare/v0.20.0...v0.20.1
 [0.20.0]: https://github.com/bizdevsg/live-chat/compare/v0.19.0...v0.20.0
 [0.19.0]: https://github.com/bizdevsg/live-chat/compare/v0.18.2...v0.19.0
