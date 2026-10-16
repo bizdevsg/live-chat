@@ -3,6 +3,10 @@
 Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
+### Changed
+- Memperbarui `package.json`.
+
+## [0.22.0] - 2026-10-16
 ### Added
 - Menambahkan `apps/api/src/ai/prompts/whatsapp-assistant.md`.
 - Menambahkan `apps/api/src/ai/whatsapp-assistant-prompt.service.ts`.
@@ -1089,7 +1093,8 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 - Memperbarui `apps/dashboard/src/app/(dashboard)/knowledge/page.tsx`.
 - Memperbarui `package.json`.
 
-[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.21.0...HEAD
+[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.22.0...HEAD
+[0.22.0]: https://github.com/bizdevsg/live-chat/compare/v0.21.0...v0.22.0
 [0.21.0]: https://github.com/bizdevsg/live-chat/compare/v0.20.1...v0.21.0
 [0.20.1]: https://github.com/bizdevsg/live-chat/compare/v0.20.0...v0.20.1
 [0.20.0]: https://github.com/bizdevsg/live-chat/compare/v0.19.0...v0.20.0
