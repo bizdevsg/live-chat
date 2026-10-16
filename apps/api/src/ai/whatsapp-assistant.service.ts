@@ -11,6 +11,8 @@ import { RetrievalService } from "../knowledge/retrieval.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { AiProviderFactory } from "./ai-provider.factory";
 import type { WhatsAppAssistantReplyDto } from "./dto/ai.dto";
+import { AiRunRecorderService } from "../common/ai-run-recorder.service";
+import { WhatsAppAssistantPromptService } from "./whatsapp-assistant-prompt.service";
 
 const AUTO_REPLY_BLOCKED_INTENTS = new Set<string>([
   AiIntent.DEPOSIT,
@@ -27,6 +29,8 @@ export class WhatsAppAssistantService {
     private readonly prisma: PrismaService,
     private readonly retrieval: RetrievalService,
     private readonly aiProviderFactory: AiProviderFactory,
+    private readonly aiRuns: AiRunRecorderService,
+    private readonly assistantPrompt: WhatsAppAssistantPromptService,
   ) {}
 
   async createReply(dto: WhatsAppAssistantReplyDto, configuredSiteId?: string) {
@@ -58,18 +62,35 @@ export class WhatsAppAssistantService {
       );
     }
 
-    const { provider } = await this.aiProviderFactory.getProviderForSite(site.id);
+    const { provider, model } = await this.aiProviderFactory.getProviderForSite(site.id);
+    const tracking = {
+      organizationId: site.organizationId,
+      siteId: site.id,
+      source: "EXTENSION" as const,
+    };
+    const classifyStart = Date.now();
     const classification = await provider.classifyIntent({
       message: lastCustomerMessage.content,
       history,
       language: site.language,
     });
+    await this.aiRuns.record({
+      ...tracking,
+      purpose: "CLASSIFY",
+      provider: provider.name,
+      model,
+      latencyMs: Date.now() - classifyStart,
+      confidence: classification.confidence,
+      intent: classification.intent,
+      ...provider.consumeTokenUsage?.(),
+    });
     const retrievalQuery =
       classification.retrievalQuery?.trim() ||
       extractCustomerServiceQuery(lastCustomerMessage.content, classification.intent);
 
-    const evidence = await this.retrieval.retrieveForAgent(site.id, retrievalQuery);
+    const evidence = await this.retrieval.retrieveForAgent(site.id, retrievalQuery, tracking);
 
+    const replyStart = Date.now();
     const result = await provider.generateSuggestedReply({
       history,
       language: site.language,
@@ -77,8 +98,18 @@ export class WhatsAppAssistantService {
       aiName: site.aiName,
       agentName: "Tim Customer Service",
       organizationName: site.organization.name,
-      systemPrompt: dto.systemPrompt,
+      systemPrompt: this.assistantPrompt.getPrompt(),
       agentDraft: dto.prompt,
+    });
+    await this.aiRuns.record({
+      ...tracking,
+      purpose: "SUGGESTED_REPLY",
+      provider: provider.name,
+      model,
+      latencyMs: Date.now() - replyStart,
+      confidence: result.confidence,
+      intent: classification.intent,
+      ...provider.consumeTokenUsage?.(),
     });
 
     const autoReplyBlockedReason = classification.promptInjectionDetected

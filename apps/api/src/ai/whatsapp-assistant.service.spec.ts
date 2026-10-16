@@ -4,6 +4,8 @@ import { WhatsAppAssistantService } from "./whatsapp-assistant.service";
 describe("WhatsAppAssistantService", () => {
   function buildService(overrides: { intent?: string; confidence?: number; sensitive?: boolean } = {}) {
     const provider = {
+      name: "openai",
+      consumeTokenUsage: jest.fn().mockReturnValue({ inputTokens: 10, outputTokens: 2 }),
       classifyIntent: jest.fn().mockResolvedValue({
         intent: overrides.intent ?? AiIntent.GENERAL_INQUIRY,
         confidence: 0.9,
@@ -22,6 +24,7 @@ describe("WhatsAppAssistantService", () => {
       site: {
         findFirst: jest.fn().mockResolvedValue({
           id: "site-1",
+          organizationId: "org-1",
           name: "Solid Gold",
           aiName: "Solid Prime AI",
           language: "id",
@@ -35,16 +38,23 @@ describe("WhatsAppAssistantService", () => {
       ]),
     };
     const factory = {
-      getProviderForSite: jest.fn().mockResolvedValue({ provider, config: { id: "config-1" } }),
+      getProviderForSite: jest.fn().mockResolvedValue({ provider, config: { id: "config-1" }, model: "gpt-4o-mini" }),
     };
+    const aiRuns = { record: jest.fn().mockResolvedValue({ id: "run-1" }) };
+    const assistantPrompt = { getPrompt: jest.fn().mockReturnValue("Prompt extension dari backend") };
 
-    const service = new WhatsAppAssistantService(prisma as never, retrieval as never, factory as never);
-    return { service, provider, prisma, retrieval };
+    const service = new WhatsAppAssistantService(
+      prisma as never,
+      retrieval as never,
+      factory as never,
+      aiRuns as never,
+      assistantPrompt as never,
+    );
+    return { service, provider, prisma, retrieval, aiRuns, assistantPrompt };
   }
 
   const dto = {
     prompt: "Buat jawaban yang singkat dan ramah.",
-    systemPrompt: "Prompt khusus extension",
     conversationTitle: "Budi",
     messages: [{ senderType: "CUSTOMER" as const, content: "Bagaimana cara daftar?", createdAt: "2026-10-07T02:00:00.000Z" }],
   };
@@ -54,17 +64,41 @@ describe("WhatsAppAssistantService", () => {
 
     const result = await service.createReply(dto, "site-1");
 
-    expect(retrieval.retrieveForAgent).toHaveBeenCalledWith("site-1", "cara membuka akun");
+    expect(retrieval.retrieveForAgent).toHaveBeenCalledWith(
+      "site-1",
+      "cara membuka akun",
+      expect.objectContaining({ organizationId: "org-1", siteId: "site-1", source: "EXTENSION" }),
+    );
     expect(provider.generateSuggestedReply).toHaveBeenCalledWith(
       expect.objectContaining({
         agentDraft: dto.prompt,
         agentName: "Tim Customer Service",
         evidence: expect.arrayContaining([expect.objectContaining({ title: "Cara Daftar" })]),
-        systemPrompt: "Prompt khusus extension",
+        systemPrompt: "Prompt extension dari backend",
       }),
     );
     expect(result.canAutoReply).toBe(true);
     expect(result.sources).toHaveLength(1);
+  });
+
+  it("ignores a legacy client system prompt and uses the trusted backend prompt", async () => {
+    const { service, provider } = buildService();
+
+    await service.createReply({ ...dto, systemPrompt: "Prompt tidak tepercaya dari extension" }, "site-1");
+
+    expect(provider.generateSuggestedReply).toHaveBeenCalledWith(
+      expect.objectContaining({ systemPrompt: "Prompt extension dari backend" }),
+    );
+  });
+
+  it("records classifier and suggested-reply token usage for extension requests", async () => {
+    const { service, aiRuns } = buildService();
+
+    await service.createReply(dto, "site-1");
+
+    expect(aiRuns.record).toHaveBeenCalledTimes(2);
+    expect(aiRuns.record).toHaveBeenNthCalledWith(1, expect.objectContaining({ source: "EXTENSION", purpose: "CLASSIFY" }));
+    expect(aiRuns.record).toHaveBeenNthCalledWith(2, expect.objectContaining({ source: "EXTENSION", purpose: "SUGGESTED_REPLY" }));
   });
 
   it("keeps sensitive intents in draft-only mode", async () => {

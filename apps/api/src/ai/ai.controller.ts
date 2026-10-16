@@ -165,8 +165,8 @@ export class AiController {
     const pageNum = Number(page) || 1;
     const pageSize = 30;
     const where = {
+      organizationId: user.organizationId,
       conversationId: conversationId || undefined,
-      conversation: { organizationId: user.organizationId },
     };
     const [items, total] = await Promise.all([
       this.prisma.aiRun.findMany({
@@ -223,7 +223,7 @@ export class AiController {
     const run = await this.prisma.aiRun.findFirst({
       where: {
         id,
-        conversation: { organizationId: user.organizationId },
+        organizationId: user.organizationId,
       },
       include: {
         messages: { orderBy: { role: "asc" } },
@@ -241,7 +241,7 @@ export class AiController {
     if (!run) throw new NotFoundApiException(ErrorCode.NOT_FOUND, "AI run tidak ditemukan.");
 
     const handoffWindowEndsAt = new Date(run.createdAt.getTime() + 5 * 60 * 1000);
-    const handoffEvent = run.handoffRequired
+    const handoffEvent = run.handoffRequired && run.conversationId
       ? await this.prisma.conversationEvent.findFirst({
           where: {
             conversationId: run.conversationId,
@@ -258,7 +258,7 @@ export class AiController {
       data: {
         ...run,
         handoffReason: run.handoffRequired
-          ? getEventPayloadString(handoffEvent?.payload, "reason") ?? run.conversation.handoffReason ?? "UNSPECIFIED"
+          ? getEventPayloadString(handoffEvent?.payload, "reason") ?? run.conversation?.handoffReason ?? "UNSPECIFIED"
           : null,
         handoffSource: run.handoffRequired
           ? getEventPayloadString(handoffEvent?.payload, "source") ?? "UNKNOWN"

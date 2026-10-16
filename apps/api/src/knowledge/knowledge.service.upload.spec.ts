@@ -9,7 +9,7 @@ describe("KnowledgeService upload overwrite", () => {
         ]),
       },
     };
-    const service = new KnowledgeService(prisma as never, {} as never, {} as never, {} as never, {} as never);
+    const service = new KnowledgeService(prisma as never, {} as never, {} as never, {} as never, {} as never, {} as never);
 
     const result = await service.findUploadConflicts("site-1", ["Panduan Deposit.md", "FAQ.md"]);
 
@@ -55,7 +55,7 @@ describe("KnowledgeService upload overwrite", () => {
     };
     const auditLog = { record: jest.fn().mockResolvedValue(undefined) };
     const storage = { remove: jest.fn().mockResolvedValue(undefined) };
-    const service = new KnowledgeService(prisma as never, auditLog as never, {} as never, storage as never, {} as never);
+    const service = new KnowledgeService(prisma as never, auditLog as never, {} as never, storage as never, {} as never, {} as never);
 
     const result = await service.overwriteFromUpload(
       "doc-1",
@@ -81,5 +81,51 @@ describe("KnowledgeService upload overwrite", () => {
     expect(storage.remove).toHaveBeenCalledWith("knowledge/site-1/old.md");
     expect(auditLog.record).toHaveBeenCalledWith(expect.objectContaining({ action: "knowledge.upload_overwritten" }));
     expect(result).toEqual(updated);
+  });
+
+  it("records aggregate embedding usage when reprocessing knowledge", async () => {
+    const prisma = {
+      knowledgeDocument: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: "doc-1",
+          siteId: "site-1",
+          content: "Panduan pembukaan akun dengan data yang cukup untuk diproses menjadi knowledge chunk.",
+          chunks: [],
+          category: null,
+        }),
+      },
+      site: { findUniqueOrThrow: jest.fn().mockResolvedValue({ organizationId: "org-1" }) },
+      knowledgeChunk: {
+        deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+        create: jest.fn().mockResolvedValue({ id: "chunk-1" }),
+      },
+    };
+    const provider = {
+      name: "openai",
+      createEmbedding: jest.fn().mockResolvedValue([0.1, 0.2]),
+      consumeTokenUsage: jest.fn().mockReturnValue({ inputTokens: 18, outputTokens: 0 }),
+    };
+    const factory = { getProviderForSite: jest.fn().mockResolvedValue({ provider }) };
+    const aiRuns = { record: jest.fn().mockResolvedValue({ id: "run-1" }) };
+    const service = new KnowledgeService(
+      prisma as never,
+      {} as never,
+      factory as never,
+      {} as never,
+      {} as never,
+      aiRuns as never,
+    );
+
+    await service.reprocess("doc-1");
+
+    expect(aiRuns.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        organizationId: "org-1",
+        siteId: "site-1",
+        source: "KNOWLEDGE_REPROCESS",
+        purpose: "EMBEDDING",
+        inputTokens: 18,
+      }),
+    );
   });
 });

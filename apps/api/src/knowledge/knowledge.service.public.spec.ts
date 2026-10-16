@@ -37,6 +37,7 @@ describe("KnowledgeService public API", () => {
       {} as never,
       {} as never,
       {} as never,
+      {} as never,
     );
     return { service, prisma };
   }

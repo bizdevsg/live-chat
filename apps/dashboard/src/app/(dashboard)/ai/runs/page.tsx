@@ -11,7 +11,8 @@ import { DashboardEmpty, DashboardPage, DashboardPageHeader, DashboardPageMetric
 
 interface AiRun {
   id: string;
-  conversationId: string;
+  conversationId: string | null;
+  source: "CHAT" | "KNOWLEDGE_TESTER" | "EXTENSION" | "KNOWLEDGE_REPROCESS";
   purpose: string;
   provider: string;
   model: string;
@@ -36,7 +37,7 @@ interface AiRunDetail extends AiRun {
     status: string;
     handlerType: string;
     handoffReason: string | null;
-  };
+  } | null;
 }
 
 interface HandoffEvent {
@@ -91,6 +92,13 @@ const HANDOFF_SOURCE_LABELS: Record<string, string> = {
   SYSTEM_RULE: "Sistem — rule handoff wajib",
   AI_ERROR_FALLBACK: "Sistem — fallback karena proses AI gagal",
   UNKNOWN: "Data lama — sumber belum tercatat",
+};
+
+const AI_RUN_SOURCE_LABELS: Record<AiRun["source"], string> = {
+  CHAT: "Chat",
+  KNOWLEDGE_TESTER: "Knowledge Tester",
+  EXTENSION: "Extension",
+  KNOWLEDGE_REPROCESS: "Knowledge Reprocess",
 };
 
 function DetailItem({ label, value }: { label: string; value: string }) {
@@ -149,6 +157,7 @@ export default function AiRunsPage() {
               <tr>
                 <th className="px-5 py-4">Waktu</th>
                 <th className="px-5 py-4">Tujuan</th>
+                <th className="px-5 py-4">Sumber</th>
                 <th className="px-5 py-4">Model</th>
                 <th className="px-5 py-4">Intent</th>
                 <th className="px-5 py-4">Confidence</th>
@@ -166,6 +175,7 @@ export default function AiRunsPage() {
                     <div className="font-medium text-zinc-100">{run.purpose}</div>
                     <div className="mt-1 text-xs text-zinc-500">{run.provider}</div>
                   </td>
+                  <td className="px-5 py-4 text-zinc-400">{AI_RUN_SOURCE_LABELS[run.source] ?? run.source}</td>
                   <td className="px-5 py-4 text-zinc-400">{run.model}</td>
                   <td className="px-5 py-4 text-zinc-400">{run.intent ?? "-"}</td>
                   <td className="px-5 py-4 text-zinc-400">{run.confidence != null ? `${Math.round(run.confidence * 100)}%` : "-"}</td>
@@ -185,7 +195,7 @@ export default function AiRunsPage() {
               ))}
               {!query.isLoading && runs.length === 0 ? (
                 <tr>
-                  <td colSpan={9}>
+                  <td colSpan={10}>
                     <DashboardEmpty>Belum ada AI run yang tercatat.</DashboardEmpty>
                   </td>
                 </tr>
@@ -252,7 +262,8 @@ export default function AiRunsPage() {
             <>
               <div className="grid gap-3 sm:grid-cols-2">
                 <DetailItem label="Run ID" value={detail.id} />
-                <DetailItem label="Conversation ID" value={detail.conversationId} />
+                <DetailItem label="Sumber" value={AI_RUN_SOURCE_LABELS[detail.source] ?? detail.source} />
+                <DetailItem label="Conversation ID" value={detail.conversationId ?? "-"} />
                 <DetailItem label="Waktu" value={new Date(detail.createdAt).toLocaleString("id-ID")} />
                 <DetailItem label="Tujuan" value={detail.purpose} />
                 <DetailItem label="Provider / Model" value={`${detail.provider} / ${detail.model}`} />
@@ -270,7 +281,7 @@ export default function AiRunsPage() {
                       : "-"
                   }
                 />
-                <DetailItem label="Handler conversation" value={detail.conversation.handlerType} />
+                <DetailItem label="Handler conversation" value={detail.conversation?.handlerType ?? "-"} />
               </div>
 
               <div className="rounded-xl border border-amber-700/40 bg-amber-950/20 p-4">

@@ -79,10 +79,12 @@ export class WhatsAppAssistantReplyDto {
   @MaxLength(1000)
   prompt!: string;
 
+  // Deprecated compatibility field. Older extension builds still send it, but the backend
+  // deliberately ignores the value and owns the trusted system prompt.
+  @IsOptional()
   @IsString()
-  @MinLength(1)
   @MaxLength(500000)
-  systemPrompt!: string;
+  systemPrompt?: string;
 
   @IsOptional()
   @IsString()

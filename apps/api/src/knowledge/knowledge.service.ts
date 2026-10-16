@@ -9,6 +9,7 @@ import { ApiException, NotFoundApiException } from "../common/errors/api.excepti
 import type { CreateKnowledgeDocumentDto, ListKnowledgeQueryDto, PublicKnowledgeQueryDto, UpdateKnowledgeDocumentDto } from "./dto/knowledge.dto";
 import { StorageService } from "../storage/storage.service";
 import { normalizeOfficialSourceUrl, parseOfficialSourceHosts } from "./official-source-url";
+import { AiRunRecorderService } from "../common/ai-run-recorder.service";
 
 function slugify(title: string): string {
   return title
@@ -47,6 +48,7 @@ export class KnowledgeService {
     private readonly aiProviderFactory: AiProviderFactory,
     private readonly storage: StorageService,
     private readonly config: ConfigService,
+    private readonly aiRuns: AiRunRecorderService,
   ) {}
 
   private normalizeSourceUrl(value: string | null | undefined): string | null {
@@ -380,8 +382,10 @@ export class KnowledgeService {
 
   async reprocess(id: string) {
     const doc = await this.getRawOrThrow(id);
+    const site = await this.prisma.site.findUniqueOrThrow({ where: { id: doc.siteId }, select: { organizationId: true } });
     const { provider } = await this.aiProviderFactory.getProviderForSite(doc.siteId);
     const chunks = chunkText(normalizeWikiLinksForIndexing(doc.content));
+    const embeddingStart = Date.now();
 
     await this.prisma.knowledgeChunk.deleteMany({ where: { documentId: id } });
     for (const chunk of chunks) {
@@ -403,6 +407,19 @@ export class KnowledgeService {
           embeddingDimension: embedding.length || undefined,
           checksum: chunk.checksum,
         },
+      });
+    }
+    const usage = provider.consumeTokenUsage?.();
+    if (usage && (usage.inputTokens > 0 || usage.outputTokens > 0)) {
+      await this.aiRuns.record({
+        organizationId: site.organizationId,
+        siteId: doc.siteId,
+        source: "KNOWLEDGE_REPROCESS",
+        purpose: "EMBEDDING",
+        provider: provider.name,
+        model: AI_MODELS.embedding,
+        latencyMs: Date.now() - embeddingStart,
+        ...usage,
       });
     }
     return { chunkCount: chunks.length };

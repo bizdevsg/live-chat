@@ -1,9 +1,10 @@
 import { Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { KnowledgeRetriever } from "@solidchat/ai-core";
-import { KnowledgeAudience, type KnowledgeEvidence } from "@solidchat/shared";
+import { AI_MODELS, KnowledgeAudience, type KnowledgeEvidence } from "@solidchat/shared";
 import { PrismaService } from "../prisma/prisma.service";
 import { AiProviderFactory } from "../ai/ai-provider.factory";
+import { AiRunRecorderService, type AiRunContext } from "../common/ai-run-recorder.service";
 import { normalizeOfficialSourceUrl, parseOfficialSourceHosts } from "./official-source-url";
 
 @Injectable()
@@ -12,6 +13,7 @@ export class RetrievalService {
     private readonly prisma: PrismaService,
     private readonly aiProviderFactory: AiProviderFactory,
     private readonly config: ConfigService,
+    private readonly aiRuns: AiRunRecorderService,
   ) {}
 
   private sanitizeEvidenceUrls(evidence: KnowledgeEvidence[]): KnowledgeEvidence[] {
@@ -29,10 +31,11 @@ export class RetrievalService {
   async retrieveForCustomer(
     siteId: string,
     query: string,
-    options: { topK?: number; includeFullContext?: boolean } = {},
+    options: { topK?: number; includeFullContext?: boolean; tracking?: AiRunContext } = {},
   ): Promise<KnowledgeEvidence[]> {
     const { provider } = await this.aiProviderFactory.getProviderForSite(siteId);
     const retriever = new KnowledgeRetriever(this.prisma, provider);
+    const startedAt = Date.now();
     const evidence = await retriever.retrieve({
       siteId,
       query,
@@ -40,18 +43,41 @@ export class RetrievalService {
       topK: options.topK,
       includeFullContext: options.includeFullContext ?? true,
     });
+    const usage = provider.consumeTokenUsage?.();
+    if (options.tracking && usage && (usage.inputTokens > 0 || usage.outputTokens > 0)) {
+      await this.aiRuns.record({
+        ...options.tracking,
+        purpose: "EMBEDDING",
+        provider: provider.name,
+        model: AI_MODELS.embedding,
+        latencyMs: Date.now() - startedAt,
+        ...usage,
+      });
+    }
     return this.sanitizeEvidenceUrls(evidence);
   }
 
   /** Suggested replies for agents may draw on PUBLIC + AGENT_ONLY, never INTERNAL (§19, §47). */
-  async retrieveForAgent(siteId: string, query: string): Promise<KnowledgeEvidence[]> {
+  async retrieveForAgent(siteId: string, query: string, tracking?: AiRunContext): Promise<KnowledgeEvidence[]> {
     const { provider } = await this.aiProviderFactory.getProviderForSite(siteId);
     const retriever = new KnowledgeRetriever(this.prisma, provider);
+    const startedAt = Date.now();
     const evidence = await retriever.retrieve({
       siteId,
       query,
       allowedAudiences: [KnowledgeAudience.PUBLIC, KnowledgeAudience.AGENT_ONLY],
     });
+    const usage = provider.consumeTokenUsage?.();
+    if (tracking && usage && (usage.inputTokens > 0 || usage.outputTokens > 0)) {
+      await this.aiRuns.record({
+        ...tracking,
+        purpose: "EMBEDDING",
+        provider: provider.name,
+        model: AI_MODELS.embedding,
+        latencyMs: Date.now() - startedAt,
+        ...usage,
+      });
+    }
     return this.sanitizeEvidenceUrls(evidence);
   }
 }

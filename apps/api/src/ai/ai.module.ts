@@ -7,11 +7,18 @@ import { AiController } from "./ai.controller";
 import { WhatsAppAssistantService } from "./whatsapp-assistant.service";
 import { WhatsAppAssistantController } from "./whatsapp-assistant.controller";
 import { WhatsAppAssistantApiKeyGuard } from "./whatsapp-assistant-api-key.guard";
+import { WhatsAppAssistantPromptService } from "./whatsapp-assistant-prompt.service";
 
 @Module({
   imports: [ConversationsModule, KnowledgeModule],
   controllers: [AiController, WhatsAppAssistantController],
-  providers: [AiOrchestratorService, HandoffEvaluatorService, WhatsAppAssistantService, WhatsAppAssistantApiKeyGuard],
+  providers: [
+    AiOrchestratorService,
+    HandoffEvaluatorService,
+    WhatsAppAssistantService,
+    WhatsAppAssistantApiKeyGuard,
+    WhatsAppAssistantPromptService,
+  ],
   exports: [AiOrchestratorService],
 })
 export class AiModule {}

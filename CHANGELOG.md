@@ -3,8 +3,38 @@
 Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
+### Added
+- Menambahkan `apps/api/src/ai/prompts/whatsapp-assistant.md`.
+- Menambahkan `apps/api/src/ai/whatsapp-assistant-prompt.service.ts`.
+- Menambahkan `apps/api/src/common/ai-run-recorder.service.spec.ts`.
+- Menambahkan `apps/api/src/common/ai-run-recorder.service.ts`.
+- Menambahkan `packages/database/prisma/migrations/20261014120000_expand_ai_run_tracking/migration.sql`.
+- Menambahkan migration AI Runs agar pencatatan tester, extension, dan reprocess dapat disimpan tanpa conversation palsu serta tetap terikat ke organization/site.
+- Menambahkan system prompt khusus WhatsApp Assistant di backend pada `apps/api/src/ai/prompts/whatsapp-assistant.md`.
+- Mencatat seluruh penggunaan OpenAI dari chat, Knowledge Tester, extension WhatsApp, retrieval embedding, dan reprocess Knowledge ke AI Runs dengan sumber, model, latensi, serta token input/output.
+
 ### Changed
+- Memindahkan kepemilikan system prompt WhatsApp Assistant dari browser extension ke backend agar prompt dapat dikelola dari repository `live-chat` dan tidak dapat ditimpa melalui payload extension.
+- Memperbarui `apps/api/nest-cli.json`.
+- Memperbarui `apps/api/src/ai/ai-orchestrator.service.ts`.
+- Memperbarui `apps/api/src/ai/ai.controller.ts`.
+- Memperbarui `apps/api/src/ai/ai.module.ts`.
+- Memperbarui `apps/api/src/ai/dto/ai.dto.ts`.
+- Memperbarui `apps/api/src/ai/whatsapp-assistant.service.spec.ts`.
+- Memperbarui `apps/api/src/ai/whatsapp-assistant.service.ts`.
+- Memperbarui `apps/api/src/common/common.module.ts`.
+- Memperbarui `apps/api/src/knowledge/knowledge.service.list.spec.ts`.
+- Memperbarui `apps/api/src/knowledge/knowledge.service.public.spec.ts`.
+- Memperbarui `apps/api/src/knowledge/knowledge.service.ts`.
+- Memperbarui `apps/api/src/knowledge/knowledge.service.upload.spec.ts`.
+- Memperbarui `apps/api/src/knowledge/retrieval.service.ts`.
+- Memperbarui `apps/dashboard/src/app/(dashboard)/ai/runs/page.tsx`.
 - Memperbarui `package.json`.
+- Memperbarui `packages/database/prisma/schema.prisma`.
+- Menampilkan sumber penggunaan OpenAI pada tabel dan detail AI Runs, termasuk run yang tidak memiliki conversation.
+
+### Fixed
+- Mencegah pertanyaan mandiri yang diawali kata tanya dianggap sebagai follow-up ambigu, sehingga pencarian embedding kontekstual kedua hanya dijalankan ketika pesan benar-benar bergantung pada riwayat percakapan.
 
 ## [0.21.0] - 2026-10-14
 ### Added

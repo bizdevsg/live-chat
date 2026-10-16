@@ -27,6 +27,7 @@ model Organization {
   securityEvents    SecurityEvent[]
   integrations      Integration[]
   aiConfigurations  AiConfiguration[]
+  aiRuns             AiRun[]
   responseTemplates ResponseTemplate[]
   featureFlags      FeatureFlag[]
   knowledgeCategories KnowledgeCategory[]
@@ -63,6 +64,7 @@ model Site {
   knowledgeDocuments KnowledgeDocument[]
   knowledgeChunks    KnowledgeChunk[]
   aiConfigurations   AiConfiguration[]
+  aiRuns              AiRun[]
   tickets            Ticket[]
   analyticsDaily     AnalyticsDaily[]
 
@@ -813,10 +815,8 @@ model KnowledgeChunk {
 
 // ─── AI Configuration / Runs (§16, §22, §23) ────────────────────────────────
 
-// Per-purpose model names, confidence threshold, and retry/timeout/token limits used to live
-// here as editable columns. In practice every site ran the same values, so they were
-// simplified into fixed constants (see AI_MODELS etc. in @solidchat/shared) instead of
-// per-row configuration nobody actually varied. `provider` stays for now but is always
+// One chat model is selected per site and shared by all chat purposes. Retry/timeout/token
+// limits remain application constants. `provider` stays for compatibility but is always
 // forced to "openai" by AiProviderFactory — there is no mock/dummy AI mode anymore.
 model AiConfiguration {
   id             String   @id @default(cuid())
@@ -850,7 +850,10 @@ model AiPrompt {
 
 model AiRun {
   id               String    @id @default(cuid())
-  conversationId   String    @map("conversation_id")
+  organizationId   String    @map("organization_id")
+  siteId           String?   @map("site_id")
+  conversationId   String?   @map("conversation_id")
+  source            String    @default("CHAT") // CHAT | KNOWLEDGE_TESTER | EXTENSION | KNOWLEDGE_REPROCESS
   purpose          String    // CLASSIFY | ANSWER | SUMMARY | SUGGESTED_REPLY | EMBEDDING
   provider         String
   model            String
@@ -865,12 +868,17 @@ model AiRun {
   requestId        String?   @map("request_id")
   createdAt        DateTime  @default(now()) @map("created_at")
 
-  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  site         Site?        @relation(fields: [siteId], references: [id], onDelete: SetNull)
+  conversation Conversation? @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   messages     AiMessage[]
   toolCalls    AiToolCall[]
   feedback     AiFeedback[]
 
   @@index([conversationId])
+  @@index([organizationId, createdAt])
+  @@index([siteId, createdAt])
+  @@index([source, createdAt])
   @@map("ai_runs")
 }
 

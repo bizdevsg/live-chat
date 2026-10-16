@@ -20,6 +20,7 @@ import { SecurityEventService } from "../common/security/security-event.service"
 import { RealtimeEmitterService } from "../realtime/realtime-emitter.service";
 import { MarketDataService } from "../market-data/market-data.service";
 import { ApiException } from "../common/errors/api.exception";
+import { AiRunRecorderService } from "../common/ai-run-recorder.service";
 
 /**
  * Detects a timed-out/unreachable OpenAI call by message shape rather than an `instanceof` check —
@@ -36,8 +37,10 @@ export function shouldUseContextualRetrieval(message: string, history: ChatTurn[
   if (history.length <= 1) return false;
   const normalized = message.trim().toLowerCase();
   if (!normalized || normalized.length > 140) return false;
-  return /\b(?:itu|tadi|tersebut|yang sama|kalau begitu|gimana dengan|bagaimana dengan|lanjut|that|those|earlier|how about)\b/i.test(normalized) ||
+  const hasContextReference = /\b(?:itu|tadi|tersebut|yang sama|kalau begitu|gimana dengan|bagaimana dengan|lanjut|that|those|earlier|how about)\b/i.test(normalized);
+  const isShortAmbiguousQuestion = normalized.split(/\s+/).length <= 4 &&
     /^(?:berapa|gimana|bagaimana|kenapa|why|how)(?:\s|[?!.]|$)/i.test(normalized);
+  return hasContextReference || isShortAmbiguousQuestion;
 }
 
 export function formatAnswerForCustomer(answer: string, sources: KnowledgeSource[], showSources: boolean): string {
@@ -84,6 +87,7 @@ export class AiOrchestratorService {
     private readonly securityEvents: SecurityEventService,
     private readonly realtime: RealtimeEmitterService,
     private readonly marketData: MarketDataService,
+    private readonly aiRuns: AiRunRecorderService,
   ) {}
 
   /**
@@ -137,17 +141,29 @@ export class AiOrchestratorService {
     const trimmedMessage = message.trim();
     const history: ChatTurn[] = [];
     try {
-      const { provider, config } = await this.aiProviderFactory.getProviderForSite(site.id);
+      const { provider, config, model } = await this.aiProviderFactory.getProviderForSite(site.id);
+      const tracking = { organizationId, siteId: site.id, source: "KNOWLEDGE_TESTER" as const };
+      const classifyStart = Date.now();
       const classification = await provider.classifyIntent({
         message: trimmedMessage,
         history,
         language: site.language,
       });
+      await this.aiRuns.record({
+        ...tracking,
+        purpose: "CLASSIFY",
+        provider: provider.name,
+        model,
+        latencyMs: Date.now() - classifyStart,
+        confidence: classification.confidence,
+        intent: classification.intent,
+        ...provider.consumeTokenUsage?.(),
+      });
       const forcedHandoffReason = this.handoffEvaluator.evaluate(trimmedMessage, classification);
       const retrievalQuery = classification.retrievalQuery?.trim() || extractCustomerServiceQuery(trimmedMessage, classification.intent);
       const [marketEvidence, knowledgeEvidence, answerPrompt] = await Promise.all([
         Promise.resolve(this.marketData.getRealtimePriceEvidence(trimmedMessage)),
-        this.retrieval.retrieveForCustomer(site.id, retrievalQuery),
+        this.retrieval.retrieveForCustomer(site.id, retrievalQuery, { tracking }),
         this.prisma.aiPrompt.findFirst({
           where: {
             aiConfigurationId: config.id,
@@ -159,6 +175,7 @@ export class AiOrchestratorService {
       ]);
       const evidence = [...marketEvidence, ...knowledgeEvidence];
       const realtimePriceAnswer = this.marketData.getRealtimePriceAnswer(trimmedMessage);
+      const answerStart = Date.now();
       const answer = forcedHandoffReason
         ? null
         : realtimePriceAnswer
@@ -185,6 +202,18 @@ export class AiOrchestratorService {
             organizationName: site.organization.name,
             systemPrompt: answerPrompt?.content ?? null,
           });
+      if (!forcedHandoffReason && !realtimePriceAnswer && answer) {
+        await this.aiRuns.record({
+          ...tracking,
+          purpose: "ANSWER",
+          provider: provider.name,
+          model,
+          latencyMs: Date.now() - answerStart,
+          confidence: answer.confidence,
+          intent: answer.intent,
+          ...provider.consumeTokenUsage?.(),
+        });
+      }
 
       return {
         site: {
@@ -338,9 +367,25 @@ export class AiOrchestratorService {
       const useContextualRetrieval = shouldUseContextualRetrieval(lastVisitorMessage.content, history);
       const [marketEvidence, focusedKnowledgeEvidence, contextualKnowledgeEvidence] = await Promise.all([
         Promise.resolve(this.marketData.getRealtimePriceEvidence(lastVisitorMessage.content, history.map((turn) => turn.content).join("\n"))),
-        this.retrieval.retrieveForCustomer(conversation.siteId, focusedRetrievalQuery),
+        this.retrieval.retrieveForCustomer(conversation.siteId, focusedRetrievalQuery, {
+          tracking: {
+            organizationId: conversation.organizationId,
+            siteId: conversation.siteId,
+            conversationId,
+            source: "CHAT",
+          },
+        }),
         useContextualRetrieval
-          ? this.retrieval.retrieveForCustomer(conversation.siteId, contextualRetrievalQuery, { topK: 3, includeFullContext: false })
+          ? this.retrieval.retrieveForCustomer(conversation.siteId, contextualRetrievalQuery, {
+              topK: 3,
+              includeFullContext: false,
+              tracking: {
+                organizationId: conversation.organizationId,
+                siteId: conversation.siteId,
+                conversationId,
+                source: "CHAT",
+              },
+            })
           : Promise.resolve([]),
       ]);
       const focusedChunkIds = new Set(focusedKnowledgeEvidence.map((item) => item.chunkId));
@@ -488,7 +533,14 @@ export class AiOrchestratorService {
 
     const { provider, config, model } = await this.aiProviderFactory.getProviderForSite(conversation.siteId);
     const [evidence, answerPrompt, site, agent] = await Promise.all([
-      lastVisitorMessage ? this.retrieval.retrieveForAgent(conversation.siteId, lastVisitorMessage.content) : Promise.resolve([]),
+      lastVisitorMessage
+        ? this.retrieval.retrieveForAgent(conversation.siteId, lastVisitorMessage.content, {
+            organizationId: conversation.organizationId,
+            siteId: conversation.siteId,
+            conversationId,
+            source: "CHAT",
+          })
+        : Promise.resolve([]),
       this.prisma.aiPrompt.findFirst({
         where: { aiConfigurationId: config.id, purpose: "ANSWER", isActive: true },
         orderBy: { version: "desc" },
@@ -542,20 +594,19 @@ export class AiOrchestratorService {
     model: string,
     extra: { inputTokens?: number; outputTokens?: number; latencyMs?: number; confidence?: number; intent?: string; handoffRequired?: boolean; status?: "SUCCESS" | "ERROR" | "TIMEOUT" },
   ) {
-    return this.prisma.aiRun.create({
-      data: {
-        conversationId,
-        purpose,
-        provider,
-        model,
-        status: extra.status ?? "SUCCESS",
-        inputTokens: extra.inputTokens,
-        outputTokens: extra.outputTokens,
-        latencyMs: extra.latencyMs,
-        confidence: extra.confidence,
-        intent: extra.intent,
-        handoffRequired: extra.handoffRequired,
-      },
+    const conversation = await this.prisma.conversation.findUniqueOrThrow({
+      where: { id: conversationId },
+      select: { organizationId: true, siteId: true },
+    });
+    return this.aiRuns.record({
+      organizationId: conversation.organizationId,
+      siteId: conversation.siteId,
+      conversationId,
+      source: "CHAT",
+      purpose,
+      provider,
+      model,
+      ...extra,
     });
   }
 }

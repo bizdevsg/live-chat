@@ -14,6 +14,7 @@ describe("KnowledgeService dashboard list", () => {
       {} as never,
       {} as never,
       {} as never,
+      {} as never,
     );
 
     const result = await service.list("site-1", {
