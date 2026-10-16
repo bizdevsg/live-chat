@@ -4,7 +4,16 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
 ### Changed
+- Memperbarui `apps/api/src/ai/whatsapp-assistant.service.spec.ts`.
+- Memperbarui `apps/api/src/ai/whatsapp-assistant.service.ts`.
+- Memperbarui `apps/api/src/knowledge/retrieval.service.ts`.
 - Memperbarui `package.json`.
+- Memperbarui `packages/ai-core/src/retrieval/knowledge-retriever.spec.ts`.
+- Memperbarui `packages/ai-core/src/retrieval/knowledge-retriever.ts`.
+- Memperluas pembacaan Knowledge WhatsApp Assistant hingga batas 3.000 token dengan konteks dokumen terkait serta query yang mempertimbangkan kebutuhan agent dan enam pesan percakapan terbaru; audience tetap dibatasi ke `PUBLIC` dan `AGENT_ONLY`.
+
+### Fixed
+- Membatasi total evidence full-context pada budget token yang dikonfigurasi dan mencegah WhatsApp Assistant hanya mencari Knowledge berdasarkan satu pesan customer terakhir.
 
 ## [0.22.0] - 2026-10-16
 ### Added

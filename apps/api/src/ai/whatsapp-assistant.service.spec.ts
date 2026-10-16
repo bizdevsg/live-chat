@@ -66,8 +66,18 @@ describe("WhatsAppAssistantService", () => {
 
     expect(retrieval.retrieveForAgent).toHaveBeenCalledWith(
       "site-1",
-      "cara membuka akun",
+      expect.stringContaining("Topik utama: cara membuka akun"),
       expect.objectContaining({ organizationId: "org-1", siteId: "site-1", source: "EXTENSION" }),
+    );
+    expect(retrieval.retrieveForAgent).toHaveBeenCalledWith(
+      "site-1",
+      expect.stringContaining(`Kebutuhan agent: ${dto.prompt}`),
+      expect.any(Object),
+    );
+    expect(retrieval.retrieveForAgent).toHaveBeenCalledWith(
+      "site-1",
+      expect.stringContaining("CUSTOMER: Bagaimana cara daftar?"),
+      expect.any(Object),
     );
     expect(provider.generateSuggestedReply).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -79,6 +89,27 @@ describe("WhatsAppAssistantService", () => {
     );
     expect(result.canAutoReply).toBe(true);
     expect(result.sources).toHaveLength(1);
+  });
+
+  it("includes recent conversation context in the extension knowledge query", async () => {
+    const { service, retrieval } = buildService();
+    const contextualDto = {
+      ...dto,
+      prompt: "Cari ketentuan yang paling relevan untuk pertanyaan terakhir.",
+      messages: [
+        { senderType: "CUSTOMER" as const, content: "Saya tertarik akun Mini." },
+        { senderType: "AGENT" as const, content: "Baik, bagian mana yang ingin ditanyakan?" },
+        { senderType: "CUSTOMER" as const, content: "Kalau margin Gold berapa?" },
+      ],
+    };
+
+    await service.createReply(contextualDto, "site-1");
+
+    expect(retrieval.retrieveForAgent).toHaveBeenCalledWith(
+      "site-1",
+      expect.stringMatching(/CUSTOMER: Saya tertarik akun Mini[\s\S]*AGENT: Baik[\s\S]*CUSTOMER: Kalau margin Gold berapa/),
+      expect.any(Object),
+    );
   });
 
   it("ignores a legacy client system prompt and uses the trusted backend prompt", async () => {

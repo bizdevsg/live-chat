@@ -121,4 +121,41 @@ describe("KnowledgeRetriever", () => {
     expect(result).toHaveLength(1);
     expect(result[0]!.documentId).toBe("doc_1");
   });
+
+  it("caps the initially selected chunks at the full-context token budget", async () => {
+    const findMany = jest.fn().mockResolvedValue([
+      {
+        id: "chunk_1",
+        documentId: "doc_1",
+        chunkIndex: 0,
+        content: "Margin Gold akun Mini adalah ketentuan penting.",
+        embedding: [1, 0, 0],
+        tokenCount: 40,
+        document: { title: "Margin Gold", version: 1, audience: "PUBLIC", sourceUrl: null },
+      },
+      {
+        id: "chunk_2",
+        documentId: "doc_2",
+        chunkIndex: 0,
+        content: "Margin Gold memiliki aturan tambahan.",
+        embedding: [0.9, 0.1, 0],
+        tokenCount: 40,
+        document: { title: "Aturan Gold", version: 1, audience: "PUBLIC", sourceUrl: null },
+      },
+    ]);
+    const prisma = { knowledgeChunk: { findMany } } as unknown as PrismaClient;
+    const provider = { createEmbedding: jest.fn().mockResolvedValue([1, 0, 0]) } as unknown as AiProvider;
+
+    const retriever = new KnowledgeRetriever(prisma, provider);
+    const result = await retriever.retrieve({
+      siteId: "site_1",
+      query: "margin Gold",
+      allowedAudiences: [KnowledgeAudience.PUBLIC],
+      includeFullContext: true,
+      fullContextMaxTokens: 50,
+      topK: 2,
+    });
+
+    expect(result.map((item) => item.chunkId)).toEqual(["chunk_1"]);
+  });
 });

@@ -23,6 +23,25 @@ const AUTO_REPLY_BLOCKED_INTENTS = new Set<string>([
   AiIntent.SENSITIVE_DATA,
 ]);
 
+export function buildWhatsAppKnowledgeQuery(
+  focusedQuery: string,
+  agentPrompt: string,
+  history: ChatTurn[],
+): string {
+  const recentConversation = history
+    .slice(-6)
+    .map((turn) => `${turn.senderType}: ${turn.content.slice(0, 600)}`)
+    .join("\n");
+
+  return [
+    `Topik utama: ${focusedQuery.trim()}`,
+    agentPrompt.trim() ? `Kebutuhan agent: ${agentPrompt.trim().slice(0, 1000)}` : "",
+    recentConversation ? `Konteks percakapan terbaru:\n${recentConversation}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+}
+
 @Injectable()
 export class WhatsAppAssistantService {
   constructor(
@@ -84,9 +103,10 @@ export class WhatsAppAssistantService {
       intent: classification.intent,
       ...provider.consumeTokenUsage?.(),
     });
-    const retrievalQuery =
+    const focusedRetrievalQuery =
       classification.retrievalQuery?.trim() ||
       extractCustomerServiceQuery(lastCustomerMessage.content, classification.intent);
+    const retrievalQuery = buildWhatsAppKnowledgeQuery(focusedRetrievalQuery, dto.prompt, history);
 
     const evidence = await this.retrieval.retrieveForAgent(site.id, retrievalQuery, tracking);
 

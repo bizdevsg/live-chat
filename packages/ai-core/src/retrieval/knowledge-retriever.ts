@@ -62,12 +62,18 @@ function mapEvidence(row: ContextRow): KnowledgeEvidence {
 }
 
 function expandWithFullContext(selected: ContextRow[], allRows: ContextRow[], maxTokens: number): ContextRow[] {
-  let totalTokens = selected.reduce((sum, row) => sum + row.tokenCount, 0);
-  if (totalTokens >= maxTokens) return selected;
-
-  const seenChunkIds = new Set(selected.map((row) => row.chunkId));
-  const selectedIndexesByDocument = new Map<string, number[]>();
+  const withinBudget: ContextRow[] = [];
+  let totalTokens = 0;
   for (const row of selected) {
+    if (totalTokens + row.tokenCount > maxTokens) continue;
+    withinBudget.push(row);
+    totalTokens += row.tokenCount;
+  }
+  if (withinBudget.length === 0 || totalTokens >= maxTokens) return withinBudget;
+
+  const seenChunkIds = new Set(withinBudget.map((row) => row.chunkId));
+  const selectedIndexesByDocument = new Map<string, number[]>();
+  for (const row of withinBudget) {
     const indexes = selectedIndexesByDocument.get(row.documentId) ?? [];
     indexes.push(row.chunkIndex);
     selectedIndexesByDocument.set(row.documentId, indexes);
@@ -107,7 +113,7 @@ function expandWithFullContext(selected: ContextRow[], allRows: ContextRow[], ma
       offsets.set(documentId, offset + 1);
       if (!row || seenChunkIds.has(row.chunkId)) continue;
       if (totalTokens + row.tokenCount > maxTokens) continue;
-      selected.push(row);
+      withinBudget.push(row);
       seenChunkIds.add(row.chunkId);
       totalTokens += row.tokenCount;
       addedInPass = true;
@@ -115,7 +121,7 @@ function expandWithFullContext(selected: ContextRow[], allRows: ContextRow[], ma
     }
   }
 
-  return selected;
+  return withinBudget;
 }
 
 /** Tokens used for the lightweight lexical bonus — 3+ chars so short connector words don't count. */

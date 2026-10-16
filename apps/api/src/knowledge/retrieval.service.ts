@@ -1,7 +1,12 @@
 import { Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { KnowledgeRetriever } from "@solidchat/ai-core";
-import { AI_MODELS, KnowledgeAudience, type KnowledgeEvidence } from "@solidchat/shared";
+import {
+  AI_MODELS,
+  KNOWLEDGE_FULL_CONTEXT_MAX_TOKENS,
+  KnowledgeAudience,
+  type KnowledgeEvidence,
+} from "@solidchat/shared";
 import { PrismaService } from "../prisma/prisma.service";
 import { AiProviderFactory } from "../ai/ai-provider.factory";
 import { AiRunRecorderService, type AiRunContext } from "../common/ai-run-recorder.service";
@@ -66,6 +71,8 @@ export class RetrievalService {
       siteId,
       query,
       allowedAudiences: [KnowledgeAudience.PUBLIC, KnowledgeAudience.AGENT_ONLY],
+      includeFullContext: true,
+      fullContextMaxTokens: KNOWLEDGE_FULL_CONTEXT_MAX_TOKENS,
     });
     const usage = provider.consumeTokenUsage?.();
     if (tracking && usage && (usage.inputTokens > 0 || usage.outputTokens > 0)) {
