@@ -44,24 +44,18 @@ class SolidChatController extends ChangeNotifier {
   bool _initialized = false;
   bool _disposed = false;
   SolidChatSessionContext _lastContext = const SolidChatSessionContext();
-  String? _identityToken;
 
   SolidChatState get state => _state;
 
   Future<void> initialize({
     SolidChatSessionContext context = const SolidChatSessionContext(),
-    String? identityToken,
   }) async {
     if (_initialized || _state.loading) return;
     _lastContext = context;
-    _identityToken = identityToken;
     _update(_state.copyWith(loading: true, error: null));
     try {
       _storage ??= await SolidChatStorage.create(config.siteId);
       await _createSession(context);
-      if (_identityToken != null && _identityToken!.trim().isNotEmpty) {
-        await identify(_identityToken!);
-      }
       _initialized = true;
     } catch (error) {
       _publishError(_asException(error));
@@ -73,7 +67,7 @@ class SolidChatController extends ChangeNotifier {
   Future<void> retry() async {
     _initialized = false;
     _update(_state.copyWith(error: null));
-    await initialize(context: _lastContext, identityToken: _identityToken);
+    await initialize(context: _lastContext);
   }
 
   Future<void> _createSession(SolidChatSessionContext context) async {
@@ -376,10 +370,6 @@ class SolidChatController extends ChangeNotifier {
     });
   }
 
-  Future<void> identify(String identityToken) => _api.postUnit(
-        '/api/v1/widget/identify',
-        {'identityToken': identityToken},
-      );
   void notifyTyping(bool typing) => _realtime.typing(typing);
   void markRead(String messageId) => _realtime.markRead(messageId);
 

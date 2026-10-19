@@ -12,7 +12,6 @@ class SolidChatView extends StatefulWidget {
     super.key,
     this.config = const SolidChatConfig(),
     this.controller,
-    this.identityToken,
     this.sessionContext = const SolidChatSessionContext(),
     this.onClose,
     this.title,
@@ -20,7 +19,6 @@ class SolidChatView extends StatefulWidget {
 
   final SolidChatConfig config;
   final SolidChatController? controller;
-  final String? identityToken;
   final SolidChatSessionContext sessionContext;
   final VoidCallback? onClose;
   final String? title;
@@ -42,7 +40,6 @@ class _SolidChatViewState extends State<SolidChatView> {
         widget.controller ?? SolidChatController(config: widget.config);
     _controller.initialize(
       context: widget.sessionContext,
-      identityToken: widget.identityToken,
     );
   }
 

@@ -5,6 +5,10 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 ## [Unreleased]
 ### Changed
 - Memperbarui `package.json`.
+- Memperbarui `sdks/flutter/README.md`.
+- Memperbarui `sdks/flutter/lib/src/solidchat_controller.dart`.
+- Memperbarui `sdks/flutter/lib/src/solidchat_view.dart`.
+- SDK Flutter kini menggunakan alur visitor dan pre-chat form tanpa mengirim customer identity token, sehingga integrasi mobile tidak memerlukan login atau signing secret.
 
 ## [0.22.1] - 2026-10-16
 ### Changed
