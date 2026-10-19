@@ -13,7 +13,7 @@ UI bawaan mencakup:
 - upload gambar ketika chat ditangani agent;
 - offline ticket, close/new conversation, dan rating;
 - tema warna dari konfigurasi site;
-- visitor anonim dengan pre-chat form, tanpa identity token atau login.
+- identity token opsional untuk customer yang sudah login.
 
 Behavior dan bentuk UI mengikuti widget website: header/status yang sama,
 background percakapan, warna bubble per role, system message, rich text ringan,
@@ -68,8 +68,13 @@ const SolidChatView(
 )
 ```
 
-SDK Flutter menggunakan visitor session dan pre-chat form. Identity JWT tidak
-diperlukan; user cukup mengisi nama, email, dan nomor telepon sebelum chat.
+Untuk customer aplikasi yang sudah login, backend host dapat menerbitkan identity
+JWT berumur pendek dan meneruskannya ke `identityToken`. Secret penandatanganan
+JWT tidak boleh ditaruh di aplikasi Flutter.
+
+```dart
+SolidChatView(identityToken: tokenFromYourBackend)
+```
 
 ## Headless atau UI custom
 
