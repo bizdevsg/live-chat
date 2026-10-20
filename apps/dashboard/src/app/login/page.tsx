@@ -21,6 +21,7 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [returnTo, setReturnTo] = useState<string | null>(null);
+  const [forceClaraLogin, setForceClaraLogin] = useState(false);
 
   // Bagian B: kalau callback SSO Clara gagal, tampilkan pesan generik saja — detail penyebab ada
   // di log server (dicari lewat requestId), bukan di sini. Dibaca langsung dari location.search
@@ -29,6 +30,7 @@ export default function LoginPage() {
     const params = new URLSearchParams(window.location.search);
     const requestedReturnTo = params.get("returnTo");
     if (requestedReturnTo && isAllowedOidcReturn(requestedReturnTo)) setReturnTo(requestedReturnTo);
+    setForceClaraLogin(params.get("loggedOut") === "1");
     if (params.get("ssoError") === "1") {
       const requestId = params.get("requestId");
       setError(
@@ -100,7 +102,9 @@ export default function LoginPage() {
               atau
               <span className="h-px flex-1 bg-zinc-800" />
             </div>
-            <a href={`${API_URL}/api/v1/auth/clara/login`}>
+            <a
+              href={`${API_URL}/api/v1/auth/clara/login${forceClaraLogin ? "?forceLogin=1" : ""}`}
+            >
               <Button type="button" variant="secondary" className="w-full">
                 Masuk dengan Clara
               </Button>

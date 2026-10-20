@@ -413,7 +413,7 @@ export default function ProfilePage() {
     mutationFn: () => apiClient.post("/api/v1/auth/logout-all"),
     onSuccess: () => {
       toast.push("Semua sesi telah dicabut. Silakan login kembali.", "success");
-      router.replace("/login");
+      router.replace("/login?loggedOut=1");
     },
   });
 

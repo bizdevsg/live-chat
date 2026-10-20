@@ -41,7 +41,9 @@ export function Topbar({ title }: { title: string }) {
           variant="ghost"
           size="sm"
           className="shrink-0"
-          onClick={() => logout.mutate(undefined, { onSuccess: () => router.replace("/login") })}
+          onClick={() =>
+            logout.mutate(undefined, { onSuccess: () => router.replace("/login?loggedOut=1") })
+          }
         >
           Keluar
         </Button>

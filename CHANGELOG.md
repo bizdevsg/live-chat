@@ -3,6 +3,20 @@
 Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
+### Added
+- Menambahkan `apps/api/src/auth/clara-sso/clara-sso.service.spec.ts`.
+
+### Changed
+- Memperbarui `apps/api/src/auth/clara-sso/clara-sso.controller.ts`.
+- Memperbarui `apps/api/src/auth/clara-sso/clara-sso.service.ts`.
+- Memperbarui `apps/dashboard/src/app/(dashboard)/profile/page.tsx`.
+- Memperbarui `apps/dashboard/src/app/login/page.tsx`.
+- Memperbarui `apps/dashboard/src/components/layout/topbar.tsx`.
+
+### Fixed
+- Memastikan login Clara setelah logout eksplisit meminta autentikasi ulang, sehingga pengguna tidak otomatis kembali ke akun Clara sebelumnya.
+
+## [0.23.1] - 2026-10-20
 ### Changed
 - Memperbarui `.env.example`.
 - Memperbarui `apps/api/src/config/env.validation.ts`.
@@ -1162,7 +1176,8 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 - Memperbarui `apps/dashboard/src/app/(dashboard)/knowledge/page.tsx`.
 - Memperbarui `package.json`.
 
-[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.23.0...HEAD
+[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.23.1...HEAD
+[0.23.1]: https://github.com/bizdevsg/live-chat/compare/v0.23.0...v0.23.1
 [0.23.0]: https://github.com/bizdevsg/live-chat/compare/v0.22.2...v0.23.0
 [0.22.2]: https://github.com/bizdevsg/live-chat/compare/v0.22.1...v0.22.2
 [0.22.1]: https://github.com/bizdevsg/live-chat/compare/v0.22.0...v0.22.1

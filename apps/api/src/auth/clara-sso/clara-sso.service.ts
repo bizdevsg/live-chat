@@ -41,7 +41,10 @@ export class ClaraSsoService {
   ) {}
 
   /** GET /api/v1/auth/clara/login — builds the URL to send the agent's browser to. */
-  async buildAuthorizationRedirect(returnPath: string): Promise<string> {
+  async buildAuthorizationRedirect(
+    returnPath: string,
+    options: { promptLogin?: boolean } = {},
+  ): Promise<string> {
     const cfg = this.ssoConfig.resolve();
     const { state, nonce, codeVerifier, codeChallenge } = generatePkceAttempt();
 
@@ -56,6 +59,7 @@ export class ClaraSsoService {
     url.searchParams.set("nonce", nonce);
     url.searchParams.set("code_challenge", codeChallenge);
     url.searchParams.set("code_challenge_method", "S256");
+    if (options.promptLogin) url.searchParams.set("prompt", "login");
     return url.toString();
   }
 

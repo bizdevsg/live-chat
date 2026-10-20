@@ -30,13 +30,19 @@ export class ClaraSsoController {
 
   @Public()
   @Get("login")
-  async login(@Query("returnPath") returnPath: string | undefined, @Res() res: Response): Promise<void> {
+  async login(
+    @Query("returnPath") returnPath: string | undefined,
+    @Query("forceLogin") forceLogin: string | undefined,
+    @Res() res: Response,
+  ): Promise<void> {
     const cfg = this.ssoConfig.resolve();
     // returnPath only ever comes from our own "Masuk dengan Clara" link — validated anyway so a
     // tampered query string can't turn this into an open redirect (Bagian B, "returnPath harus
     // berupa path internal yang sudah di-allowlist").
     const target = isInternalPath(returnPath) ? returnPath : cfg.postLoginPath;
-    const redirectUrl = await this.claraSso.buildAuthorizationRedirect(target);
+    const redirectUrl = await this.claraSso.buildAuthorizationRedirect(target, {
+      promptLogin: forceLogin === "1" || forceLogin === "true",
+    });
     res.redirect(redirectUrl);
   }
 
