@@ -3,6 +3,13 @@
 Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
+### Changed
+- Memperbarui `.env.example`.
+- Memperbarui `apps/api/src/config/env.validation.ts`.
+- Memperbarui `docs/clara-live-chat-integration.md`.
+- Mengoreksi contoh issuer dan callback SSO Clara agar memakai domain production gabungan `live-chat.sg-berjangka.com`, bukan subdomain `api-chat` yang tidak digunakan.
+
+## [0.23.0] - 2026-10-20
 ### Added
 - Menambahkan Live Chat sebagai OIDC provider Clara melalui Authorization Code + PKCE S256, authorization code sekali pakai di Redis, ID token HS256, discovery, token, dan userinfo endpoint.
 - Menambahkan `apps/api/src/auth/extension-token/extension-token.controller.ts`.
@@ -1155,7 +1162,8 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 - Memperbarui `apps/dashboard/src/app/(dashboard)/knowledge/page.tsx`.
 - Memperbarui `package.json`.
 
-[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.22.2...HEAD
+[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.23.0...HEAD
+[0.23.0]: https://github.com/bizdevsg/live-chat/compare/v0.22.2...v0.23.0
 [0.22.2]: https://github.com/bizdevsg/live-chat/compare/v0.22.1...v0.22.2
 [0.22.1]: https://github.com/bizdevsg/live-chat/compare/v0.22.0...v0.22.1
 [0.22.0]: https://github.com/bizdevsg/live-chat/compare/v0.21.0...v0.22.0

@@ -83,7 +83,7 @@ const envSchema = z.object({
   CRM_SSO_CLIENT_ID: z.string().optional(),
   CRM_SSO_CLIENT_SECRET: z.string().optional(),
   // Must be the exact URL registered with Clara for this environment, e.g.
-  // https://api-chat.sg-berjangka.com/api/v1/auth/clara/callback — Clara matches it exactly.
+  // https://live-chat.sg-berjangka.com/api/v1/auth/clara/callback — Clara matches it exactly.
   CRM_SSO_REDIRECT_URI: z.string().optional(),
   // Comma-separated Clara roles allowed to sign in to the Dashboard this way.
   CRM_SSO_ALLOWED_ROLES: z.string().default("sales,manager,head,superadmin"),

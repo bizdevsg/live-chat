@@ -23,14 +23,14 @@ Live Chat tetap menjadi OIDC client Clara melalui:
 
 - Login: `GET /api/v1/auth/clara/login`
 - Callback: `GET /api/v1/auth/clara/callback`
-- Redirect URI production yang disarankan: `https://api-chat.sg-berjangka.com/api/v1/auth/clara/callback`
+- Redirect URI production: `https://live-chat.sg-berjangka.com/api/v1/auth/clara/callback`
 - Role map default: `sales→cs_agent`, `manager→supervisor`, `head→admin`, `superadmin→super_admin`
 
 Konfigurasi lengkap tetap berada di `docs/sso-clara-integration.md`.
 
 ## 3. Live Chat → Clara: Live Chat sebagai OIDC provider
 
-Issuer harus berupa base API tanpa trailing slash, misalnya `https://api-chat.sg-berjangka.com/api/v1`. Endpoint yang diberikan kepada Clara:
+Issuer harus berupa base API tanpa trailing slash, yaitu `https://live-chat.sg-berjangka.com/api/v1`. Endpoint yang diberikan kepada Clara:
 
 - Discovery: `{issuer}/.well-known/openid-configuration`
 - Authorize: `{issuer}/oauth/authorize`
@@ -40,7 +40,7 @@ Issuer harus berupa base API tanpa trailing slash, misalnya `https://api-chat.sg
 Provider hanya mendukung Authorization Code, PKCE `S256`, client authentication HTTP Basic, dan ID token `HS256`. Authorization code disimpan dalam bentuk key hash di Redis, hanya dapat dipakai sekali, dan berlaku maksimal 120 detik. Respons token memakai `Cache-Control: no-store`.
 
 ```dotenv
-LIVE_CHAT_OIDC_ISSUER=https://api-chat.sg-berjangka.com/api/v1
+LIVE_CHAT_OIDC_ISSUER=https://live-chat.sg-berjangka.com/api/v1
 LIVE_CHAT_OIDC_CLIENT_ID=clara-crm
 LIVE_CHAT_OIDC_CLIENT_SECRET=<minimal-32-karakter-random>
 LIVE_CHAT_OIDC_REDIRECT_URI=https://<dashboard-clara>/api/auth/live-chat/callback
