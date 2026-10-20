@@ -1,5 +1,5 @@
 import { InjectQueue } from "@nestjs/bullmq";
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Optional } from "@nestjs/common";
 import { AgentAvailability, ConversationStatus, ErrorCode, HandoffSource, HandlerType, MessageType, QUEUE_NAMES, SenderType, type ConversationInactivityJobData, type ConversationInactivityJobKind, type ConversationTimeoutJobData, type HandoffReason, type HandoffSource as HandoffSourceValue } from "@solidchat/shared";
 import { Prisma } from "@solidchat/database";
 import type { Queue } from "bullmq";
@@ -23,6 +23,7 @@ import {
   getConversationInactivityJobId,
   getAgentReplyTimeoutJobId,
 } from "./conversation-timeout.constants";
+import { ClaraWebhookService } from "../clara-webhook/clara-webhook.service";
 
 /**
  * Concurrency ceiling assumed when an agent has no profile row yet (the row is normally created on
@@ -56,7 +57,16 @@ export class ConversationsService {
     private readonly notifications: NotificationsService,
     @InjectQueue(QUEUE_NAMES.CONVERSATION_TIMEOUT)
     private readonly conversationTimeoutQueue: Queue<ConversationTimeoutJobData>,
+    @Optional() private readonly claraWebhooks?: ClaraWebhookService,
   ) {}
+
+  private async safelyScheduleClaraWebhook(conversationId: string) {
+    await this.claraWebhooks?.scheduleConversation(conversationId).catch((error: unknown) => {
+      this.logger.warn(
+        `Gagal menjadwalkan webhook Clara untuk conversation ${conversationId}: ${error instanceof Error ? error.message : "unknown error"}`,
+      );
+    });
+  }
 
   private isAwaitingAgentReply(status: string, handlerType: string) {
     return (
@@ -530,6 +540,14 @@ export class ConversationsService {
       await this.safelyCancelAgentReplyTimeout(input.conversationId);
     }
     this.broadcastMessage(input.conversationId, enrichedMessage);
+    if (
+      !(input.isInternal ?? false) &&
+      input.messageType !== MessageType.AI_SUGGESTION &&
+      input.messageType !== MessageType.INTERNAL_NOTE &&
+      input.senderType !== SenderType.SYSTEM
+    ) {
+      await this.safelyScheduleClaraWebhook(input.conversationId);
+    }
     if (isCustomerFacingSender) {
       if (conversation.assignedAgentId) {
         this.realtime.toAgent(conversation.assignedAgentId, "conversation:updated", { conversationId: input.conversationId });
@@ -907,6 +925,7 @@ export class ConversationsService {
     // Accepting or transferring a chat starts a fresh reply window for the newly assigned agent.
     // Never preserve the original queue/pickup timer, which may have only seconds remaining.
     await this.safelyRefreshAgentReplyTimeout(conversationId, assignedAt, true);
+    await this.safelyScheduleClaraWebhook(conversationId);
   }
 
   async accept(conversationId: string, agentId: string) {
@@ -982,6 +1001,7 @@ export class ConversationsService {
     if (conversation.assignedTeamId) {
       this.realtime.toTeam(conversation.assignedTeamId, "queue:updated", { conversationId, siteId: conversation.siteId });
     }
+    await this.safelyScheduleClaraWebhook(conversationId);
     return conversation;
   }
 
@@ -1053,6 +1073,7 @@ export class ConversationsService {
     if (conversation.assignedTeamId) {
       this.realtime.toTeam(conversation.assignedTeamId, "queue:updated", { conversationId, siteId: conversation.siteId });
     }
+    await this.safelyScheduleClaraWebhook(conversationId);
     return true;
   }
 
@@ -1150,6 +1171,7 @@ export class ConversationsService {
     }
 
     await this.logEvent(conversationId, "conversation.transferred", "USER", actorId, target);
+    await this.safelyScheduleClaraWebhook(conversationId);
     return this.getConversationOrThrow(conversationId);
   }
 
@@ -1166,6 +1188,7 @@ export class ConversationsService {
       data: { status: ConversationStatus.RESOLVED, resolvedAt: new Date() },
     });
     await this.logEvent(conversationId, "conversation.resolved", "USER", actorId, {});
+    await this.safelyScheduleClaraWebhook(conversationId);
     this.realtime.toConversation(conversationId, "conversation:updated", { conversationId, status: ConversationStatus.RESOLVED });
     return updated;
   }
@@ -1193,6 +1216,7 @@ export class ConversationsService {
     }
     await this.logEvent(conversationId, "conversation.reopened", "USER", actorId, {});
     await this.safelyRefreshAgentReplyTimeout(conversationId);
+    await this.safelyScheduleClaraWebhook(conversationId);
     return updated;
   }
 
@@ -1209,6 +1233,7 @@ export class ConversationsService {
       data: { status: ConversationStatus.CLOSED, closedAt: new Date() },
     });
     await this.logEvent(conversationId, "conversation.closed", actorType, actorId ?? null, {});
+    await this.safelyScheduleClaraWebhook(conversationId);
     this.realtime.toConversation(conversationId, "conversation:updated", { conversationId, status: ConversationStatus.CLOSED });
     return updated;
   }

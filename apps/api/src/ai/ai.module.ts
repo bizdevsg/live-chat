@@ -8,9 +8,10 @@ import { WhatsAppAssistantService } from "./whatsapp-assistant.service";
 import { WhatsAppAssistantController } from "./whatsapp-assistant.controller";
 import { WhatsAppAssistantApiKeyGuard } from "./whatsapp-assistant-api-key.guard";
 import { WhatsAppAssistantPromptService } from "./whatsapp-assistant-prompt.service";
+import { ExtensionTokenModule } from "../auth/extension-token/extension-token.module";
 
 @Module({
-  imports: [ConversationsModule, KnowledgeModule],
+  imports: [ConversationsModule, KnowledgeModule, ExtensionTokenModule],
   controllers: [AiController, WhatsAppAssistantController],
   providers: [
     AiOrchestratorService,

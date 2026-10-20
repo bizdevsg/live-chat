@@ -20,12 +20,15 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [returnTo, setReturnTo] = useState<string | null>(null);
 
   // Bagian B: kalau callback SSO Clara gagal, tampilkan pesan generik saja — detail penyebab ada
   // di log server (dicari lewat requestId), bukan di sini. Dibaca langsung dari location.search
   // (bukan useSearchParams) supaya halaman ini tidak perlu dibungkus <Suspense>.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
+    const requestedReturnTo = params.get("returnTo");
+    if (requestedReturnTo && isAllowedOidcReturn(requestedReturnTo)) setReturnTo(requestedReturnTo);
     if (params.get("ssoError") === "1") {
       const requestId = params.get("requestId");
       setError(
@@ -39,7 +42,11 @@ export default function LoginPage() {
     setError(null);
     try {
       await login.mutateAsync({ email, password });
-      router.replace("/dashboard");
+      if (returnTo) {
+        window.location.assign(returnTo);
+      } else {
+        router.replace("/dashboard");
+      }
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Login gagal.");
     }
@@ -86,7 +93,7 @@ export default function LoginPage() {
             {login.isPending ? "Memproses…" : "Masuk"}
           </Button>
         </form>
-        {CRM_SSO_ENABLED && (
+        {CRM_SSO_ENABLED && !returnTo && (
           <>
             <div className="my-4 flex items-center gap-3 text-xs text-zinc-500">
               <span className="h-px flex-1 bg-zinc-800" />
@@ -108,4 +115,14 @@ export default function LoginPage() {
       </Card>
     </div>
   );
+}
+
+function isAllowedOidcReturn(value: string): boolean {
+  try {
+    const target = new URL(value);
+    const api = new URL(API_URL);
+    return target.origin === api.origin && target.pathname === new URL("/api/v1/oauth/authorize", api).pathname;
+  } catch {
+    return false;
+  }
 }

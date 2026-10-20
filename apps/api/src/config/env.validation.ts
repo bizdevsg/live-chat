@@ -18,6 +18,13 @@ function booleanEnv(defaultValue: boolean) {
     });
 }
 
+function optionalSecret(minLength: number) {
+  return z.preprocess(
+    (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+    z.string().min(minLength).optional(),
+  );
+}
+
 const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   API_PORT: z.coerce.number().default(4000),
@@ -94,6 +101,25 @@ const envSchema = z.object({
   // comma-separated). A Clara role allowed by CRM_SSO_ALLOWED_ROLES but missing here is treated
   // as a configuration error (login refused, not guessed).
   CRM_SSO_ROLE_MAP: z.string().default("sales:cs_agent,manager:supervisor,head:admin,superadmin:super_admin"),
+
+  // Outbound conversation snapshots to Clara. The JSON array is keyed by the local Site.siteKey;
+  // each entry carries Clara's site id and a per-environment, per-site secret.
+  CLARA_WEBHOOK_URL: z.string().default("https://crm.sg-berjangka.com/api/webhooks/live-chat/events"),
+  CLARA_WEBHOOK_SITE_CONFIGS: z.string().optional(),
+
+  // Live Chat as an OIDC provider for Clara. Leaving the secret/redirect URI empty disables it.
+  LIVE_CHAT_OIDC_ISSUER: z.string().optional(),
+  LIVE_CHAT_OIDC_CLIENT_ID: z.string().default("clara-crm"),
+  LIVE_CHAT_OIDC_CLIENT_SECRET: optionalSecret(32),
+  LIVE_CHAT_OIDC_REDIRECT_URI: z.string().optional(),
+  LIVE_CHAT_OIDC_CODE_TTL_SECONDS: z.coerce.number().int().min(30).max(120).default(120),
+  LIVE_CHAT_OIDC_TOKEN_TTL_SECONDS: z.coerce.number().int().min(60).max(600).default(300),
+  LIVE_CHAT_OIDC_ALLOWED_ROLES: z.string().default("cs_agent,supervisor,admin,super_admin"),
+
+  // Agent-bound extension tokens use a separate key and audience from dashboard sessions.
+  EXTENSION_TOKEN_SECRET: optionalSecret(32),
+  EXTENSION_TOKEN_TTL_SECONDS: z.coerce.number().int().min(60).max(3600).default(900),
+  WHATSAPP_ASSISTANT_ALLOW_LEGACY_API_KEY: booleanEnv(false),
 
   S3_ENDPOINT: z.string().default("http://localhost:9000"),
   // Browser-reachable object-store endpoint used ONLY when signing download URLs. In Docker the

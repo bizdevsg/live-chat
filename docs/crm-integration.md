@@ -1,5 +1,9 @@
 # Integrasi CRM — Status Implementasi
 
+> **Pembaruan 20 Oktober 2026:** arah sebaliknya (Live Chat sebagai OIDC provider), outbound
+> webhook conversation, dan identitas extension per-agent kini juga sudah diimplementasikan.
+> Konfigurasi serta endpoint final ada di `docs/clara-live-chat-integration.md`.
+
 Dokumen ini menjelaskan endpoint `GET /api/v1/conversations` yang dipakai CRM untuk mengambil
 data conversation dari Live Chat, dan bagaimana implementasi ini berbeda dari draf "Kebutuhan
 API Live Chat dan SSO Dashboard untuk Integrasi Clara" v1.1.

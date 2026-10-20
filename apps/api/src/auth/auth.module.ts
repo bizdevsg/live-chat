@@ -7,11 +7,21 @@ import { ClaraSsoService } from "./clara-sso/clara-sso.service";
 import { ClaraSsoConfigService } from "./clara-sso/clara-sso.config";
 import { ClaraSsoStateService } from "./clara-sso/clara-sso-state.service";
 import { AgentModule } from "../agent/agent.module";
+import { OidcProviderController } from "./oidc-provider/oidc-provider.controller";
+import { OidcProviderConfigService } from "./oidc-provider/oidc-provider.config";
+import { OidcProviderService } from "./oidc-provider/oidc-provider.service";
 
 @Module({
   imports: [JwtModule.register({}), AgentModule],
-  controllers: [AuthController, ClaraSsoController],
-  providers: [AuthService, ClaraSsoService, ClaraSsoConfigService, ClaraSsoStateService],
+  controllers: [AuthController, ClaraSsoController, OidcProviderController],
+  providers: [
+    AuthService,
+    ClaraSsoService,
+    ClaraSsoConfigService,
+    ClaraSsoStateService,
+    OidcProviderConfigService,
+    OidcProviderService,
+  ],
   exports: [AuthService],
 })
 export class AuthModule {}

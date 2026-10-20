@@ -1,4 +1,4 @@
-import { Injectable, HttpStatus } from "@nestjs/common";
+import { Injectable, HttpStatus, Optional } from "@nestjs/common";
 import { InjectQueue } from "@nestjs/bullmq";
 import type { Queue } from "bullmq";
 import { ConversationStatus, ErrorCode, HandlerType, QUEUE_NAMES, type CrmSyncJobData } from "@solidchat/shared";
@@ -10,6 +10,7 @@ import type { CreateLeadDto } from "./dto/lead.dto";
 import { NotificationsService } from "../notifications/notifications.service";
 import { RealtimeEmitterService } from "../realtime/realtime-emitter.service";
 import { ConversationsService } from "../conversations/conversations.service";
+import { ClaraWebhookService } from "../clara-webhook/clara-webhook.service";
 
 @Injectable()
 export class LeadsService {
@@ -21,6 +22,7 @@ export class LeadsService {
     private readonly realtime: RealtimeEmitterService,
     private readonly conversations: ConversationsService,
     @InjectQueue(QUEUE_NAMES.CRM_SYNC) private readonly crmSyncQueue: Queue<CrmSyncJobData>,
+    @Optional() private readonly claraWebhooks?: ClaraWebhookService,
   ) {}
 
   private normalizeLeadInput(dto: CreateLeadDto): CreateLeadDto {
@@ -184,6 +186,7 @@ export class LeadsService {
     const { lead, conversationId: finalConversationId, resumedConversation } = result;
     await this.crmSyncQueue.add("sync", { leadId: lead.id }, { attempts: 5, backoff: { type: "exponential", delay: 5000 } });
     if (finalConversationId) {
+      await this.claraWebhooks?.scheduleConversation(finalConversationId).catch(() => undefined);
       const notificationConversation = await this.prisma.conversation.findUnique({
         where: { id: finalConversationId },
         select: { id: true, organizationId: true, siteId: true, assignedTeamId: true, assignedAgentId: true, handlerType: true, status: true },

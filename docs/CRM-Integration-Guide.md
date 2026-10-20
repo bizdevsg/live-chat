@@ -6,6 +6,10 @@ date: "3 September 2026"
 
 # Panduan Integrasi API CRM — Live Chat
 
+> **Catatan 20 Oktober 2026:** mekanisme pull API dalam dokumen ini dipertahankan untuk
+> kompatibilitas, tetapi integrasi Clara v1.1 yang aktif menggunakan outbound webhook dan SSO dua
+> arah. Gunakan `docs/clara-live-chat-integration.md` sebagai sumber implementasi terbaru.
+
 **Versi dokumen:** 1.0
 **Status:** Implementasi berjalan
 **Endpoint dasar:** `GET /api/v1/conversations`

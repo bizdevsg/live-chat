@@ -3,6 +3,55 @@
 Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
+### Added
+- Menambahkan Live Chat sebagai OIDC provider Clara melalui Authorization Code + PKCE S256, authorization code sekali pakai di Redis, ID token HS256, discovery, token, dan userinfo endpoint.
+- Menambahkan `apps/api/src/auth/extension-token/extension-token.controller.ts`.
+- Menambahkan `apps/api/src/auth/extension-token/extension-token.guard.ts`.
+- Menambahkan `apps/api/src/auth/extension-token/extension-token.module.ts`.
+- Menambahkan `apps/api/src/auth/extension-token/extension-token.service.spec.ts`.
+- Menambahkan `apps/api/src/auth/extension-token/extension-token.service.ts`.
+- Menambahkan `apps/api/src/auth/oidc-provider/oidc-provider.config.ts`.
+- Menambahkan `apps/api/src/auth/oidc-provider/oidc-provider.controller.ts`.
+- Menambahkan `apps/api/src/auth/oidc-provider/oidc-provider.service.spec.ts`.
+- Menambahkan `apps/api/src/auth/oidc-provider/oidc-provider.service.ts`.
+- Menambahkan `apps/api/src/clara-webhook/clara-webhook.config.ts`.
+- Menambahkan `apps/api/src/clara-webhook/clara-webhook.module.ts`.
+- Menambahkan `apps/api/src/clara-webhook/clara-webhook.processor.ts`.
+- Menambahkan `apps/api/src/clara-webhook/clara-webhook.service.spec.ts`.
+- Menambahkan `apps/api/src/clara-webhook/clara-webhook.service.ts`.
+- Menambahkan `apps/api/src/extension/dto/extension-snapshot.dto.ts`.
+- Menambahkan `apps/api/src/extension/extension.controller.ts`.
+- Menambahkan `apps/api/src/extension/extension.module.ts`.
+- Menambahkan `apps/api/src/extension/extension.service.spec.ts`.
+- Menambahkan `apps/api/src/extension/extension.service.ts`.
+- Menambahkan `docs/clara-live-chat-integration.md`.
+- Menambahkan diagram `Flow_Visitor_Token_LiveChat.pdf` yang menjelaskan alur visitorToken dan pre-chat tanpa identity token.
+- Menambahkan dokumentasi operasional `docs/clara-live-chat-integration.md` dan test keamanan untuk signing webhook, PKCE/OIDC, serta pencabutan token extension.
+- Menambahkan pengirim webhook `conversation.upserted` Live Chat → Clara dengan HMAC per site, snapshot maksimal 1.000 pesan, coalescing 7,5 detik, retry terklasifikasi, dan pemetaan channel/lead/assignee.
+- Menambahkan token extension per-agent yang singkat dan dapat dicabut serta endpoint snapshot WhatsApp, Instagram, dan TikTok yang menurunkan assignee dari token backend.
+
+### Changed
+- Memperbarui `.env.example`.
+- Memperbarui `apps/api/src/ai/ai.module.ts`.
+- Memperbarui `apps/api/src/ai/whatsapp-assistant-api-key.guard.ts`.
+- Memperbarui `apps/api/src/app.module.ts`.
+- Memperbarui `apps/api/src/auth/auth.module.ts`.
+- Memperbarui `apps/api/src/config/env.validation.ts`.
+- Memperbarui `apps/api/src/conversations/conversations.service.ts`.
+- Memperbarui `apps/api/src/leads/leads.service.ts`.
+- Memperbarui `apps/api/src/main.ts`.
+- Memperbarui `apps/api/src/widget/widget.service.ts`.
+- Memperbarui `apps/dashboard/src/app/login/page.tsx`.
+- Memperbarui `docs/CRM-Integration-Guide.md`.
+- Memperbarui `docs/crm-integration.md`.
+- Menambahkan konfigurasi webhook Clara, OIDC provider, dan token extension ke `.env.example` serta validasi environment API.
+- Menandai panduan CRM pull lama sebagai jalur kompatibilitas dan mengarahkan dokumentasi integrasi Clara ke kontrak webhook v1.1 terbaru.
+- Mengubah autentikasi WhatsApp Assistant agar memakai Bearer token extension per-agent; shared API key lama kini hanya tersedia melalui flag kompatibilitas yang default-nya nonaktif.
+
+### Fixed
+- Mencegah assignee extension ditentukan dari payload browser; kepemilikan conversation sekarang selalu berasal dari identitas token yang tervalidasi.
+
+## [0.22.2] - 2026-10-19
 ### Changed
 - Memperbarui `package.json`.
 
@@ -1106,7 +1155,8 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 - Memperbarui `apps/dashboard/src/app/(dashboard)/knowledge/page.tsx`.
 - Memperbarui `package.json`.
 
-[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.22.1...HEAD
+[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.22.2...HEAD
+[0.22.2]: https://github.com/bizdevsg/live-chat/compare/v0.22.1...v0.22.2
 [0.22.1]: https://github.com/bizdevsg/live-chat/compare/v0.22.0...v0.22.1
 [0.22.0]: https://github.com/bizdevsg/live-chat/compare/v0.21.0...v0.22.0
 [0.21.0]: https://github.com/bizdevsg/live-chat/compare/v0.20.1...v0.21.0

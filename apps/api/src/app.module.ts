@@ -29,6 +29,9 @@ import { AnalyticsModule } from "./analytics/analytics.module";
 import { HealthModule } from "./health/health.module";
 import { MarketDataModule } from "./market-data/market-data.module";
 import { CrmModule } from "./crm/crm.module";
+import { ClaraWebhookModule } from "./clara-webhook/clara-webhook.module";
+import { ExtensionTokenModule } from "./auth/extension-token/extension-token.module";
+import { ExtensionModule } from "./extension/extension.module";
 
 @Module({
   imports: [
@@ -64,6 +67,9 @@ import { CrmModule } from "./crm/crm.module";
     AnalyticsModule,
     HealthModule,
     CrmModule,
+    ClaraWebhookModule,
+    ExtensionTokenModule,
+    ExtensionModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },

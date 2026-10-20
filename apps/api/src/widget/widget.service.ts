@@ -1,4 +1,4 @@
-import { Injectable, HttpStatus } from "@nestjs/common";
+import { Injectable, HttpStatus, Optional } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import jwt from "jsonwebtoken";
 import { createHash } from "node:crypto";
@@ -10,6 +10,7 @@ import { SecurityEventService } from "../common/security/security-event.service"
 import { PresenceService } from "../common/presence/presence.service";
 import { ApiException, ForbiddenApiException, NotFoundApiException, UnauthorizedApiException } from "../common/errors/api.exception";
 import type { CreateWidgetSessionDto } from "./dto/widget.dto";
+import { ClaraWebhookService } from "../clara-webhook/clara-webhook.service";
 
 function hashIp(ip: string | undefined): string | undefined {
   if (!ip) return undefined;
@@ -45,6 +46,7 @@ export class WidgetService {
     private readonly securityEvents: SecurityEventService,
     private readonly presence: PresenceService,
     private readonly config: ConfigService,
+    @Optional() private readonly claraWebhooks?: ClaraWebhookService,
   ) {}
 
   async getPublicConfig(siteKey: string) {
@@ -221,6 +223,7 @@ export class WidgetService {
     const activeConversation = await this.conversations.getActiveConversation(siteId, visitorId);
     if (activeConversation) {
       await this.prisma.conversation.update({ where: { id: activeConversation.id }, data: { customerId: customer.id } });
+      await this.claraWebhooks?.scheduleConversation(activeConversation.id).catch(() => undefined);
     }
 
     return { customerId: customer.id, name: customer.name };

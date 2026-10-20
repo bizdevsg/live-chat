@@ -70,7 +70,9 @@ async function bootstrap() {
       .filter(Boolean),
   );
   const whatsappAssistantEnabled = Boolean(
-    config.get<string>("WHATSAPP_ASSISTANT_API_KEY")?.trim() || config.get<string>("CRM_API_KEY")?.trim(),
+    config.get<string>("EXTENSION_TOKEN_SECRET")?.trim() ||
+      config.get<string>("WHATSAPP_ASSISTANT_API_KEY")?.trim() ||
+      config.get<string>("CRM_API_KEY")?.trim(),
   );
   const publicKnowledgeEnabled = Boolean(config.get<string>("PUBLIC_KNOWLEDGE_API_KEY")?.trim());
   const chromeExtensionOriginPattern = /^chrome-extension:\/\/[a-p]{32}$/;
