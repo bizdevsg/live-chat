@@ -106,7 +106,7 @@ export default function LoginPage() {
               href={`${API_URL}/api/v1/auth/clara/login${forceClaraLogin ? "?forceLogin=1" : ""}`}
             >
               <Button type="button" variant="secondary" className="w-full">
-                Masuk dengan Clara
+                Masuk dengan Akun CRM
               </Button>
             </a>
           </>

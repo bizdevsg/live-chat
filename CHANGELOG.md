@@ -12,6 +12,7 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 - Memperbarui `apps/dashboard/src/app/(dashboard)/profile/page.tsx`.
 - Memperbarui `apps/dashboard/src/app/login/page.tsx`.
 - Memperbarui `apps/dashboard/src/components/layout/topbar.tsx`.
+- Mengganti label tombol SSO dashboard dari “Masuk dengan Clara” menjadi “Masuk dengan Akun CRM”.
 
 ### Fixed
 - Memastikan login Clara setelah logout eksplisit meminta autentikasi ulang, sehingga pengguna tidak otomatis kembali ke akun Clara sebelumnya.
