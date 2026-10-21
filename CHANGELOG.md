@@ -15,6 +15,7 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ### Fixed
 - Memastikan login Clara setelah logout eksplisit meminta autentikasi ulang, sehingga pengguna tidak otomatis kembali ke akun Clara sebelumnya.
+- Memastikan tombol logout di Topbar selalu menuju `/login?loggedOut=1` sebelum komponen dashboard terlepas, sehingga login Clara berikutnya benar-benar memaksa autentikasi ulang.
 
 ## [0.23.1] - 2026-10-20
 ### Changed

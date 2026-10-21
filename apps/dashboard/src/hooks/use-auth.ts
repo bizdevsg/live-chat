@@ -45,6 +45,9 @@ export function useLogout() {
       authTokenStore.clear();
       setUser(null);
       queryClient.clear();
+      // Keep the redirect in the mutation's primary callback. A per-call callback owned by the
+      // Topbar can be skipped after setUser(null) unmounts the dashboard tree.
+      window.location.replace("/login?loggedOut=1");
     },
   });
 }

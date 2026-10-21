@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useLogout } from "@/hooks/use-auth";
 import { useDashboardShell } from "@/components/layout/dashboard-shell";
 import { Button } from "@/components/ui/button";
@@ -8,7 +7,6 @@ import { ConnectionIndicator } from "./connection-indicator";
 import { AgentStatusToggle } from "./agent-status-toggle";
 
 export function Topbar({ title }: { title: string }) {
-  const router = useRouter();
   const logout = useLogout();
   const { toggleSidebar } = useDashboardShell();
 
@@ -41,9 +39,7 @@ export function Topbar({ title }: { title: string }) {
           variant="ghost"
           size="sm"
           className="shrink-0"
-          onClick={() =>
-            logout.mutate(undefined, { onSuccess: () => router.replace("/login?loggedOut=1") })
-          }
+          onClick={() => logout.mutate()}
         >
           Keluar
         </Button>
