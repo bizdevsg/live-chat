@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { Eye, EyeOff } from "lucide-react";
 import { useLogin } from "@/hooks/use-auth";
 import { ApiError } from "@/lib/api-client";
@@ -111,11 +110,6 @@ export default function LoginPage() {
             </a>
           </>
         )}
-        <div className="mt-4 text-center text-xs text-zinc-500">
-          <Link href="/forgot-password" className="hover:text-gold-500">
-            Lupa password?
-          </Link>
-        </div>
       </Card>
     </div>
   );

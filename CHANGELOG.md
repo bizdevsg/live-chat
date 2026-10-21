@@ -13,6 +13,9 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 - Memperbarui `apps/dashboard/src/app/login/page.tsx`.
 - Memperbarui `apps/dashboard/src/components/layout/topbar.tsx`.
 - Mengganti label tombol SSO dashboard dari “Masuk dengan Clara” menjadi “Masuk dengan Akun CRM”.
+- Mengganti favicon dashboard dengan logo SG dari aset website utama dan memusatkan referensinya di `public/assets`.
+- Mengganti badge teks sidebar dengan logo Solid Chat dari aset publik.
+- Menghapus tautan “Lupa password?” dari halaman login dashboard agar alur pemulihan password tidak ditawarkan saat login.
 
 ### Fixed
 - Memastikan login Clara setelah logout eksplisit meminta autentikasi ulang, sehingga pengguna tidak otomatis kembali ke akun Clara sebelumnya.

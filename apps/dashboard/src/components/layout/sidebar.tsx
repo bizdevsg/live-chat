@@ -14,6 +14,7 @@ import { NAV_SECTIONS, type NavIcon } from "./nav-items";
 import { useDashboardShell } from "./dashboard-shell";
 import { getDashboardSocket } from "@/lib/socket";
 import { cn } from "@/components/ui/cn";
+import Image from "next/image";
 
 function SidebarIcon({ icon, active }: { icon: NavIcon; active: boolean }) {
   const stroke = active ? "#b99244" : "currentColor";
@@ -248,13 +249,7 @@ export function Sidebar() {
       >
         <div className="flex h-20 items-center justify-between border-b border-ink-600 px-5 lg:px-6">
           <div className="flex min-w-0 items-center">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-gold-500/20 bg-gold-500/10 text-xl font-bold text-gold-500">
-              SC
-            </div>
-            <div className="ml-3 min-w-0">
-              <div className="truncate text-sm font-semibold uppercase tracking-[0.24em] text-zinc-100">SolidChat</div>
-              <div className="mt-1 text-xs tracking-[0.3em] text-gold-500/80">ADMIN PANEL</div>
-            </div>
+            <Image src={"/assets/logo-utama-new.png"} alt="Logo Solid Chat" height={300} width={250} className="h-10 w-fit" />
           </div>
           <button
             type="button"
