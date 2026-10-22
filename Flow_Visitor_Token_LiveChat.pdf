@@ -1,0 +1,556 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [5 0 R 7 0 R] /Count 2 >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>
+endobj
+4 0 obj
+<< /Length 4027 >>
+stream
+q
+1 1 1 rg
+0 0 842 595 re
+f
+0.1 0.12 0.18 rg
+BT
+/F2 20 Tf
+42 555 Td
+(Alur Visitor Token: Live Chat SolidChat) Tj
+ET
+0.35 0.39 0.46 rg
+BT
+/F1 11 Tf
+42 532 Td
+(Konsep sederhana: visitor session + pre-chat, tanpa identity token) Tj
+ET
+0.94 0.97 1.0 rg
+0.77 0.8 0.86 RG
+1 w
+42 95 235 400 re
+B
+0.15 0.2 0.3 rg
+0.15 0.2 0.3 RG
+1 w
+42 462 235 33 re
+B
+1 1 1 rg
+BT
+/F2 12 Tf
+56 474 Td
+(App Flutter) Tj
+ET
+0.97 0.95 1.0 rg
+0.77 0.8 0.86 RG
+1 w
+303 95 235 400 re
+B
+0.15 0.2 0.3 rg
+0.15 0.2 0.3 RG
+1 w
+303 462 235 33 re
+B
+1 1 1 rg
+BT
+/F2 12 Tf
+317 474 Td
+(Backend Aplikasi) Tj
+ET
+0.94 1.0 0.97 rg
+0.77 0.8 0.86 RG
+1 w
+564 95 235 400 re
+B
+0.15 0.2 0.3 rg
+0.15 0.2 0.3 RG
+1 w
+564 462 235 33 re
+B
+1 1 1 rg
+BT
+/F2 12 Tf
+578 474 Td
+(SolidChat Server) Tj
+ET
+1 1 1 rg
+0.55 0.62 0.72 RG
+1 w
+70 405 180 42 re
+B
+0.12 0.16 0.22 rg
+BT
+/F2 9 Tf
+80 429 Td
+(1  User membuka Live Chat) Tj
+ET
+1 1 1 rg
+0.55 0.62 0.72 RG
+1 w
+70 330 180 42 re
+B
+0.12 0.16 0.22 rg
+BT
+/F2 9 Tf
+80 354 Td
+(2  SDK minta /session) Tj
+ET
+1 1 1 rg
+0.55 0.62 0.72 RG
+1 w
+70 245 180 52 re
+B
+0.12 0.16 0.22 rg
+BT
+/F2 9 Tf
+80 279 Td
+(4  SDK simpan visitorToken) Tj
+ET
+0.12 0.16 0.22 rg
+BT
+/F1 9 Tf
+80 265 Td
+(dan site configuration) Tj
+ET
+1 1 1 rg
+0.55 0.62 0.72 RG
+1 w
+70 155 180 52 re
+B
+0.12 0.16 0.22 rg
+BT
+/F2 9 Tf
+80 189 Td
+(6  User isi pre-chat) Tj
+ET
+0.12 0.16 0.22 rg
+BT
+/F1 9 Tf
+80 175 Td
+(\(nama, email, telepon\)) Tj
+ET
+1 1 1 rg
+0.55 0.62 0.72 RG
+1 w
+331 330 180 42 re
+B
+0.12 0.16 0.22 rg
+BT
+/F2 9 Tf
+341 354 Td
+(3  Server membuat) Tj
+ET
+0.12 0.16 0.22 rg
+BT
+/F1 9 Tf
+341 340 Td
+(visitorToken otomatis) Tj
+ET
+1 1 1 rg
+0.55 0.62 0.72 RG
+1 w
+331 155 180 52 re
+B
+0.12 0.16 0.22 rg
+BT
+/F2 9 Tf
+341 189 Td
+(7  Data pre-chat dikirim) Tj
+ET
+0.12 0.16 0.22 rg
+BT
+/F1 9 Tf
+341 175 Td
+(ke conversation) Tj
+ET
+1 1 1 rg
+0.55 0.62 0.72 RG
+1 w
+592 330 180 42 re
+B
+0.12 0.16 0.22 rg
+BT
+/F2 9 Tf
+602 354 Td
+(3  POST /session) Tj
+ET
+0.12 0.16 0.22 rg
+BT
+/F1 9 Tf
+602 340 Td
+(visitorToken + site) Tj
+ET
+1 1 1 rg
+0.55 0.62 0.72 RG
+1 w
+592 245 180 52 re
+B
+0.12 0.16 0.22 rg
+BT
+/F2 9 Tf
+602 279 Td
+(5  Buat / lanjutkan) Tj
+ET
+0.12 0.16 0.22 rg
+BT
+/F1 9 Tf
+602 265 Td
+(conversation) Tj
+ET
+1 1 1 rg
+0.55 0.62 0.72 RG
+1 w
+592 155 180 52 re
+B
+0.12 0.16 0.22 rg
+BT
+/F2 9 Tf
+602 189 Td
+(8  Validasi visitorToken) Tj
+ET
+0.12 0.16 0.22 rg
+BT
+/F1 9 Tf
+602 175 Td
+(untuk REST + Socket.IO) Tj
+ET
+0.35 0.4 0.48 RG
+1.5 w
+160 405 m
+160 372 l
+S
+0.35 0.4 0.48 RG
+1.5 w
+160 372 m
+153 376 l
+S
+0.35 0.4 0.48 RG
+1.5 w
+160 372 m
+153 368 l
+S
+0.35 0.4 0.48 RG
+1.5 w
+250 351 m
+331 351 l
+S
+0.35 0.4 0.48 RG
+1.5 w
+331 351 m
+324 355 l
+S
+0.35 0.4 0.48 RG
+1.5 w
+331 351 m
+324 347 l
+S
+0.25 0.3 0.38 rg
+BT
+/F1 8 Tf
+270 361 Td
+(request) Tj
+ET
+0.35 0.4 0.48 RG
+1.5 w
+511 351 m
+592 351 l
+S
+0.35 0.4 0.48 RG
+1.5 w
+592 351 m
+585 355 l
+S
+0.35 0.4 0.48 RG
+1.5 w
+592 351 m
+585 347 l
+S
+0.25 0.3 0.38 rg
+BT
+/F1 8 Tf
+522 361 Td
+(sign + return) Tj
+ET
+0.35 0.4 0.48 RG
+1.5 w
+682 330 m
+682 297 l
+S
+0.35 0.4 0.48 RG
+1.5 w
+682 297 m
+675 301 l
+S
+0.35 0.4 0.48 RG
+1.5 w
+682 297 m
+675 293 l
+S
+0.35 0.4 0.48 RG
+1.5 w
+592 271 m
+250 271 l
+S
+0.35 0.4 0.48 RG
+1.5 w
+250 271 m
+257 275 l
+S
+0.35 0.4 0.48 RG
+1.5 w
+250 271 m
+257 267 l
+S
+0.25 0.3 0.38 rg
+BT
+/F1 8 Tf
+400 283 Td
+(visitorToken + site) Tj
+ET
+0.35 0.4 0.48 RG
+1.5 w
+160 245 m
+160 207 l
+S
+0.35 0.4 0.48 RG
+1.5 w
+160 207 m
+153 211 l
+S
+0.35 0.4 0.48 RG
+1.5 w
+160 207 m
+153 203 l
+S
+0.35 0.4 0.48 RG
+1.5 w
+250 181 m
+331 181 l
+S
+0.35 0.4 0.48 RG
+1.5 w
+331 181 m
+324 185 l
+S
+0.35 0.4 0.48 RG
+1.5 w
+331 181 m
+324 177 l
+S
+0.25 0.3 0.38 rg
+BT
+/F1 8 Tf
+270 191 Td
+(pre-chat) Tj
+ET
+0.35 0.4 0.48 RG
+1.5 w
+511 181 m
+592 181 l
+S
+0.35 0.4 0.48 RG
+1.5 w
+592 181 m
+585 185 l
+S
+0.35 0.4 0.48 RG
+1.5 w
+592 181 m
+585 177 l
+S
+0.25 0.3 0.38 rg
+BT
+/F1 8 Tf
+522 191 Td
+(lead + message) Tj
+ET
+0.35 0.4 0.48 RG
+1.5 w
+682 155 m
+682 125 l
+S
+0.35 0.4 0.48 RG
+1.5 w
+682 125 m
+675 129 l
+S
+0.35 0.4 0.48 RG
+1.5 w
+682 125 m
+675 121 l
+S
+0.25 0.3 0.38 rg
+BT
+/F1 8 Tf
+694 138 Td
+(realtime) Tj
+ET
+0.25 0.3 0.38 rg
+BT
+/F2 10 Tf
+42 62 Td
+(Tidak ada identityToken, CUSTOMER_IDENTITY_JWT_SECRET, atau endpoint token tambahan.) Tj
+ET
+Q
+endstream
+endobj
+5 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 842 595] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 4 0 R >>
+endobj
+6 0 obj
+<< /Length 1827 >>
+stream
+q
+1 1 1 rg
+0 0 842 595 re
+f
+0.1 0.12 0.18 rg
+BT
+/F2 20 Tf
+42 550 Td
+(Keterangan Flow Visitor Token) Tj
+ET
+0.35 0.39 0.46 rg
+BT
+/F1 11 Tf
+42 523 Td
+(Token yang dipakai hanya token sesi visitor dan dibuat oleh server SolidChat.) Tj
+ET
+0.94 0.97 1.0 rg
+0.65 0.72 0.82 RG
+1 w
+42 410 365 82 re
+B
+0.1 0.25 0.55 rg
+BT
+/F2 14 Tf
+58 468 Td
+(visitorToken) Tj
+ET
+0.12 0.15 0.2 rg
+BT
+/F1 10 Tf
+58 445 Td
+(- dibuat otomatis oleh SolidChat) Tj
+ET
+0.12 0.15 0.2 rg
+BT
+/F1 10 Tf
+58 428 Td
+(- disimpan dan dikirim otomatis oleh SDK) Tj
+ET
+0.12 0.15 0.2 rg
+BT
+/F1 10 Tf
+58 411 Td
+(- dipakai untuk REST API dan Socket.IO) Tj
+ET
+0.97 0.95 1.0 rg
+0.75 0.68 0.82 RG
+1 w
+435 410 365 82 re
+B
+0.45 0.2 0.55 rg
+BT
+/F2 14 Tf
+451 468 Td
+(Pre-chat) Tj
+ET
+0.12 0.15 0.2 rg
+BT
+/F1 10 Tf
+451 445 Td
+(- user mengisi nama, email, dan telepon) Tj
+ET
+0.12 0.15 0.2 rg
+BT
+/F1 10 Tf
+451 428 Td
+(- data dikaitkan ke conversation) Tj
+ET
+0.12 0.15 0.2 rg
+BT
+/F1 10 Tf
+451 411 Td
+(- user tidak perlu login) Tj
+ET
+0.1 0.12 0.18 rg
+BT
+/F2 14 Tf
+42 360 Td
+(Yang tidak dipakai) Tj
+ET
+0.22 0.26 0.33 rg
+BT
+/F1 11 Tf
+58 332 Td
+(- identityToken dari backend aplikasi) Tj
+ET
+0.22 0.26 0.33 rg
+BT
+/F1 11 Tf
+58 308 Td
+(- CUSTOMER_IDENTITY_JWT_SECRET) Tj
+ET
+0.22 0.26 0.33 rg
+BT
+/F1 11 Tf
+58 284 Td
+(- CUSTOMER_IDENTITY_ISSUER dan CUSTOMER_IDENTITY_AUDIENCE) Tj
+ET
+0.22 0.26 0.33 rg
+BT
+/F1 11 Tf
+58 260 Td
+(- secret atau token tambahan di APK/IPA) Tj
+ET
+0.1 0.12 0.18 rg
+BT
+/F2 14 Tf
+42 215 Td
+(Konsekuensi) Tj
+ET
+0.22 0.26 0.33 rg
+BT
+/F1 11 Tf
+58 187 Td
+(- Semua user dapat memakai Live Chat sebagai visitor.) Tj
+ET
+0.22 0.26 0.33 rg
+BT
+/F1 11 Tf
+58 163 Td
+(- Data pre-chat bukan bukti bahwa user memiliki akun login tertentu.) Tj
+ET
+0.22 0.26 0.33 rg
+BT
+/F1 11 Tf
+58 139 Td
+(- Jika nanti perlu menghubungkan chat ke akun login, identity flow dapat ditambahkan terpisah.) Tj
+ET
+Q
+endstream
+endobj
+7 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 842 595] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 6 0 R >>
+endobj
+xref
+0 8
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000121 00000 n 
+0000000266 00000 n 
+0000004345 00000 n 
+0000004481 00000 n 
+0000006360 00000 n 
+trailer
+<< /Size 8 /Root 1 0 R >>
+startxref
+6496
+%%EOF

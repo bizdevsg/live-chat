@@ -4,6 +4,35 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
 ### Added
+- Menambahkan `"apps/dashboard/public/notification/new-massages/SolidChat AI /342/200/224 Dashboard.html"`.
+- Menambahkan `"apps/dashboard/public/notification/new-massages/SolidChat AI /342/200/224 Dashboard_files/2749-813e790c6d285a2a.js.download"`.
+- Menambahkan `"apps/dashboard/public/notification/new-massages/SolidChat AI /342/200/224 Dashboard_files/5b8f0dd8-b309f9b8684827b4.js.download"`.
+- Menambahkan `"apps/dashboard/public/notification/new-massages/SolidChat AI /342/200/224 Dashboard_files/61481e7f39ad2c85.css"`.
+- Menambahkan `"apps/dashboard/public/notification/new-massages/SolidChat AI /342/200/224 Dashboard_files/9f7e59fb147eb890.css"`.
+- Menambahkan `"apps/dashboard/public/notification/new-massages/SolidChat AI /342/200/224 Dashboard_files/daeaf8f2242560ac.css"`.
+- Menambahkan `"apps/dashboard/public/notification/new-massages/SolidChat AI /342/200/224 Dashboard_files/main-app-875a00e909a2c8a6.js.download"`.
+- Menambahkan `"apps/dashboard/public/notification/new-massages/SolidChat AI /342/200/224 Dashboard_files/polyfills-42372ed130431b0a.js.download"`.
+- Menambahkan `"apps/dashboard/public/notification/new-massages/SolidChat AI /342/200/224 Dashboard_files/webpack-ff5bb1e9a38ce623.js.download"`.
+- Menambahkan `Flow_Visitor_Token_LiveChat.pdf`.
+- Menambahkan `scripts/create_visitor_flow_diagram.py`.
+- Menambahkan `scripts/create_visitor_flow_pdf.py`.
+
+### Changed
+- Memperbarui `apps/api/src/ai/prompts/whatsapp-assistant.md`.
+- Memperbarui `package.json`.
+- Memperbarui `sdks/flutter/analysis_options.yaml`.
+- Memperbarui `sdks/flutter/example/analysis_options.yaml`.
+- Memperbarui `sdks/flutter/example/android/gradle.properties`.
+- Mengganti badge teks sidebar dengan logo Solid Chat dari aset publik.
+- Mengganti favicon dashboard dengan logo SG dari aset website utama dan memusatkan referensinya di `public/assets`.
+- Mengganti label tombol SSO dashboard dari “Masuk dengan Clara” menjadi “Masuk dengan Akun CRM”.
+- Menghapus tautan “Lupa password?” dari halaman login dashboard agar alur pemulihan password tidak ditawarkan saat login.
+
+### Fixed
+- Memastikan tombol logout di Topbar selalu menuju `/login?loggedOut=1` sebelum komponen dashboard terlepas, sehingga login Clara berikutnya benar-benar memaksa autentikasi ulang.
+
+## [0.23.2] - 2026-10-20
+### Added
 - Menambahkan `apps/api/src/auth/clara-sso/clara-sso.service.spec.ts`.
 
 ### Changed
@@ -12,14 +41,9 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 - Memperbarui `apps/dashboard/src/app/(dashboard)/profile/page.tsx`.
 - Memperbarui `apps/dashboard/src/app/login/page.tsx`.
 - Memperbarui `apps/dashboard/src/components/layout/topbar.tsx`.
-- Mengganti label tombol SSO dashboard dari “Masuk dengan Clara” menjadi “Masuk dengan Akun CRM”.
-- Mengganti favicon dashboard dengan logo SG dari aset website utama dan memusatkan referensinya di `public/assets`.
-- Mengganti badge teks sidebar dengan logo Solid Chat dari aset publik.
-- Menghapus tautan “Lupa password?” dari halaman login dashboard agar alur pemulihan password tidak ditawarkan saat login.
 
 ### Fixed
 - Memastikan login Clara setelah logout eksplisit meminta autentikasi ulang, sehingga pengguna tidak otomatis kembali ke akun Clara sebelumnya.
-- Memastikan tombol logout di Topbar selalu menuju `/login?loggedOut=1` sebelum komponen dashboard terlepas, sehingga login Clara berikutnya benar-benar memaksa autentikasi ulang.
 
 ## [0.23.1] - 2026-10-20
 ### Changed
@@ -1181,7 +1205,8 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 - Memperbarui `apps/dashboard/src/app/(dashboard)/knowledge/page.tsx`.
 - Memperbarui `package.json`.
 
-[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.23.1...HEAD
+[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.23.2...HEAD
+[0.23.2]: https://github.com/bizdevsg/live-chat/compare/v0.23.1...v0.23.2
 [0.23.1]: https://github.com/bizdevsg/live-chat/compare/v0.23.0...v0.23.1
 [0.23.0]: https://github.com/bizdevsg/live-chat/compare/v0.22.2...v0.23.0
 [0.22.2]: https://github.com/bizdevsg/live-chat/compare/v0.22.1...v0.22.2
