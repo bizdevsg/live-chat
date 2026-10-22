@@ -43,8 +43,8 @@ export interface VisitorTokenPayload {
 export interface CustomerIdentityTokenPayload {
   sub: string;
   siteId: string;
-  name: string;
-  email?: string;
+  name?: string;
+  email: string;
   accountStatus: "active" | "inactive" | "suspended";
   iat: number;
   exp: number;

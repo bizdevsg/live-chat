@@ -37,6 +37,16 @@ function wildcardMatches(hostname: string, pattern: string) {
   return hostname === suffix || hostname.endsWith(`.${suffix}`);
 }
 
+function resolveCustomerIdentity(payload: CustomerIdentityTokenPayload) {
+  const email = typeof payload.email === "string" ? payload.email.trim().toLowerCase() : "";
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    throw new UnauthorizedApiException("Identity token wajib berisi email customer yang valid.");
+  }
+
+  const suppliedName = typeof payload.name === "string" ? payload.name.trim() : "";
+  return { email, name: suppliedName || email };
+}
+
 @Injectable()
 export class WidgetService {
   constructor(
@@ -202,13 +212,15 @@ export class WidgetService {
       throw new UnauthorizedApiException("Identity token tidak berlaku untuk site ini.");
     }
 
+    const identity = resolveCustomerIdentity(payload);
+
     const replay = await this.prisma.customerIdentity.findUnique({ where: { jti: payload.jti } });
     if (replay) throw new UnauthorizedApiException("Identity token telah digunakan sebelumnya.");
 
     const customer = await this.prisma.customer.upsert({
       where: { siteId_externalId: { siteId, externalId: payload.sub } },
-      update: { name: payload.name, email: payload.email, accountStatus: payload.accountStatus },
-      create: { siteId, externalId: payload.sub, name: payload.name, email: payload.email, accountStatus: payload.accountStatus },
+      update: { name: identity.name, email: identity.email, accountStatus: payload.accountStatus },
+      create: { siteId, externalId: payload.sub, name: identity.name, email: identity.email, accountStatus: payload.accountStatus },
     });
 
     await this.prisma.customerIdentity.create({

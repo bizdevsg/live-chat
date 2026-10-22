@@ -4,6 +4,57 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
 ### Added
+- Menambahkan `apps/api/src/whatsapp/dto/whatsapp.dto.ts`.
+- Menambahkan `apps/api/src/whatsapp/waha-client.service.ts`.
+- Menambahkan `apps/api/src/whatsapp/whatsapp-connection.service.ts`.
+- Menambahkan `apps/api/src/whatsapp/whatsapp-inbound.service.spec.ts`.
+- Menambahkan `apps/api/src/whatsapp/whatsapp-inbound.service.ts`.
+- Menambahkan `apps/api/src/whatsapp/whatsapp-inbox.service.spec.ts`.
+- Menambahkan `apps/api/src/whatsapp/whatsapp-inbox.service.ts`.
+- Menambahkan `apps/api/src/whatsapp/whatsapp.controller.spec.ts`.
+- Menambahkan `apps/api/src/whatsapp/whatsapp.controller.ts`.
+- Menambahkan `apps/api/src/whatsapp/whatsapp.module.ts`.
+- Menambahkan `apps/dashboard/src/app/(dashboard)/whatsapp/page.tsx`.
+- Menambahkan `docs/waha-whatsapp-inbox.md`.
+- Menambahkan `packages/database/prisma/migrations/20261022120000_add_waha_whatsapp_inbox/migration.sql`.
+- Menambahkan dedicated WhatsApp Inbox melalui WAHA dengan pengelolaan session per organization, QR pairing, webhook ber-HMAC, contact/profile lookup, chat overview, message history, read state, dan balasan manual.
+- Menambahkan konfigurasi environment WAHA, regression test inbox/webhook, dan panduan deployment `docs/waha-whatsapp-inbox.md`.
+- Menambahkan service resmi WAHA pada Docker Compose dengan penyimpanan session persisten, API internal-only, Dashboard dan Swagger WAHA yang dinonaktifkan, serta kredensial dormant eksplisit agar secret otomatis tidak dicetak ke log.
+- Menambahkan workspace Dashboard **WhatsApp** tiga panel untuk daftar chat, timeline pesan, composer manual, dan informasi contact yang nama serta nomornya diambil langsung dari WAHA.
+
+### Changed
+- Memisahkan WhatsApp dari model dan UI Inbox Live Chat; webhook WhatsApp tidak lagi membuat conversation, menjalankan routing, atau menjadwalkan AI.
+- Memperbarui `.env.example`.
+- Memperbarui `apps/api/src/app.module.ts`.
+- Memperbarui `apps/api/src/config/env.validation.ts`.
+- Memperbarui `apps/api/src/conversations/conversations.module.ts`.
+- Memperbarui `apps/api/src/conversations/conversations.service.spec.ts`.
+- Memperbarui `apps/api/src/conversations/conversations.service.ts`.
+- Memperbarui `apps/api/src/main.ts`.
+- Memperbarui `apps/api/src/widget/widget.service.spec.ts`.
+- Memperbarui `apps/api/src/widget/widget.service.ts`.
+- Memperbarui `apps/dashboard/src/components/layout/nav-items.ts`.
+- Memperbarui `apps/dashboard/src/components/layout/sidebar.tsx`.
+- Memperbarui `docker-compose.yml`.
+- Memperbarui `docs/api.md`.
+- Memperbarui `docs/security.md`.
+- Memperbarui `package.json`.
+- Memperbarui `packages/database/prisma/schema.prisma`.
+- Memperbarui `packages/shared/src/types.ts`.
+- Mengaktifkan penyimpanan raw request body pada API agar signature HMAC-SHA512 webhook WAHA diverifikasi terhadap byte request asli.
+- Mengubah kontrak customer identity JWT agar `email` wajib dan `name` opsional; ketika nama tidak dikirim atau kosong, API memakai email yang telah dinormalisasi sebagai nama tampilan customer.
+- Menjadikan WAHA Store sebagai sumber daftar chat, contact, nomor telepon, foto profil, riwayat pesan, unread count, dan delivery acknowledgement.
+
+### Fixed
+- Memindahkan navigasi WhatsApp keluar dari section khusus Superadmin agar user dengan permission `conversation.handle` dapat membuka workspace WhatsApp, sementara pengaturan koneksi tetap dibatasi oleh `integration.manage`.
+- Mencegah proses identifikasi SDK gagal atau menyimpan nama kosong ketika pihak penerbit JWT hanya menyediakan identitas email.
+- Mengaktifkan NOWEB Store dengan full sync pada session baru agar WAHA Chat Overview tidak lagi mengembalikan `400` dan pesan dapat tampil di dedicated WhatsApp Inbox.
+
+### Removed
+- Menghapus seluruh data conversation dan message lama dari database environment saat ini, termasuk data turunan yang terhapus melalui cascade; ticket dan lead dipertahankan dengan relasi conversation dikosongkan.
+
+## [0.23.3] - 2026-10-22
+### Added
 - Menambahkan `"apps/dashboard/public/notification/new-massages/SolidChat AI /342/200/224 Dashboard.html"`.
 - Menambahkan `"apps/dashboard/public/notification/new-massages/SolidChat AI /342/200/224 Dashboard_files/2749-813e790c6d285a2a.js.download"`.
 - Menambahkan `"apps/dashboard/public/notification/new-massages/SolidChat AI /342/200/224 Dashboard_files/5b8f0dd8-b309f9b8684827b4.js.download"`.
@@ -29,6 +80,7 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 - Menghapus tautan “Lupa password?” dari halaman login dashboard agar alur pemulihan password tidak ditawarkan saat login.
 
 ### Fixed
+- Memindahkan navigasi WhatsApp keluar dari section khusus Superadmin agar seluruh admin yang memiliki permission `integration.manage` dapat melihat dan membuka halaman WhatsApp.
 - Memastikan tombol logout di Topbar selalu menuju `/login?loggedOut=1` sebelum komponen dashboard terlepas, sehingga login Clara berikutnya benar-benar memaksa autentikasi ulang.
 
 ## [0.23.2] - 2026-10-20
@@ -1205,7 +1257,8 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 - Memperbarui `apps/dashboard/src/app/(dashboard)/knowledge/page.tsx`.
 - Memperbarui `package.json`.
 
-[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.23.2...HEAD
+[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.23.3...HEAD
+[0.23.3]: https://github.com/bizdevsg/live-chat/compare/v0.23.2...v0.23.3
 [0.23.2]: https://github.com/bizdevsg/live-chat/compare/v0.23.1...v0.23.2
 [0.23.1]: https://github.com/bizdevsg/live-chat/compare/v0.23.0...v0.23.1
 [0.23.0]: https://github.com/bizdevsg/live-chat/compare/v0.22.2...v0.23.0

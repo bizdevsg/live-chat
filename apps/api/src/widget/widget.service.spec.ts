@@ -1,4 +1,5 @@
 import { WidgetService } from "./widget.service";
+import jwt from "jsonwebtoken";
 
 describe("WidgetService.ensureConversation", () => {
   function createService() {
@@ -50,5 +51,95 @@ describe("WidgetService.ensureConversation", () => {
         skipRouting: true,
       }),
     );
+  });
+});
+
+describe("WidgetService.identify", () => {
+  const secret = "customer_identity_test_secret";
+
+  function createIdentityService() {
+    const prisma = {
+      site: { findUniqueOrThrow: jest.fn().mockResolvedValue({ id: "site-db-1", siteKey: "site-public-1" }) },
+      customerIdentity: {
+        findUnique: jest.fn().mockResolvedValue(null),
+        create: jest.fn().mockResolvedValue({ id: "identity-1" }),
+      },
+      customer: {
+        upsert: jest.fn().mockImplementation(({ create }) => Promise.resolve({ id: "customer-1", ...create })),
+      },
+    };
+    const conversations = { getActiveConversation: jest.fn().mockResolvedValue(null) };
+    const config = {
+      get: jest.fn((key: string) => {
+        if (key === "CUSTOMER_IDENTITY_JWT_SECRET") return secret;
+        if (key === "CUSTOMER_IDENTITY_ISSUER") return "sg-berjangka.com";
+        if (key === "CUSTOMER_IDENTITY_AUDIENCE") return "solidchat";
+        return undefined;
+      }),
+    };
+    const service = new WidgetService(
+      prisma as never,
+      conversations as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      config as never,
+    );
+
+    return { service, prisma };
+  }
+
+  it("uses the normalized email as customer name when the JWT does not contain name", async () => {
+    const { service, prisma } = createIdentityService();
+    const identityToken = jwt.sign(
+      {
+        sub: "customer-123",
+        siteId: "site-public-1",
+        email: " Customer@Example.com ",
+        accountStatus: "active",
+      },
+      secret,
+      {
+        issuer: "sg-berjangka.com",
+        audience: "solidchat",
+        jwtid: "identity-token-1",
+        expiresIn: "5m",
+      },
+    );
+
+    await expect(service.identify("site-db-1", "visitor-1", identityToken)).resolves.toEqual({
+      customerId: "customer-1",
+      name: "customer@example.com",
+    });
+    expect(prisma.customer.upsert).toHaveBeenCalledWith({
+      where: { siteId_externalId: { siteId: "site-db-1", externalId: "customer-123" } },
+      update: { name: "customer@example.com", email: "customer@example.com", accountStatus: "active" },
+      create: {
+        siteId: "site-db-1",
+        externalId: "customer-123",
+        name: "customer@example.com",
+        email: "customer@example.com",
+        accountStatus: "active",
+      },
+    });
+  });
+
+  it("rejects an identity JWT without a valid email", async () => {
+    const { service, prisma } = createIdentityService();
+    const identityToken = jwt.sign(
+      { sub: "customer-123", siteId: "site-public-1", accountStatus: "active" },
+      secret,
+      {
+        issuer: "sg-berjangka.com",
+        audience: "solidchat",
+        jwtid: "identity-token-2",
+        expiresIn: "5m",
+      },
+    );
+
+    await expect(service.identify("site-db-1", "visitor-1", identityToken)).rejects.toThrow(
+      "Identity token wajib berisi email customer yang valid.",
+    );
+    expect(prisma.customer.upsert).not.toHaveBeenCalled();
   });
 });

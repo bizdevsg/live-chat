@@ -8,6 +8,7 @@ volumes:
   mysql-data:
   redis-data:
   minio-data:
+  waha-sessions:
 
 services:
   mysql:
@@ -61,6 +62,25 @@ services:
       timeout: 5s
       retries: 10
 
+  waha:
+    image: devlikeapro/waha:latest
+    restart: unless-stopped
+    environment:
+      WAHA_API_KEY: ${WAHA_API_KEY:?WAHA_API_KEY is required}
+      WAHA_DASHBOARD_ENABLED: "false"
+      WAHA_DASHBOARD_USERNAME: admin
+      WAHA_DASHBOARD_PASSWORD: ${WAHA_API_KEY:?WAHA_API_KEY is required}
+      WHATSAPP_SWAGGER_ENABLED: "false"
+      WHATSAPP_SWAGGER_USERNAME: admin
+      WHATSAPP_SWAGGER_PASSWORD: ${WAHA_API_KEY:?WAHA_API_KEY is required}
+      WHATSAPP_DEFAULT_ENGINE: NOWEB
+      WAHA_NAMESPACE: all
+      WAHA_PRINT_QR: "false"
+      TZ: ${DEFAULT_TIMEZONE:-Asia/Jakarta}
+    volumes:
+      - waha-sessions:/app/.sessions
+    networks: [solidchat-internal]
+
   phpmyadmin:
     image: phpmyadmin:latest
     restart: unless-stopped
@@ -89,6 +109,7 @@ services:
       mysql: { condition: service_healthy }
       redis: { condition: service_healthy }
       minio: { condition: service_healthy }
+      waha: { condition: service_started }
     networks: [solidchat-internal]
     ports:
       - "4000:4000"

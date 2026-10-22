@@ -16,7 +16,7 @@
 
 - The browser-reported `pageUrl` is checked against the site's `SiteDomain` allowlist server-side before a session token is issued; failures are logged as `DOMAIN_NOT_ALLOWED` security events.
 - IP addresses are hashed (`sha256`, truncated) before being stored on `Visitor.lastIpHash` — never stored raw.
-- Authenticated-customer identity is never trusted as plain JSON from the browser. The Solid Gold main site backend signs a JWT (`CustomerIdentityTokenPayload`) containing `sub/siteId/name/email/accountStatus/jti/exp`; SolidChat verifies signature, issuer, audience, expiration, and `siteId`, and rejects a reused `jti` (replay protection, tracked in `CustomerIdentity`). No role/permission claim is ever accepted from this token.
+- Authenticated-customer identity is never trusted as plain JSON from the browser. The Solid Gold main site backend signs a JWT (`CustomerIdentityTokenPayload`) containing `sub/siteId/email/accountStatus/jti/exp` and an optional `name`; SolidChat verifies signature, issuer, audience, expiration, `siteId`, and the required email, then rejects a reused `jti` (replay protection, tracked in `CustomerIdentity`). When `name` is absent or blank, the normalized email is used as the customer display name. No role/permission claim is ever accepted from this token.
 
 ## Sensitive data & prompt injection
 

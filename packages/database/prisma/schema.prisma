@@ -31,6 +31,7 @@ model Organization {
   responseTemplates ResponseTemplate[]
   featureFlags      FeatureFlag[]
   knowledgeCategories KnowledgeCategory[]
+  whatsappConnection WhatsAppConnection?
 
   @@map("organizations")
 }
@@ -67,6 +68,7 @@ model Site {
   aiRuns              AiRun[]
   tickets            Ticket[]
   analyticsDaily     AnalyticsDaily[]
+  whatsappConnections WhatsAppConnection[]
 
   @@index([organizationId])
   @@map("sites")
@@ -461,6 +463,7 @@ model Conversation {
   aiRuns       AiRun[]
   leads        Lead[]
   feedback     CustomerFeedback[]
+  whatsappChat WhatsAppConversation?
 
   @@index([organizationId, status])
   @@index([siteId, status])
@@ -560,6 +563,8 @@ model Message {
   clientMessageId   String?   @map("client_message_id")
   aiRunId           String?   @map("ai_run_id")
   metadata          Json?
+  externalMessageId String?   @map("external_message_id")
+  deliveryStatus    String?   @map("delivery_status")
   createdAt         DateTime  @default(now()) @map("created_at")
   updatedAt         DateTime  @updatedAt @map("updated_at")
   deletedAt         DateTime? @map("deleted_at")
@@ -571,7 +576,50 @@ model Message {
 
   @@unique([conversationId, clientMessageId])
   @@index([conversationId, createdAt])
+  @@index([externalMessageId])
   @@map("messages")
+}
+
+// One WhatsApp number/session belongs to one SolidChat organization. The selected site
+// determines which routing rules, AI configuration, and knowledge base handle new chats.
+model WhatsAppConnection {
+  id             String    @id @default(cuid())
+  organizationId String    @unique @map("organization_id")
+  siteId         String    @map("site_id")
+  sessionName    String    @unique @map("session_name")
+  phoneNumber    String?   @map("phone_number")
+  status         String    @default("DISCONNECTED")
+  engine         String    @default("NOWEB")
+  lastError      String?   @db.Text @map("last_error")
+  connectedAt    DateTime? @map("connected_at")
+  lastSeenAt     DateTime? @map("last_seen_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  organization Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  site         Site                   @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  chats        WhatsAppConversation[]
+
+  @@index([siteId])
+  @@map("whatsapp_connections")
+}
+
+// A contact may start a new SolidChat conversation after an earlier one was closed, therefore
+// chatId is indexed rather than globally unique. conversationId remains one-to-one.
+model WhatsAppConversation {
+  id             String   @id @default(cuid())
+  connectionId   String   @map("connection_id")
+  conversationId String   @unique @map("conversation_id")
+  chatId         String   @map("chat_id")
+  contactName    String?  @map("contact_name")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  connection   WhatsAppConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  conversation Conversation       @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([connectionId, chatId])
+  @@map("whatsapp_conversations")
 }
 
 model MessageAttachment {

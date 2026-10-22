@@ -91,6 +91,8 @@ describe("ConversationsService.autoReturnToAiOnAgentTimeout", () => {
         clientMessageId: null,
         aiRunId: null,
         metadata: null,
+        externalMessageId: null,
+        deliveryStatus: null,
         senderName: null,
         attachments: [],
       },

@@ -32,6 +32,7 @@ import { CrmModule } from "./crm/crm.module";
 import { ClaraWebhookModule } from "./clara-webhook/clara-webhook.module";
 import { ExtensionTokenModule } from "./auth/extension-token/extension-token.module";
 import { ExtensionModule } from "./extension/extension.module";
+import { WhatsAppModule } from "./whatsapp/whatsapp.module";
 
 @Module({
   imports: [
@@ -70,6 +71,7 @@ import { ExtensionModule } from "./extension/extension.module";
     ClaraWebhookModule,
     ExtensionTokenModule,
     ExtensionModule,
+    WhatsAppModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },

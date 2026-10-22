@@ -5,7 +5,9 @@ import { ConversationsService } from "./conversations.service";
 import { ConversationTimeoutProcessor } from "./conversation-timeout.processor";
 
 @Module({
-  imports: [BullModule.registerQueue({ name: QUEUE_NAMES.CONVERSATION_TIMEOUT })],
+  imports: [
+    BullModule.registerQueue({ name: QUEUE_NAMES.CONVERSATION_TIMEOUT }),
+  ],
   providers: [ConversationsService, ConversationTimeoutProcessor],
   exports: [ConversationsService],
 })

@@ -104,6 +104,14 @@ function SidebarIcon({ icon, active }: { icon: NavIcon; active: boolean }) {
         <path {...commonProps} d="M12 16h.01" />
       </>
     ),
+    whatsapp: (
+      <>
+        <path {...commonProps} d="M5 19.5 6.2 16A8 8 0 1 1 9 18.4Z" />
+        <path {...commonProps} d="M9 8.5c.4 2.6 2.4 4.6 5 5" />
+        <path {...commonProps} d="m9 8.5 1.5-.7 1 2-1 .8" />
+        <path {...commonProps} d="m14 13.5.8-1 2 1-.6 1.5" />
+      </>
+    ),
     route: (
       <>
         <circle {...commonProps} cx="6.5" cy="6.5" r="2.5" />

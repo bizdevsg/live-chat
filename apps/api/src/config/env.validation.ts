@@ -121,6 +121,14 @@ const envSchema = z.object({
   EXTENSION_TOKEN_TTL_SECONDS: z.coerce.number().int().min(60).max(3600).default(900),
   WHATSAPP_ASSISTANT_ALLOW_LEGACY_API_KEY: booleanEnv(false),
 
+  // WAHA transport for the native WhatsApp inbox. All four values are optional so existing
+  // deployments keep booting; connection endpoints report an unavailable integration until
+  // WAHA_API_URL/API_KEY and the public webhook URL/HMAC key are configured.
+  WAHA_API_URL: z.string().default(""),
+  WAHA_API_KEY: optionalSecret(16),
+  WAHA_WEBHOOK_URL: z.string().default(""),
+  WAHA_WEBHOOK_HMAC_KEY: optionalSecret(32),
+
   S3_ENDPOINT: z.string().default("http://localhost:9000"),
   // Browser-reachable object-store endpoint used ONLY when signing download URLs. In Docker the
   // API reaches MinIO over the internal network (S3_ENDPOINT=http://minio:9000), but the <img>
