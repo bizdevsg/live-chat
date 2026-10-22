@@ -3,6 +3,10 @@
 Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
+### Changed
+- Memperbarui `package.json`.
+
+## [0.24.0] - 2026-10-22
 ### Added
 - Menambahkan `apps/api/src/whatsapp/dto/whatsapp.dto.ts`.
 - Menambahkan `apps/api/src/whatsapp/waha-client.service.ts`.
@@ -1257,7 +1261,8 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 - Memperbarui `apps/dashboard/src/app/(dashboard)/knowledge/page.tsx`.
 - Memperbarui `package.json`.
 
-[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.23.3...HEAD
+[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.24.0...HEAD
+[0.24.0]: https://github.com/bizdevsg/live-chat/compare/v0.23.3...v0.24.0
 [0.23.3]: https://github.com/bizdevsg/live-chat/compare/v0.23.2...v0.23.3
 [0.23.2]: https://github.com/bizdevsg/live-chat/compare/v0.23.1...v0.23.2
 [0.23.1]: https://github.com/bizdevsg/live-chat/compare/v0.23.0...v0.23.1
