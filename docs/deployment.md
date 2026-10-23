@@ -2,7 +2,7 @@
 
 ## Local development (no Docker)
 
-Requires: Node 20+, pnpm (via `corepack enable`), a local MySQL 8 server, and a local Redis server.
+Requires: Node 24.22.1+ LTS, pnpm (via `corepack enable`), a local MySQL 8 server, and a local Redis server.
 
 ```bash
 pnpm install

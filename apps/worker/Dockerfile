@@ -1,6 +1,6 @@
 # Build context MUST be the monorepo root: `docker build -f apps/worker/Dockerfile .`
 # Keep Prisma on a glibc/OpenSSL runtime to avoid Alpine musl engine issues.
-FROM node:20-bookworm-slim AS build
+FROM node:24.22.1-bookworm-slim AS build
 RUN corepack enable && apt-get update && apt-get install -y --no-install-recommends openssl ca-certificates && rm -rf /var/lib/apt/lists/*
 WORKDIR /repo
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml turbo.json ./
@@ -27,7 +27,7 @@ RUN set -eux; \
 RUN pnpm --filter @solidchat/database generate
 RUN pnpm exec turbo run build --filter=@solidchat/worker...
 
-FROM node:20-bookworm-slim AS runtime
+FROM node:24.22.1-bookworm-slim AS runtime
 RUN corepack enable && apt-get update && apt-get install -y --no-install-recommends openssl ca-certificates && rm -rf /var/lib/apt/lists/*
 WORKDIR /repo
 ENV NODE_ENV=production

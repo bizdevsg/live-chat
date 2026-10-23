@@ -3,7 +3,12 @@
 Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
-- Belum ada perubahan terdeteksi.
+
+### Added
+- Menambahkan `.nvmrc` agar environment lokal menggunakan Node.js 24.22.1 LTS yang sama dengan CI dan Docker.
+
+### Changed
+- Menaikkan runtime minimum project, GitHub Actions, dan seluruh build/runtime image Docker dari Node.js 20 ke Node.js 24.22.1 LTS karena Node.js 20 telah berstatus EOL.
 
 ## [0.24.1] - 2026-10-22
 ### Changed

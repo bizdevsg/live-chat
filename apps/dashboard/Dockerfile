@@ -1,6 +1,6 @@
 # Build context MUST be the monorepo root: `docker build -f apps/dashboard/Dockerfile .`
 # Prisma is more reliable on Debian-based Node images than Alpine musl.
-FROM node:20-bookworm-slim AS build
+FROM node:24.22.1-bookworm-slim AS build
 RUN corepack enable && apt-get update && apt-get install -y --no-install-recommends openssl ca-certificates && rm -rf /var/lib/apt/lists/*
 WORKDIR /repo
 ARG NEXT_PUBLIC_API_URL=http://localhost:4000
@@ -32,7 +32,7 @@ RUN set -eux; \
     done
 RUN pnpm exec turbo run build --filter=@solidchat/dashboard...
 
-FROM node:20-bookworm-slim AS runtime
+FROM node:24.22.1-bookworm-slim AS runtime
 RUN corepack enable && apt-get update && apt-get install -y --no-install-recommends openssl ca-certificates && rm -rf /var/lib/apt/lists/*
 WORKDIR /repo
 ENV NODE_ENV=production

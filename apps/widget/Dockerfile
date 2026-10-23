@@ -2,7 +2,7 @@
 # Produces a single static nginx image serving both the widget iframe app (chat SPA) and
 # widget.js (the loader) from the same origin, matching §42's "chat.sg-berjangka.com" host.
 # Prisma workspace dependencies are more stable on Debian-based Node images.
-FROM node:20-bookworm-slim AS build
+FROM node:24.22.1-bookworm-slim AS build
 RUN corepack enable && apt-get update && apt-get install -y --no-install-recommends openssl ca-certificates && rm -rf /var/lib/apt/lists/*
 WORKDIR /repo
 ARG VITE_API_URL=http://localhost:4000
