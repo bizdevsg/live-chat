@@ -29,11 +29,7 @@ function wildcardMatches(hostname: string, pattern: string) {
 }
 
 async function bootstrap() {
-  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
-    bufferLogs: true,
-    bodyParser: false,
-    rawBody: true,
-  });
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, { bufferLogs: true, bodyParser: false });
   const config = app.get(ConfigService);
   const prisma = app.get(PrismaService);
   const isProduction = config.get<string>("NODE_ENV") === "production";

@@ -3,12 +3,38 @@
 Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
-
 ### Added
 - Menambahkan `.nvmrc` agar environment lokal menggunakan Node.js 24.22.1 LTS yang sama dengan CI dan Docker.
+- Menambahkan `packages/database/prisma/migrations/20261102120000_remove_waha_whatsapp_inbox/migration.sql`.
 
 ### Changed
+- Memperbarui `.env.example`.
+- Memperbarui `apps/api/src/app.module.ts`.
+- Memperbarui `apps/api/src/config/env.validation.ts`.
+- Memperbarui `apps/api/src/conversations/conversations.service.spec.ts`.
+- Memperbarui `apps/api/src/conversations/conversations.service.ts`.
+- Memperbarui `apps/api/src/main.ts`.
+- Memperbarui `apps/dashboard/src/components/layout/nav-items.ts`.
+- Memperbarui `apps/dashboard/src/components/layout/sidebar.tsx`.
+- Memperbarui `docker-compose.yml`.
+- Memperbarui `docs/api.md`.
+- Memperbarui `packages/database/prisma/schema.prisma`.
 - Menaikkan runtime minimum project, GitHub Actions, dan seluruh build/runtime image Docker dari Node.js 20 ke Node.js 24.22.1 LTS karena Node.js 20 telah berstatus EOL.
+
+### Removed
+- Menghapus `apps/api/src/whatsapp/dto/whatsapp.dto.ts`.
+- Menghapus `apps/api/src/whatsapp/waha-client.service.ts`.
+- Menghapus `apps/api/src/whatsapp/whatsapp-connection.service.ts`.
+- Menghapus `apps/api/src/whatsapp/whatsapp-inbound.service.spec.ts`.
+- Menghapus `apps/api/src/whatsapp/whatsapp-inbound.service.ts`.
+- Menghapus `apps/api/src/whatsapp/whatsapp-inbox.service.spec.ts`.
+- Menghapus `apps/api/src/whatsapp/whatsapp-inbox.service.ts`.
+- Menghapus `apps/api/src/whatsapp/whatsapp.controller.spec.ts`.
+- Menghapus `apps/api/src/whatsapp/whatsapp.controller.ts`.
+- Menghapus `apps/api/src/whatsapp/whatsapp.module.ts`.
+- Menghapus `apps/dashboard/src/app/(dashboard)/whatsapp/page.tsx`.
+- Menghapus `docs/waha-whatsapp-inbox.md`.
+- Menghapus integrasi WhatsApp/WAHA dari API, dashboard, konfigurasi, dan dokumentasi, beserta migrasi untuk menghapus data terkait dari skema database.
 
 ## [0.24.1] - 2026-10-22
 ### Changed

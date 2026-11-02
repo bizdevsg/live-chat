@@ -60,16 +60,6 @@ API eksternal read-only menggunakan header `X-Knowledge-API-Key`. `GET /document
 
 `GET /status` dan `POST /reply` menggunakan header `X-WhatsApp-Assistant-Key`, bukan sesi user Dashboard. Payload reply berisi `prompt`, `systemPrompt` yang dibundel oleh extension, `messages` (1-50 item dengan `senderType: "CUSTOMER" | "AGENT"` dan `content`), serta `siteId`/`conversationTitle` opsional. Jika `WHATSAPP_ASSISTANT_SITE_ID` disetel, site tersebut menjadi default. Backend hanya mengambil knowledge dari database dan tidak membaca/menyimpan prompt extension di `ai_prompts`. Respons berisi draft berbasis knowledge, confidence, sumber, ringkasan klasifikasi, `canAutoReply`, dan `autoReplyBlockedReason`. Endpoint ini tidak membuat atau menambahkan data ke conversation SolidChat.
 
-## Native WhatsApp inbox via WAHA (`/api/v1/whatsapp`)
-
-`POST /connection`, `GET /connection/qr`, dan `DELETE /connection` memerlukan permission
-`integration.manage`. `GET /connection` serta endpoint inbox `GET /chats`,
-`GET /chats/:chatId/contact`, `GET/POST /chats/:chatId/messages`, dan `POST /chats/:chatId/read`
-memerlukan `conversation.handle`. Chat, contact, nomor, foto, history, dan delivery state dibaca
-langsung dari WAHA Store. Integrasi ini tidak membuat conversation Live Chat dan tidak menjalankan AI.
-Webhook `POST /webhooks/waha` bersifat public tetapi wajib membawa `X-Webhook-Hmac` SHA-512 valid.
-Lihat [`waha-whatsapp-inbox.md`](./waha-whatsapp-inbox.md) untuk deployment dan alur lengkap.
-
 ## Tickets (`/api/v1/tickets`)
 
 `GET/POST /`, `GET/PUT /:id`, `POST /:id/comments`, `POST /:id/assign`, `POST /:id/{resolve,close,reopen}`.

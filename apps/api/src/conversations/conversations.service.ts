@@ -42,8 +42,6 @@ export interface PostMessageInput {
   clientMessageId?: string;
   aiRunId?: string;
   metadata?: Record<string, unknown>;
-  externalMessageId?: string;
-  deliveryStatus?: string;
   attachments?: Array<{ storageKey: string; fileName: string; mimeType: string; sizeBytes: number; isInternal?: boolean }>;
 }
 
@@ -492,8 +490,6 @@ export class ConversationsService {
           clientMessageId: input.clientMessageId,
           aiRunId: input.aiRunId,
           metadata: input.metadata as object | undefined,
-          externalMessageId: input.externalMessageId,
-          deliveryStatus: input.deliveryStatus,
           attachments: input.attachments?.length
             ? { create: input.attachments.map((attachment) => ({ ...attachment, isInternal: attachment.isInternal ?? false, scanStatus: "CLEAN" })) }
             : undefined,

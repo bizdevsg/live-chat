@@ -12,7 +12,6 @@ export type NavIcon =
   | "bot"
   | "message"
   | "widget"
-  | "whatsapp"
   | "route"
   | "team"
   | "shield"
@@ -48,7 +47,6 @@ export const NAV_SECTIONS: NavSection[] = [
       { href: "/tickets", label: "Tickets", icon: "ticket", permission: Permission.TICKET_MANAGE },
       { href: "/customers", label: "Customers", icon: "users", permission: Permission.CUSTOMER_VIEW },
       { href: "/leads", label: "Leads", icon: "lead", permission: Permission.LEAD_VIEW },
-      { href: "/whatsapp", label: "WhatsApp", icon: "whatsapp", permission: Permission.CONVERSATION_HANDLE },
     ],
   },
   {
