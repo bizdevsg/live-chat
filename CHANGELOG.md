@@ -3,6 +3,9 @@
 Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
+- Belum ada perubahan terdeteksi.
+
+## [0.25.1] - 2026-11-04
 ### Changed
 - Memperbarui `package.json`.
 
@@ -1387,7 +1390,8 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 - Memperbarui `apps/dashboard/src/app/(dashboard)/knowledge/page.tsx`.
 - Memperbarui `package.json`.
 
-[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.25.0...HEAD
+[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.25.1...HEAD
+[0.25.1]: https://github.com/bizdevsg/live-chat/compare/v0.25.0...v0.25.1
 [0.25.0]: https://github.com/bizdevsg/live-chat/compare/v0.24.2...v0.25.0
 [0.24.2]: https://github.com/bizdevsg/live-chat/compare/v0.24.1...v0.24.2
 [0.24.1]: https://github.com/bizdevsg/live-chat/compare/v0.24.0...v0.24.1
