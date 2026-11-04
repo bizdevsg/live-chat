@@ -59,4 +59,36 @@ describe("HandoffEvaluatorService", () => {
     const result = evaluator.evaluate("saya sangat kecewa dengan pelayanan ini", classification({ sentiment: "ANGRY" }));
     expect(result).toBe(HandoffReason.ANGRY_CUSTOMER);
   });
+
+  describe("withdrawal issue regression (bare \"lama\"/\"pending\" false positive)", () => {
+    it("does not flag a plain duration question as a withdrawal issue", () => {
+      const result = evaluator.evaluate("withdraw berapa lama?", classification({ intent: AiIntent.WITHDRAWAL }));
+      expect(result).toBeNull();
+    });
+
+    it("does not flag a routine withdrawal status question", () => {
+      const result = evaluator.evaluate("withdraw pending ya prosesnya?", classification({ intent: AiIntent.WITHDRAWAL }));
+      expect(result).toBeNull();
+    });
+
+    it("still detects an explicit withdrawal complaint (belum masuk)", () => {
+      const result = evaluator.evaluate("withdraw saya belum masuk-masuk", classification({ intent: AiIntent.WITHDRAWAL }));
+      expect(result).toBe(HandoffReason.WITHDRAWAL_ISSUE);
+    });
+
+    it("still detects a complaint phrased as \"kok lama\"", () => {
+      const result = evaluator.evaluate("withdraw saya kok lama ya?", classification({ intent: AiIntent.WITHDRAWAL }));
+      expect(result).toBe(HandoffReason.WITHDRAWAL_ISSUE);
+    });
+
+    it("still detects a complaint phrased as \"sudah ... lama\"", () => {
+      const result = evaluator.evaluate("withdraw saya sudah 3 hari lama banget belum cair", classification({ intent: AiIntent.WITHDRAWAL }));
+      expect(result).toBe(HandoffReason.WITHDRAWAL_ISSUE);
+    });
+
+    it("still detects a withdrawal marked as gagal", () => {
+      const result = evaluator.evaluate("withdraw saya gagal terus", classification({ intent: AiIntent.WITHDRAWAL }));
+      expect(result).toBe(HandoffReason.WITHDRAWAL_ISSUE);
+    });
+  });
 });

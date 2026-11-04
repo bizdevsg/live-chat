@@ -3,11 +3,12 @@
 Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
-
 ### Added
 - Menambahkan ekspor knowledge base sebagai arsip ZIP berisi artikel Markdown beserta pengujiannya.
 
 ### Changed
+- Memperbarui `apps/api/src/ai/handoff-evaluator.service.spec.ts`.
+- Memperbarui `apps/api/src/ai/handoff-evaluator.service.ts`.
 - Memperbarui halaman dashboard, knowledge, profil, routing, tiket, dan widget untuk menyempurnakan alur pengguna.
 
 ### Fixed

@@ -9,7 +9,13 @@ const RULES: Array<{ reason: HandoffReason; test: (message: string, classificati
   { reason: HandoffReason.ACCOUNT_LOCKED, test: (m) => /(akun (saya )?terkunci|tidak bisa login|lupa password)/i.test(m) },
   { reason: HandoffReason.LOGIN_ISSUE, test: (m) => /(gagal login|tidak bisa masuk akun)/i.test(m) },
   { reason: HandoffReason.DEPOSIT_ISSUE, test: (m, c) => c.intent === AiIntent.DEPOSIT && /(belum masuk|gagal|bermasalah|pending)/i.test(m) },
-  { reason: HandoffReason.WITHDRAWAL_ISSUE, test: (m, c) => c.intent === AiIntent.WITHDRAWAL && /(belum masuk|gagal|bermasalah|lama|pending)/i.test(m) },
+  {
+    reason: HandoffReason.WITHDRAWAL_ISSUE,
+    // Narrowed to actual complaint phrasing (§bugfix: "berapa lama withdraw?" was
+    // false-positiving on the bare "lama"/"pending" tokens and forcing an unwanted
+    // handoff for a plain duration question the AI could answer from the knowledge base).
+    test: (m, c) => c.intent === AiIntent.WITHDRAWAL && /(belum (masuk|cair|diproses)|gagal|bermasalah|kok lama|sudah.*lama)/i.test(m),
+  },
   { reason: HandoffReason.TRANSACTION_DISPUTE, test: (m) => /(selisih dana|transaksi (salah|tidak sesuai)|dispute)/i.test(m) },
   { reason: HandoffReason.PERSONAL_DATA_CHANGE, test: (m) => /(ubah (data|nomor|email) (pribadi|akun)|ganti (nomor hp|email))/i.test(m) },
   { reason: HandoffReason.DOCUMENT_VERIFICATION, test: (m) => /(verifikasi (dokumen|ktp|npwp)|upload ktp)/i.test(m) },
