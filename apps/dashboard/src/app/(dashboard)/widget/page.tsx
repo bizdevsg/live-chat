@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient, ApiError } from "@/lib/api-client";
@@ -58,7 +59,6 @@ export default function WidgetSettingsPage() {
   const toast = useToast();
   const sitesQuery = useQuery({ queryKey: ["sites"], queryFn: () => apiClient.get<Site[]>("/api/v1/admin/sites") });
   const site = sitesQuery.data?.[0];
-  const [newDomain, setNewDomain] = useState("");
   const [settings, setSettings] = useState<WidgetSettingsForm | null>(null);
 
   useEffect(() => {
@@ -74,15 +74,6 @@ export default function WidgetSettingsPage() {
       invalidate();
     },
     onError: (err) => toast.push(err instanceof ApiError ? err.message : "Gagal menyimpan.", "error"),
-  });
-
-  const addDomain = useMutation({
-    mutationFn: () => apiClient.post(`/api/v1/admin/sites/${site!.id}/domains`, { domain: newDomain }),
-    onSuccess: () => {
-      setNewDomain("");
-      invalidate();
-    },
-    onError: (err) => toast.push(err instanceof ApiError ? err.message : "Gagal menambah domain.", "error"),
   });
 
   const removeDomain = useMutation({
@@ -114,17 +105,17 @@ export default function WidgetSettingsPage() {
           />
           <div className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
           <DashboardTablePanel title="Script pemasangan" detail="Gunakan snippet ini untuk menyematkan widget ke website tujuan.">
-          <div className="px-5 py-5 md:px-6 md:py-6">
+          <div className="px-5 py-5">
           <p className="mb-2 text-xs text-zinc-500">Tempelkan snippet ini sebelum tag &lt;/body&gt; di website Solid Gold.</p>
-          <pre className="scrollbar-thin overflow-x-auto rounded-2xl border border-ink-600 bg-ink-900 p-4 text-xs text-emerald-400">{embedScript}</pre>
+          <pre className="scrollbar-thin overflow-x-auto rounded-xl border border-ink-600 bg-ink-900 p-4 text-xs text-emerald-400">{embedScript}</pre>
           </div>
         </DashboardTablePanel>
 
         <DashboardTablePanel title="Domain governance" detail="Kelola origin yang berhak memuat widget agar distribusi tetap aman dan terkontrol.">
-          <div className="px-5 py-5 md:px-6 md:py-6">
+          <div className="px-5 py-5">
           <ul className="mb-3 space-y-1">
             {site.domains.map((d) => (
-              <li key={d.id} className="flex items-center justify-between rounded-2xl border border-ink-600 bg-ink-900/70 px-3 py-3 text-sm text-zinc-300">
+              <li key={d.id} className="flex items-center justify-between rounded-xl border border-ink-600 bg-ink-900/70 px-3 py-3 text-sm text-zinc-300">
                 {d.domain}
                 <button className="text-xs text-red-400 hover:underline" onClick={() => removeDomain.mutate(d.id)}>
                   Hapus
@@ -132,18 +123,15 @@ export default function WidgetSettingsPage() {
               </li>
             ))}
           </ul>
-          <div className="flex gap-2">
-            <Input placeholder="sg-berjangka.com atau https://domain.com/path" value={newDomain} onChange={(e) => setNewDomain(e.target.value)} />
-              <Button variant="secondary" onClick={() => addDomain.mutate()} disabled={!newDomain}>
-                Tambah
-              </Button>
-            </div>
+          <Link href="/widget/domains/new">
+            <Button variant="secondary">+ Tambah Domain</Button>
+          </Link>
           </div>
         </DashboardTablePanel>
           </div>
 
         <DashboardTablePanel title="Perilaku widget" detail="Atur bagaimana widget AI dan human handoff berperilaku di sisi pengunjung website.">
-          <div className="px-5 py-5 md:px-6 md:py-6">
+          <div className="px-5 py-5">
           <div className="space-y-2">
             {(
               [
@@ -155,7 +143,7 @@ export default function WidgetSettingsPage() {
                 ["ratingFormEnabled", "Tampilkan form rating"],
               ] as const
             ).map(([key, label]) => (
-              <label key={key} className="flex cursor-pointer items-center justify-between gap-4 rounded-2xl border border-ink-600 bg-ink-800/70 px-4 py-3 text-sm text-zinc-300 transition hover:border-ink-500">
+              <label key={key} className="flex cursor-pointer items-center justify-between gap-4 rounded-xl border border-ink-600 bg-ink-800 px-4 py-3 text-sm text-zinc-300 transition hover:border-ink-500">
                 <span className="font-medium">{label}</span>
                 <span className="inline-flex items-center gap-2 text-xs text-zinc-400">
                   <span>{settings[key] ? "On" : "Off"}</span>
@@ -174,7 +162,7 @@ export default function WidgetSettingsPage() {
               </label>
             ))}
           </div>
-          <div className="mt-4 rounded-2xl border border-ink-600 bg-ink-800/70 px-4 py-4">
+          <div className="mt-4 rounded-xl border border-ink-600 bg-ink-800 px-4 py-4">
             <label className="block text-sm text-zinc-300">
               <span className="mb-2 block">Label tombol hubungi agent</span>
               <Input
@@ -190,7 +178,7 @@ export default function WidgetSettingsPage() {
             </label>
             <p className="mt-2 text-xs text-zinc-500">Teks ini dipakai langsung oleh widget untuk tombol permintaan agent.</p>
           </div>
-          <div className="mt-4 rounded-2xl border border-ink-600 bg-ink-800/70 px-4 py-4">
+          <div className="mt-4 rounded-xl border border-ink-600 bg-ink-800 px-4 py-4">
             <label className="block text-sm text-zinc-300">
               <span className="mb-2 block">Waktu tunggu balasan agent (detik)</span>
               <Input

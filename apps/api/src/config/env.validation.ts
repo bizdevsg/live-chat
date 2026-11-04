@@ -54,10 +54,24 @@ const envSchema = z.object({
   CUSTOMER_IDENTITY_ISSUER: z.string().default("sg-berjangka.com"),
   CUSTOMER_IDENTITY_AUDIENCE: z.string().default("solidchat"),
 
-  // A single chat model is shared by every AI task. There is no mock provider anymore,
-  // so the API refuses to boot without a real OpenAI key.
-  OPENAI_API_KEY: z.string().min(1, "OPENAI_API_KEY is required — there is no mock AI mode"),
+  // AI provider switch. "ollama" runs every AI task on a local Ollama server; anything else
+  // (including the legacy "mock" value still used by CI) means OpenAI. There is no mock provider.
+  AI_PROVIDER: z
+    .string()
+    .optional()
+    .transform((value): "openai" | "ollama" => (value?.trim().toLowerCase() === "ollama" ? "ollama" : "openai")),
+
+  // A single chat model is shared by every AI task. With AI_PROVIDER=openai the API refuses to
+  // boot without a real OpenAI key (checked in superRefine below).
+  OPENAI_API_KEY: z.preprocess((value) => (typeof value === "string" && value.trim() === "" ? undefined : value), z.string().optional()),
   OPENAI_DEFAULT_MODEL: z.enum(["gpt-4o-mini", "gpt-4o", "gpt-4.1-mini", "gpt-4.1"]).default("gpt-4o-mini"),
+
+  // Only used when AI_PROVIDER=ollama. From inside a Docker container, the host's Ollama is
+  // reachable at host.docker.internal (docker-compose.yml maps it on Linux hosts too).
+  OLLAMA_BASE_URL: z.string().default("http://host.docker.internal:11434/v1"),
+  OLLAMA_CHAT_MODEL: z.string().min(1).default("qwen2.5:14b"),
+  OLLAMA_EMBEDDING_MODEL: z.string().min(1).default("bge-m3"),
+  OLLAMA_TIMEOUT_MS: z.coerce.number().int().min(5_000).default(120_000),
   WHATSAPP_ASSISTANT_API_KEY: z.string().min(16).optional(),
   WHATSAPP_ASSISTANT_SITE_ID: z.string().optional(),
   PUBLIC_KNOWLEDGE_API_KEY: z.string().min(16).optional(),
@@ -139,6 +153,14 @@ const envSchema = z.object({
 
   DEFAULT_TIMEZONE: z.string().default("Asia/Jakarta"),
   DEFAULT_LANGUAGE: z.string().default("id"),
+}).superRefine((env, ctx) => {
+  if (env.AI_PROVIDER === "openai" && !env.OPENAI_API_KEY) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["OPENAI_API_KEY"],
+      message: "OPENAI_API_KEY is required when AI_PROVIDER=openai — there is no mock AI mode (set AI_PROVIDER=ollama to use a local model)",
+    });
+  }
 });
 
 export type EnvConfig = z.infer<typeof envSchema>;

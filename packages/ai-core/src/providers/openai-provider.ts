@@ -29,6 +29,20 @@ export interface OpenAiProviderConfig {
   timeoutMs: number;
   maxRetries: number;
   maxOutputTokens: number;
+  /**
+   * Optional OpenAI-compatible endpoint. Unset = api.openai.com. Set to e.g.
+   * http://host.docker.internal:11434/v1 to run every call against a local Ollama server.
+   */
+  baseURL?: string;
+  /**
+   * Which text-generation surface to call. "responses" (default) = OpenAI Responses API.
+   * "chat" = Chat Completions, used for Ollama: its Chat Completions compatibility layer is the
+   * mature one and supports `response_format: json_schema` (Structured Outputs), whereas its
+   * /v1/responses endpoint is new and does not document `text.format`.
+   */
+  apiStyle?: "responses" | "chat";
+  /** Recorded as AiRun.provider (defaults to "openai"). */
+  providerName?: string;
 }
 
 function extractJson<T>(text: string, fallback: T, label = "response"): T {
@@ -457,13 +471,19 @@ function buildCalculationReviewPrompt(parts: {
  * of hanging the conversation.
  */
 export class OpenAiProvider implements AiProvider {
-  readonly name = "openai";
+  readonly name: string;
   private readonly client: OpenAI;
   private inputTokens = 0;
   private outputTokens = 0;
 
   constructor(private readonly config: OpenAiProviderConfig) {
-    this.client = new OpenAI({ apiKey: config.apiKey, timeout: config.timeoutMs, maxRetries: config.maxRetries });
+    this.name = config.providerName ?? "openai";
+    this.client = new OpenAI({
+      apiKey: config.apiKey,
+      ...(config.baseURL ? { baseURL: config.baseURL } : {}),
+      timeout: config.timeoutMs,
+      maxRetries: config.maxRetries,
+    });
   }
 
   private async respond(
@@ -473,6 +493,9 @@ export class OpenAiProvider implements AiProvider {
     jsonSchema?: { name: string; schema: Record<string, unknown> },
     temperature?: number,
   ): Promise<string> {
+    if (this.config.apiStyle === "chat") {
+      return this.respondViaChatCompletions(model, systemPrompt, userPrompt, jsonSchema, temperature);
+    }
     const params: Record<string, unknown> = {
       model,
       // Temperature is set per call site, not globally, because the two jobs want opposite
@@ -512,6 +535,44 @@ export class OpenAiProvider implements AiProvider {
     this.inputTokens += response.usage?.input_tokens ?? 0;
     this.outputTokens += response.usage?.output_tokens ?? 0;
     return response.output_text ?? "";
+  }
+
+  /**
+   * Same contract as the Responses path above, over Chat Completions (used for Ollama). The
+   * schema nests under `response_format.json_schema` here; Ollama turns it into a grammar
+   * constraint so even small local models cannot return prose where JSON is expected.
+   */
+  private async respondViaChatCompletions(
+    model: string,
+    systemPrompt: string,
+    userPrompt: string,
+    jsonSchema?: { name: string; schema: Record<string, unknown> },
+    temperature?: number,
+  ): Promise<string> {
+    const params: Record<string, unknown> = {
+      model,
+      ...(temperature === undefined ? {} : { temperature }),
+      max_tokens: this.config.maxOutputTokens,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+    };
+    if (jsonSchema) {
+      params.response_format = {
+        type: "json_schema",
+        json_schema: { name: jsonSchema.name, schema: jsonSchema.schema, strict: true },
+      };
+    }
+    const response = (await this.client.chat.completions.create(
+      params as unknown as Parameters<typeof this.client.chat.completions.create>[0],
+    )) as unknown as {
+      choices?: Array<{ message?: { content?: string | null } }>;
+      usage?: { prompt_tokens?: number; completion_tokens?: number };
+    };
+    this.inputTokens += response.usage?.prompt_tokens ?? 0;
+    this.outputTokens += response.usage?.completion_tokens ?? 0;
+    return response.choices?.[0]?.message?.content ?? "";
   }
 
   consumeTokenUsage() {

@@ -32,7 +32,7 @@ export default function CustomersPage() {
         <div className="space-y-6">
           <DashboardPageHeader
             title="Customers"
-            description="Direktori customer kini ditata ulang agar tim bisa membaca identitas, status akun, dan jejak onboarding lebih cepat dari satu layar kerja."
+            description="Direktori customer: identitas, status akun, dan jejak onboarding dalam satu layar."
           />
           <DashboardPageMetrics
             items={[
@@ -53,14 +53,14 @@ export default function CustomersPage() {
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
                   placeholder="Cari nama, email, atau telepon..."
-                  className="h-11 w-full rounded-2xl border border-ink-600 bg-ink-900 py-2 pl-10 pr-4 text-sm text-zinc-200 outline-none placeholder:text-zinc-600 focus:border-gold-500"
+                  className="h-11 w-full rounded-xl border border-ink-600 bg-ink-900 py-2 pl-10 pr-4 text-sm text-zinc-200 outline-none placeholder:text-zinc-600 focus:border-gold-500"
                 />
               </label>
             }
           >
             <div className="overflow-x-auto">
               <table className="min-w-[780px] w-full text-left text-sm">
-                <thead className="text-[11px] uppercase tracking-[0.28em] text-zinc-500">
+                <thead className="text-[11px] uppercase tracking-wider text-zinc-500">
                   <tr>
                     <th className="px-5 py-4 font-medium">Customer</th>
                     <th className="px-5 py-4 font-medium">Email</th>
@@ -75,9 +75,9 @@ export default function CustomersPage() {
                 <tbody className="divide-y divide-ink-600/80">
                   {customers.map((customer) => (
                     <tr key={customer.id} className="group transition-colors hover:bg-ink-700/35">
-                      <td className="px-5 py-4">
+                      <td className="px-5 py-3.5">
                         <div className="flex items-center gap-3">
-                          <div className="grid h-10 w-10 place-items-center rounded-2xl border border-ink-600 bg-ink-700/60 text-xs font-semibold uppercase tracking-[0.18em] text-gold-400">
+                          <div className="grid h-10 w-10 place-items-center rounded-xl border border-ink-600 bg-ink-700/60 text-xs font-semibold uppercase tracking-wider text-gold-400">
                             {customer.name.slice(0, 2)}
                           </div>
                           <div>
@@ -97,7 +97,7 @@ export default function CustomersPage() {
                       <td className="px-3 py-4">
                         <Link
                           href={`/customers/${customer.id}`}
-                          className="grid h-9 w-9 place-items-center rounded-2xl border border-transparent text-zinc-500 transition-all hover:border-ink-600 hover:bg-ink-700 hover:text-gold-400"
+                          className="grid h-9 w-9 place-items-center rounded-xl border border-transparent text-zinc-500 transition-all hover:border-ink-600 hover:bg-ink-700 hover:text-gold-400"
                         >
                           <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
                         </Link>

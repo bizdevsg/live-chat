@@ -6,6 +6,8 @@ import { useParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient, ApiError } from "@/lib/api-client";
 import { useConversationRealtimeStore } from "@/lib/conversation-realtime-store";
+import { stopNewMessagesNotificationSound } from "@/lib/notification-sounds";
+import { renderTemplateVariables } from "@/lib/template-variables";
 import { getDashboardSocket } from "@/lib/socket";
 import { useAuthStore } from "@/lib/auth-store";
 import { useToast } from "@/components/ui/toast";
@@ -230,7 +232,7 @@ function MessageBubble({ message, showSeen, visitorName }: { message: MessageIte
   }
   if (isSystem) {
     return (
-      <div className="mx-auto max-w-md rounded-2xl bg-ink-700 px-4 py-2 text-center">
+      <div className="mx-auto max-w-md rounded-xl bg-ink-700 px-4 py-2 text-center">
         <div className="text-xs text-zinc-300">{message.content}</div>
         {messageTime ? <div className="mt-1 text-[10px] text-zinc-500">{messageTime}</div> : null}
       </div>
@@ -243,7 +245,7 @@ function MessageBubble({ message, showSeen, visitorName }: { message: MessageIte
         {/* Sender label and bubble border use the same colour, matching the widget conversation. */}
         <div className={`px-1 text-xs font-semibold ${senderStyle} ${mine ? "text-right" : "text-left"}`}>{senderLabel}</div>
         <div
-          className={`mt-2 rounded-2xl border text-sm leading-relaxed text-white ${hasImage ? "p-1.5" : "px-4 py-3"} ${mine ? "rounded-br-sm" : "rounded-tl-md"} ${bubbleStyle}`}
+          className={`mt-2 rounded-xl border text-sm leading-relaxed text-white ${hasImage ? "p-1.5" : "px-4 py-3"} ${mine ? "rounded-br-sm" : "rounded-tl-md"} ${bubbleStyle}`}
         >
           {hasImage ? <div className="grid gap-1">{message.attachments?.map((attachment) => (
             <ImageAttachment key={attachment.id} conversationId={message.conversationId} attachment={attachment} />
@@ -278,7 +280,6 @@ export default function ConversationDetailPage() {
   const [draft, setDraft] = useState("");
   const [note, setNote] = useState("");
   const [transferOpen, setTransferOpen] = useState(false);
-  const [ticketOpen, setTicketOpen] = useState(false);
   const [transcriptOpen, setTranscriptOpen] = useState(false);
   const [visitorTyping, setVisitorTyping] = useState(false);
   const [aiTyping, setAiTyping] = useState(false);
@@ -308,7 +309,18 @@ export default function ConversationDetailPage() {
     : (templatesQuery.data ?? []).filter((template) => template.shortcut.toLowerCase().startsWith(shortcutQuery));
 
   function insertResponseTemplate(template: ResponseTemplate) {
-    setDraft((current) => current.replace(/(^|\s)\/[a-z0-9_-]*$/i, `$1${template.content}`));
+    // Placeholders such as {{agent}} / {{customer}} / {{greeting}} are resolved here; the stored
+    // template keeps the raw placeholders (see lib/template-variables.ts).
+    const currentConversation = detailQuery.data?.conversation;
+    const currentLead = currentConversation?.leads?.[0];
+    const content = renderTemplateVariables(template.content, {
+      agentName: user?.name,
+      customerName: currentConversation?.customer?.name ?? currentLead?.name,
+      customerEmail: currentConversation?.customer?.email ?? currentLead?.email,
+      customerPhone: currentLead?.phone,
+    });
+    // Function replacer so "$" sequences inside the template text are never read as replacement patterns.
+    setDraft((current) => current.replace(/(^|\s)\/[a-z0-9_-]*$/i, (_match, lead: string) => `${lead}${content}`));
     toast.push(`Template /${template.shortcut} ditambahkan ke balasan.`, "success");
   }
 
@@ -488,16 +500,6 @@ export default function ConversationDetailPage() {
     onError: (err) => toast.push(err instanceof ApiError ? err.message : "Gagal membuat suggested reply.", "error"),
   });
   const refreshSummary = useActionMutation(`/api/v1/agent/conversations/${conversationId}/summary`);
-  const createTicket = useMutation({
-    mutationFn: (body: { subject: string; description: string; category: string }) =>
-      apiClient.post("/api/v1/tickets", { ...body, conversationId }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["tickets"] });
-      toast.push("Ticket berhasil dibuat.", "success");
-      setTicketOpen(false);
-    },
-    onError: (err) => toast.push(err instanceof ApiError ? err.message : "Gagal membuat ticket.", "error"),
-  });
 
   if (detailQuery.isLoading) return <div className="flex-1 p-6 text-sm text-zinc-500">Memuat conversation...</div>;
   if (!detailQuery.data) return <div className="flex-1 p-6 text-sm text-red-400">Conversation tidak ditemukan.</div>;
@@ -587,12 +589,12 @@ export default function ConversationDetailPage() {
               <AutoReturnCountdown deadlineAt={agentReplyDeadlineAt} />
             )}
             {isHydrated && isQueued && !conversation.assignedAgentId && (
-              <Button size="sm" onClick={() => accept.mutate(undefined)}>
+              <Button size="sm" onClick={() => accept.mutate(undefined, { onSuccess: () => stopNewMessagesNotificationSound() })}>
                 Take Over
               </Button>
             )}
             {isHydrated && isAiHandled && hasPermission(Permission.CONVERSATION_TAKEOVER) && (
-              <Button size="sm" variant="secondary" onClick={() => takeover.mutate(undefined)}>
+              <Button size="sm" variant="secondary" onClick={() => takeover.mutate(undefined, { onSuccess: () => stopNewMessagesNotificationSound() })}>
                 Take Over
               </Button>
             )}
@@ -606,9 +608,11 @@ export default function ConversationDetailPage() {
                 Transfer
               </Button>
             )}
-            <Button size="sm" variant="secondary" onClick={() => setTicketOpen(true)}>
-              Buat Ticket
-            </Button>
+            <Link href={`/inbox/${conversationId}/ticket/new`}>
+              <Button size="sm" variant="secondary">
+                Buat Ticket
+              </Button>
+            </Link>
             <Button size="sm" variant="secondary" onClick={() => setTranscriptOpen(true)}>
               <FileText className="mr-1.5 h-4 w-4" />
               Transkrip
@@ -858,9 +862,6 @@ export default function ConversationDetailPage() {
         onClose={() => setTransferOpen(false)}
         onTransfer={(toAgentId) => transfer.mutate({ toAgentId })}
       />
-      <Modal open={ticketOpen} title="Buat Ticket" onClose={() => setTicketOpen(false)}>
-        <TicketForm onSubmit={(v) => createTicket.mutate(v)} pending={createTicket.isPending} />
-      </Modal>
       <Modal open={transcriptOpen} title="Transkrip Chat" onClose={() => setTranscriptOpen(false)} panelClassName="max-w-3xl">
         <div className="space-y-4">
           <p className="text-sm text-zinc-400">Transkrip mencakup pesan customer, AI, agent, sistem, dan catatan internal.</p>
@@ -982,36 +983,3 @@ function TransferModal({ open, onClose, onTransfer }: { open: boolean; onClose: 
   );
 }
 
-function TicketForm({ onSubmit, pending }: { onSubmit: (v: { subject: string; description: string; category: string }) => void; pending: boolean }) {
-  const [subject, setSubject] = useState("");
-  const [description, setDescription] = useState("");
-  const [category, setCategory] = useState("General");
-
-  return (
-    <form
-      onSubmit={(e) => {
-        e.preventDefault();
-        onSubmit({ subject, description, category });
-      }}
-      className="space-y-3"
-    >
-      <div>
-        <Label htmlFor="subject">Subjek</Label>
-        <Input id="subject" required value={subject} onChange={(e) => setSubject(e.target.value)} />
-      </div>
-      <div>
-        <Label htmlFor="category">Kategori</Label>
-        <Input id="category" required value={category} onChange={(e) => setCategory(e.target.value)} />
-      </div>
-      <div>
-        <Label htmlFor="description">Deskripsi</Label>
-        <Textarea id="description" required value={description} onChange={(e) => setDescription(e.target.value)} />
-      </div>
-      <div className="flex justify-end">
-        <Button type="submit" disabled={pending}>
-          Buat Ticket
-        </Button>
-      </div>
-    </form>
-  );
-}

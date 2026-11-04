@@ -19,9 +19,15 @@ type Block = { type: "paragraph" | "bullet-list" | "numbered-list"; lines: strin
 function toBlocks(content: string): Block[] {
   const blocks: Block[] = [];
 
+  // A blank line separates paragraphs; consecutive non-blank lines stay in one paragraph.
+  let afterBlankLine = false;
+
   for (const rawLine of content.replace(/\r\n/g, "\n").split("\n")) {
     const line = rawLine.trim();
-    if (!line) continue;
+    if (!line) {
+      afterBlankLine = true;
+      continue;
+    }
 
     const isBullet = /^[-\u2022]\s+/.test(line);
     const isNumbered = /^\d+[.)]\s+/.test(line);
@@ -29,7 +35,10 @@ function toBlocks(content: string): Block[] {
     const cleaned = isBullet ? line.replace(/^[-\u2022]\s+/, "") : isNumbered ? line.replace(/^\d+[.)]\s+/, "") : line;
     const last = blocks.at(-1);
 
-    if (last?.type === type) last.lines.push(cleaned);
+    const startsNewParagraph = type === "paragraph" && afterBlankLine;
+    afterBlankLine = false;
+
+    if (last?.type === type && !startsNewParagraph) last.lines.push(cleaned);
     else blocks.push({ type, lines: [cleaned] });
   }
 

@@ -489,4 +489,67 @@ describe("OpenAiProvider", () => {
     expect(systemPrompt).toContain("tidak boleh");
     expect(systemPrompt).toContain("sumber fakta baru");
   });
+  describe("Ollama mode (apiStyle: chat)", () => {
+    function createOllamaProvider() {
+      return new OpenAiProvider({
+        providerName: "ollama",
+        apiKey: "ollama",
+        baseURL: "http://localhost:11434/v1",
+        apiStyle: "chat",
+        classifierModel: "qwen2.5:14b",
+        answerModel: "qwen2.5:14b",
+        reviewModel: "qwen2.5:14b",
+        summaryModel: "qwen2.5:14b",
+        suggestedReplyModel: "qwen2.5:14b",
+        embeddingModel: "bge-m3",
+        timeoutMs: 1000,
+        maxRetries: 0,
+        maxOutputTokens: 900,
+      });
+    }
+
+    it("reports itself as the ollama provider and targets the configured base URL", () => {
+      const provider = createOllamaProvider();
+      expect(provider.name).toBe("ollama");
+      expect((provider as any).client.baseURL).toBe("http://localhost:11434/v1");
+    });
+
+    it("sends structured-output requests over Chat Completions and counts usage", async () => {
+      const provider = createOllamaProvider();
+      const client = (provider as any).client;
+      const chatSpy = jest.spyOn(client.chat.completions, "create").mockResolvedValue({
+        choices: [{ message: { content: '{"ok":true}' } }],
+        usage: { prompt_tokens: 12, completion_tokens: 5 },
+      } as never);
+      const responsesSpy = jest.spyOn(client.responses, "create");
+
+      const text = await (provider as any).respond("qwen2.5:14b", "sys", "user", { name: "probe", schema: { type: "object" } }, 0);
+
+      expect(text).toBe('{"ok":true}');
+      expect(responsesSpy).not.toHaveBeenCalled();
+      const params = chatSpy.mock.calls[0]?.[0] as Record<string, any>;
+      expect(params.model).toBe("qwen2.5:14b");
+      expect(params.max_tokens).toBe(900);
+      expect(params.temperature).toBe(0);
+      expect(params.messages).toEqual([
+        { role: "system", content: "sys" },
+        { role: "user", content: "user" },
+      ]);
+      expect(params.response_format).toEqual({
+        type: "json_schema",
+        json_schema: { name: "probe", schema: { type: "object" }, strict: true },
+      });
+      expect(provider.consumeTokenUsage()).toEqual({ inputTokens: 12, outputTokens: 5 });
+    });
+
+    it("embeds with the configured local embedding model", async () => {
+      const provider = createOllamaProvider();
+      const embedSpy = jest
+        .spyOn((provider as any).client.embeddings, "create")
+        .mockResolvedValue({ data: [{ embedding: [0.1, 0.2] }], usage: { prompt_tokens: 3, total_tokens: 3 } } as never);
+
+      await expect(provider.createEmbedding({ text: "halo" })).resolves.toEqual([0.1, 0.2]);
+      expect(embedSpy).toHaveBeenCalledWith({ model: "bge-m3", input: "halo" });
+    });
+  });
 });

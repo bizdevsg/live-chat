@@ -105,7 +105,10 @@ describe("KnowledgeService upload overwrite", () => {
       createEmbedding: jest.fn().mockResolvedValue([0.1, 0.2]),
       consumeTokenUsage: jest.fn().mockReturnValue({ inputTokens: 18, outputTokens: 0 }),
     };
-    const factory = { getProviderForSite: jest.fn().mockResolvedValue({ provider }) };
+    const factory = {
+      getProviderForSite: jest.fn().mockResolvedValue({ provider }),
+      getEmbeddingModel: jest.fn().mockReturnValue("text-embedding-3-small"),
+    };
     const aiRuns = { record: jest.fn().mockResolvedValue({ id: "run-1" }) };
     const service = new KnowledgeService(
       prisma as never,

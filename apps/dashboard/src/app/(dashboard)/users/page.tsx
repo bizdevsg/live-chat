@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient, ApiError } from "@/lib/api-client";
@@ -9,15 +10,9 @@ import { isSuperAdminRole } from "@/lib/is-super-admin";
 import { Topbar } from "@/components/layout/topbar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input, Label, Select } from "@/components/ui/input";
+import { Input, Label } from "@/components/ui/input";
 import { Modal, ConfirmModal } from "@/components/ui/modal";
 import { DashboardEmpty, DashboardPage, DashboardPageHeader, DashboardPageMetrics, DashboardTablePanel } from "@/components/layout/dashboard-page";
-import {
-  getPasswordPolicyError,
-  PASSWORD_MAX_LENGTH,
-  PASSWORD_MIN_LENGTH,
-  PASSWORD_REQUIREMENTS,
-} from "@solidchat/shared";
 
 interface Role {
   id: string;
@@ -40,19 +35,10 @@ export default function UsersPage() {
   const currentUserId = useAuthStore((s) => s.user?.userId);
   const currentUserRoles = useAuthStore((s) => s.user?.roles);
   const currentUserIsSuperAdmin = isSuperAdminRole(currentUserRoles);
-  const [open, setOpen] = useState(false);
   const [revokeAllOpen, setRevokeAllOpen] = useState(false);
-  const [editTarget, setEditTarget] = useState<UserRow | null>(null);
   const [revokeTarget, setRevokeTarget] = useState<UserRow | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<UserRow | null>(null);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
-  const [email, setEmail] = useState("");
-  const [name, setName] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [editPassword, setEditPassword] = useState("");
-  const [editConfirmPassword, setEditConfirmPassword] = useState("");
-  const [roleSlug, setRoleSlug] = useState("cs_agent");
 
   const usersQuery = useQuery({ queryKey: ["users"], queryFn: () => apiClient.get<UserRow[]>("/api/v1/admin/users") });
   const rolesQuery = useQuery({ queryKey: ["roles"], queryFn: () => apiClient.get<Role[]>("/api/v1/admin/users/roles") });
@@ -66,41 +52,9 @@ export default function UsersPage() {
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ["users"] });
 
-  const create = useMutation({
-    mutationFn: () => apiClient.post("/api/v1/admin/users", { email, name, password, roleSlugs: [roleSlug] }),
-    onSuccess: () => {
-      toast.push("User berhasil dibuat.", "success");
-      invalidate();
-      setOpen(false);
-      setEmail("");
-      setName("");
-      setPassword("");
-      setConfirmPassword("");
-    },
-    onError: (err) => toast.push(err instanceof ApiError ? err.message : "Gagal membuat user.", "error"),
-  });
-
   const toggleActive = useMutation({
     mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) => apiClient.put(`/api/v1/admin/users/${id}`, { isActive }),
     onSuccess: invalidate,
-    onError: (err) => toast.push(err instanceof ApiError ? err.message : "Gagal memperbarui user.", "error"),
-  });
-
-  const updateUser = useMutation({
-    mutationFn: () =>
-      apiClient.put(`/api/v1/admin/users/${editTarget!.id}`, {
-        name,
-        roleSlugs: [roleSlug],
-        ...(editPassword ? { password: editPassword } : {}),
-      }),
-    onSuccess: () => {
-      toast.push("User berhasil diperbarui.", "success");
-      invalidate();
-      setEditTarget(null);
-      setName("");
-      setEditPassword("");
-      setEditConfirmPassword("");
-    },
     onError: (err) => toast.push(err instanceof ApiError ? err.message : "Gagal memperbarui user.", "error"),
   });
 
@@ -141,7 +95,7 @@ export default function UsersPage() {
         <div className="space-y-6">
           <DashboardPageHeader
             title="Users"
-            description="Manajemen user ditata ulang agar role, status, dan aksi keamanan penting seperti revoke session atau delete account lebih mudah dipindai."
+            description="Kelola akun, role, status akses, dan tindakan keamanan seperti revoke session atau hapus akun."
             actions={
               <div className="flex flex-wrap gap-2">
                 {currentUserIsSuperAdmin ? (
@@ -149,18 +103,9 @@ export default function UsersPage() {
                     Cabut Semua Sesi
                   </Button>
                 ) : null}
-                <Button
-                  onClick={() => {
-                    setEmail("");
-                    setName("");
-                    setPassword("");
-                    setConfirmPassword("");
-                    setRoleSlug("cs_agent");
-                    setOpen(true);
-                  }}
-                >
-                  + User Baru
-                </Button>
+                <Link href="/users/new">
+                  <Button>+ User Baru</Button>
+                </Link>
               </div>
             }
           />
@@ -172,53 +117,52 @@ export default function UsersPage() {
               { label: "Login 7 hari", value: String(recentlyActive), detail: "User yang tercatat login dalam 7 hari terakhir." },
             ]}
           />
-          <DashboardTablePanel title="User access matrix" detail="Kelola identitas, role, akses, dan tindakan keamanan tiap akun dari satu tabel kerja.">
+          <DashboardTablePanel title="Daftar user" detail="Identitas, role, status, dan tindakan keamanan tiap akun.">
             <div className="overflow-x-auto">
-              <table className="min-w-[1120px] w-full text-sm">
-                <thead className="text-left text-[11px] uppercase tracking-[0.28em] text-zinc-500">
+              <table className="w-full min-w-[1040px] text-sm">
+                <thead className="text-left">
                   <tr>
-                    <th className="px-5 py-4">Nama</th>
-                    <th className="px-5 py-4">Email</th>
-                    <th className="px-5 py-4">Role</th>
-                    <th className="px-5 py-4">Login Terakhir</th>
-                    <th className="px-5 py-4">Status</th>
-                    <th className="px-5 py-4">Aksi</th>
+                    <th className="px-5 py-3">Nama</th>
+                    <th className="px-5 py-3">Email</th>
+                    <th className="px-5 py-3">Role</th>
+                    <th className="px-5 py-3">Login Terakhir</th>
+                    <th className="px-5 py-3">Status</th>
+                    <th className="px-5 py-3">Aksi</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-ink-600/80">
                   {users.map((user) => (
-                    <tr key={user.id} className="transition-colors hover:bg-ink-700/35">
-                      <td className="px-5 py-4">
-                        <div className="font-medium text-zinc-100">{user.name}</div>
-                        <div className="mt-1 text-xs text-zinc-500">User {user.id.slice(0, 8)}</div>
+                    <tr key={user.id}>
+                      <td className="px-5 py-3.5">
+                        <div className="flex items-center gap-3">
+                          <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-gold-500/20 bg-gold-500/10 text-xs font-semibold text-gold-300">
+                            {user.name.slice(0, 2).toUpperCase()}
+                          </div>
+                          <div>
+                            <div className="font-medium text-zinc-100">{user.name}</div>
+                            <div className="text-xs text-zinc-600">User {user.id.slice(0, 8)}</div>
+                          </div>
+                        </div>
                       </td>
-                      <td className="px-5 py-4 text-zinc-400">{user.email}</td>
-                      <td className="px-5 py-4">
+                      <td className="px-5 py-3.5 text-zinc-400">{user.email}</td>
+                      <td className="px-5 py-3.5">
                         {user.roles.map((role) => (
                           <Badge key={role.role.id} className="mr-1">
                             {role.role.name}
                           </Badge>
                         ))}
                       </td>
-                      <td className="px-5 py-4 text-zinc-500">{user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleString("id-ID") : "-"}</td>
-                      <td className="px-5 py-4">
+                      <td className="px-5 py-3.5 text-zinc-500">{user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleString("id-ID") : "-"}</td>
+                      <td className="px-5 py-3.5">
                         <Badge tone={user.isActive ? "green" : "red"}>{user.isActive ? "Aktif" : "Nonaktif"}</Badge>
                       </td>
-                      <td className="px-5 py-4">
-                        <div className="flex flex-wrap gap-2">
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => {
-                              setEditTarget(user);
-                              setName(user.name);
-                              setRoleSlug(user.roles[0]?.role.slug ?? "cs_agent");
-                              setEditPassword("");
-                              setEditConfirmPassword("");
-                            }}
-                          >
-                            Edit
-                          </Button>
+                      <td className="px-5 py-3.5">
+                        <div className="flex flex-wrap gap-1.5">
+                          <Link href={`/users/${user.id}/edit`}>
+                            <Button size="sm" variant="ghost">
+                              Edit
+                            </Button>
+                          </Link>
                           <Button size="sm" variant="secondary" onClick={() => toggleActive.mutate({ id: user.id, isActive: !user.isActive })}>
                             {user.isActive ? "Nonaktifkan" : "Aktifkan"}
                           </Button>
@@ -254,163 +198,6 @@ export default function UsersPage() {
           </DashboardTablePanel>
         </div>
       </DashboardPage>
-
-      <Modal
-        open={open}
-        title="User Baru"
-        onClose={() => {
-          setOpen(false);
-          setPassword("");
-          setConfirmPassword("");
-        }}
-      >
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            const passwordError = getPasswordPolicyError(password);
-            if (passwordError) {
-              toast.push(passwordError, "error");
-              return;
-            }
-            if (password !== confirmPassword) {
-              toast.push("Password dan konfirmasi password harus sama.", "error");
-              return;
-            }
-            create.mutate();
-          }}
-          className="space-y-3"
-        >
-          <div>
-            <Label htmlFor="name">Nama</Label>
-            <Input id="name" required value={name} onChange={(e) => setName(e.target.value)} />
-          </div>
-          <div>
-            <Label htmlFor="email">Email</Label>
-            <Input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
-          </div>
-          <div>
-            <Label htmlFor="password">Password</Label>
-            <Input
-              id="password"
-              type="password"
-              autoComplete="new-password"
-              required
-              minLength={PASSWORD_MIN_LENGTH}
-              maxLength={PASSWORD_MAX_LENGTH}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-            <ul className="mt-2 space-y-1 text-xs text-zinc-500" aria-label="Syarat password">
-              {PASSWORD_REQUIREMENTS.map((requirement) => (
-                <li key={requirement}>• {requirement}</li>
-              ))}
-            </ul>
-          </div>
-          <div>
-            <Label htmlFor="confirm-password">Konfirmasi Password</Label>
-            <Input
-              id="confirm-password"
-              type="password"
-              autoComplete="new-password"
-              required
-              minLength={PASSWORD_MIN_LENGTH}
-              maxLength={PASSWORD_MAX_LENGTH}
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-            />
-          </div>
-          <div>
-            <Label htmlFor="role">Role</Label>
-            <Select id="role" value={roleSlug} onChange={(e) => setRoleSlug(e.target.value)}>
-              {rolesQuery.data?.map((role) => (
-                <option key={role.id} value={role.slug}>
-                  {role.name}
-                </option>
-              ))}
-            </Select>
-          </div>
-          <div className="flex justify-end">
-            <Button type="submit" disabled={create.isPending}>
-              Buat User
-            </Button>
-          </div>
-        </form>
-      </Modal>
-
-      <Modal
-        open={!!editTarget}
-        title={`Edit User${editTarget ? `: ${editTarget.name}` : ""}`}
-        onClose={() => {
-          setEditTarget(null);
-          setName("");
-          setEditPassword("");
-          setEditConfirmPassword("");
-        }}
-      >
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            const passwordError = editPassword ? getPasswordPolicyError(editPassword) : null;
-            if (passwordError) {
-              toast.push(passwordError, "error");
-              return;
-            }
-            if (editPassword !== editConfirmPassword) {
-              toast.push("Password dan konfirmasi password harus sama.", "error");
-              return;
-            }
-            updateUser.mutate();
-          }}
-          className="space-y-3"
-        >
-          <div>
-            <Label htmlFor="edit-name">Nama</Label>
-            <Input id="edit-name" required value={name} onChange={(e) => setName(e.target.value)} />
-          </div>
-          <div>
-            <Label htmlFor="edit-password">Password Baru</Label>
-            <Input
-              id="edit-password"
-              type="password"
-              autoComplete="new-password"
-              minLength={PASSWORD_MIN_LENGTH}
-              maxLength={PASSWORD_MAX_LENGTH}
-              value={editPassword}
-              onChange={(e) => setEditPassword(e.target.value)}
-              placeholder="Kosongkan jika tidak diubah"
-            />
-            <p className="mt-1 text-xs text-zinc-500">Kosongkan jika tidak diubah. Jika diisi, password wajib memenuhi seluruh syarat keamanan.</p>
-          </div>
-          <div>
-            <Label htmlFor="edit-confirm-password">Konfirmasi Password Baru</Label>
-            <Input
-              id="edit-confirm-password"
-              type="password"
-              autoComplete="new-password"
-              minLength={editPassword ? PASSWORD_MIN_LENGTH : undefined}
-              maxLength={PASSWORD_MAX_LENGTH}
-              value={editConfirmPassword}
-              onChange={(e) => setEditConfirmPassword(e.target.value)}
-              placeholder="Kosongkan jika password tidak diubah"
-            />
-          </div>
-          <div>
-            <Label htmlFor="edit-role">Role</Label>
-            <Select id="edit-role" value={roleSlug} onChange={(e) => setRoleSlug(e.target.value)}>
-              {rolesQuery.data?.map((role) => (
-                <option key={role.id} value={role.slug}>
-                  {role.name}
-                </option>
-              ))}
-            </Select>
-          </div>
-          <div className="flex justify-end">
-            <Button type="submit" disabled={updateUser.isPending}>
-              Simpan Perubahan
-            </Button>
-          </div>
-        </form>
-      </Modal>
 
       <ConfirmModal
         open={revokeAllOpen}

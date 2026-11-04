@@ -85,6 +85,10 @@ services:
       S3_ENDPOINT: http://minio:9000
       # ...but presigned download URLs are opened by the browser and must resolve from the host.
       S3_PUBLIC_ENDPOINT: ${S3_PUBLIC_ENDPOINT:-http://localhost:9000}
+    # Lets AI_PROVIDER=ollama reach an Ollama server running on the host
+    # (built in on Docker Desktop; this mapping makes it work on Linux hosts too).
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       mysql: { condition: service_healthy }
       redis: { condition: service_healthy }

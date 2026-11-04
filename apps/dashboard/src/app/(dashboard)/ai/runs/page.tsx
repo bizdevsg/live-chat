@@ -104,7 +104,7 @@ const AI_RUN_SOURCE_LABELS: Record<AiRun["source"], string> = {
 function DetailItem({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-lg border border-ink-600 bg-ink-900/60 p-3">
-      <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-zinc-500">{label}</div>
+      <div className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">{label}</div>
       <div className="mt-1 break-words text-sm text-zinc-200">{value}</div>
     </div>
   );
@@ -140,7 +140,7 @@ export default function AiRunsPage() {
         <div className="space-y-6">
           <DashboardPageHeader
             title="AI runs"
-            description="Jejak eksekusi AI ditata ulang untuk membantu tim membaca performa model, kecepatan respons, dan kebutuhan handoff manusia dengan lebih jelas."
+            description="Jejak eksekusi AI: performa model, kecepatan respons, dan kebutuhan handoff ke manusia."
           />
           <DashboardPageMetrics
             items={[
@@ -153,17 +153,17 @@ export default function AiRunsPage() {
           <DashboardTablePanel title="Execution timeline" detail={`${runs.length} run AI tersedia untuk ditinjau.`}>
           <div className="overflow-x-auto">
           <table className="min-w-[880px] w-full text-sm">
-            <thead className="text-left text-[11px] uppercase tracking-[0.28em] text-zinc-500">
+            <thead className="text-left text-[11px] uppercase tracking-wider text-zinc-500">
               <tr>
-                <th className="px-5 py-4">Waktu</th>
-                <th className="px-5 py-4">Tujuan</th>
-                <th className="px-5 py-4">Sumber</th>
-                <th className="px-5 py-4">Model</th>
-                <th className="px-5 py-4">Intent</th>
-                <th className="px-5 py-4">Confidence</th>
-                <th className="px-5 py-4">Latensi</th>
-                <th className="px-5 py-4">Token</th>
-                <th className="px-5 py-4">Handoff</th>
+                <th className="px-5 py-3.5">Waktu</th>
+                <th className="px-5 py-3.5">Tujuan</th>
+                <th className="px-5 py-3.5">Sumber</th>
+                <th className="px-5 py-3.5">Model</th>
+                <th className="px-5 py-3.5">Intent</th>
+                <th className="px-5 py-3.5">Confidence</th>
+                <th className="px-5 py-3.5">Latensi</th>
+                <th className="px-5 py-3.5">Token</th>
+                <th className="px-5 py-3.5">Handoff</th>
                 <th className="px-5 py-4 text-right">Aksi</th>
               </tr>
             </thead>
@@ -171,7 +171,7 @@ export default function AiRunsPage() {
               {runs.map((run) => (
                 <tr key={run.id} className="transition-colors hover:bg-ink-700/35">
                   <td className="px-5 py-4 text-zinc-500">{new Date(run.createdAt).toLocaleString("id-ID")}</td>
-                  <td className="px-5 py-4">
+                  <td className="px-5 py-3.5">
                     <div className="font-medium text-zinc-100">{run.purpose}</div>
                     <div className="mt-1 text-xs text-zinc-500">{run.provider}</div>
                   </td>
@@ -185,7 +185,7 @@ export default function AiRunsPage() {
                       ? `${(run.inputTokens ?? 0) + (run.outputTokens ?? 0)} total`
                       : "-"}
                   </td>
-                  <td className="px-5 py-4">{run.handoffRequired ? <Badge tone="amber">Handoff</Badge> : <span className="text-zinc-600">-</span>}</td>
+                  <td className="px-5 py-3.5">{run.handoffRequired ? <Badge tone="amber">Handoff</Badge> : <span className="text-zinc-600">-</span>}</td>
                   <td className="px-5 py-4 text-right">
                     <Button variant="secondary" size="sm" onClick={() => setSelectedRunId(run.id)}>
                       Detail
@@ -211,25 +211,25 @@ export default function AiRunsPage() {
         >
           <div className="overflow-x-auto">
             <table className="min-w-[760px] w-full text-sm">
-              <thead className="text-left text-[11px] uppercase tracking-[0.28em] text-zinc-500">
+              <thead className="text-left text-[11px] uppercase tracking-wider text-zinc-500">
                 <tr>
-                  <th className="px-5 py-4">Waktu</th>
-                  <th className="px-5 py-4">Conversation</th>
-                  <th className="px-5 py-4">Sumber request</th>
-                  <th className="px-5 py-4">Alasan</th>
-                  <th className="px-5 py-4">Hasil</th>
+                  <th className="px-5 py-3.5">Waktu</th>
+                  <th className="px-5 py-3.5">Conversation</th>
+                  <th className="px-5 py-3.5">Sumber request</th>
+                  <th className="px-5 py-3.5">Alasan</th>
+                  <th className="px-5 py-3.5">Hasil</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-ink-600/80">
                 {handoffs.map((handoff) => (
                   <tr key={handoff.id} className="transition-colors hover:bg-ink-700/35">
                     <td className="px-5 py-4 text-zinc-500">{new Date(handoff.createdAt).toLocaleString("id-ID")}</td>
-                    <td className="px-5 py-4">
+                    <td className="px-5 py-3.5">
                       <div className="font-mono text-xs text-zinc-300">{handoff.conversationId}</div>
                       <div className="mt-1 text-xs text-zinc-500">{handoff.conversation.status}</div>
                     </td>
                     <td className="px-5 py-4 text-zinc-300">{HANDOFF_SOURCE_LABELS[handoff.source] ?? handoff.source}</td>
-                    <td className="px-5 py-4">
+                    <td className="px-5 py-3.5">
                       <div className="text-zinc-300">{HANDOFF_REASON_LABELS[handoff.reason] ?? handoff.reason}</div>
                       <div className="mt-1 text-xs text-zinc-600">{handoff.reason}</div>
                     </td>
@@ -286,7 +286,7 @@ export default function AiRunsPage() {
 
               <div className="rounded-xl border border-amber-700/40 bg-amber-950/20 p-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-300">Alasan Handoff AI</h3>
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-amber-300">Alasan Handoff AI</h3>
                   {detail.handoffRequired ? <Badge tone="amber">Handoff</Badge> : <Badge tone="neutral">Tidak handoff</Badge>}
                 </div>
                 <p className="mt-3 text-sm leading-6 text-zinc-200">
@@ -310,7 +310,7 @@ export default function AiRunsPage() {
 
               {detail.errorMessage ? (
                 <div className="rounded-xl border border-red-800/50 bg-red-950/20 p-4">
-                  <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-red-300">Error</h3>
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-red-300">Error</h3>
                   <p className="mt-2 whitespace-pre-wrap break-words text-sm text-red-100">{detail.errorMessage}</p>
                 </div>
               ) : null}

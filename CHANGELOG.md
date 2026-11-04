@@ -4,6 +4,94 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
 ### Added
+- Menambahkan `apps/api/src/config/env.validation.spec.ts`.
+- Menambahkan `apps/dashboard/src/app/(dashboard)/inbox/[conversationId]/ticket/new/page.tsx`.
+- Menambahkan `apps/dashboard/src/app/(dashboard)/knowledge/upload/page.tsx`.
+- Menambahkan `apps/dashboard/src/app/(dashboard)/profile/edit/page.tsx`.
+- Menambahkan `apps/dashboard/src/app/(dashboard)/profile/password/page.tsx`.
+- Menambahkan `apps/dashboard/src/app/(dashboard)/routing/handoff/[ruleId]/edit/page.tsx`.
+- Menambahkan `apps/dashboard/src/app/(dashboard)/routing/handoff/new/page.tsx`.
+- Menambahkan `apps/dashboard/src/app/(dashboard)/routing/rules/[ruleId]/edit/page.tsx`.
+- Menambahkan `apps/dashboard/src/app/(dashboard)/routing/rules/new/page.tsx`.
+- Menambahkan `apps/dashboard/src/app/(dashboard)/teams/[teamId]/edit/page.tsx`.
+- Menambahkan `apps/dashboard/src/app/(dashboard)/teams/[teamId]/members/new/page.tsx`.
+- Menambahkan `apps/dashboard/src/app/(dashboard)/teams/new/page.tsx`.
+- Menambahkan `apps/dashboard/src/app/(dashboard)/templates/[templateId]/edit/page.tsx`.
+- Menambahkan `apps/dashboard/src/app/(dashboard)/templates/new/page.tsx`.
+- Menambahkan `apps/dashboard/src/app/(dashboard)/users/[userId]/edit/page.tsx`.
+- Menambahkan `apps/dashboard/src/app/(dashboard)/users/new/page.tsx`.
+- Menambahkan `apps/dashboard/src/app/(dashboard)/widget/domains/new/page.tsx`.
+- Menambahkan `apps/dashboard/src/components/layout/form-page.tsx`.
+- Menambahkan `apps/dashboard/src/components/profile/profile-forms.tsx`.
+- Menambahkan `apps/dashboard/src/components/routing/handoff-rule-form.tsx`.
+- Menambahkan `apps/dashboard/src/components/routing/routing-rule-form.tsx`.
+- Menambahkan `apps/dashboard/src/components/templates/template-variables-hint.tsx`.
+- Menambahkan `apps/dashboard/src/lib/template-variables.ts`.
+- Menambahkan `scripts/dev-local.mjs`.
+- Menambahkan halaman formulir dashboard untuk pengelolaan tiket, knowledge, profil, routing, tim, template, pengguna, dan domain widget.
+- Menambahkan skrip pengembangan lokal serta pengujian validasi environment dan provider AI.
+
+### Changed
+- Melengkapi konfigurasi `.env` lokal dengan variabel yang tersedia di `.env.example` agar opsi integrasi dan layanan memiliki default yang sesuai.
+- Memperbarui `.env.example`.
+- Memperbarui `apps/api/src/ai/ai-provider.factory.ts`.
+- Memperbarui `apps/api/src/config/env.validation.ts`.
+- Memperbarui `apps/api/src/conversations/conversations.service.spec.ts`.
+- Memperbarui `apps/api/src/conversations/conversations.service.ts`.
+- Memperbarui `apps/api/src/knowledge/knowledge.controller.ts`.
+- Memperbarui `apps/api/src/knowledge/knowledge.service.ts`.
+- Memperbarui `apps/api/src/knowledge/knowledge.service.upload.spec.ts`.
+- Memperbarui `apps/api/src/knowledge/retrieval.service.ts`.
+- Memperbarui `apps/dashboard/package.json`.
+- Memperbarui `apps/dashboard/src/app/(dashboard)/ai/configuration/page.tsx`.
+- Memperbarui `apps/dashboard/src/app/(dashboard)/ai/runs/page.tsx`.
+- Memperbarui `apps/dashboard/src/app/(dashboard)/analytics/page.tsx`.
+- Memperbarui `apps/dashboard/src/app/(dashboard)/audit-logs/page.tsx`.
+- Memperbarui `apps/dashboard/src/app/(dashboard)/customers/page.tsx`.
+- Memperbarui `apps/dashboard/src/app/(dashboard)/dashboard/page.tsx`.
+- Memperbarui `apps/dashboard/src/app/(dashboard)/inbox/[conversationId]/page.tsx`.
+- Memperbarui `apps/dashboard/src/app/(dashboard)/knowledge/[documentId]/page.tsx`.
+- Memperbarui `apps/dashboard/src/app/(dashboard)/knowledge/new/page.tsx`.
+- Memperbarui `apps/dashboard/src/app/(dashboard)/knowledge/page.tsx`.
+- Memperbarui `apps/dashboard/src/app/(dashboard)/leads/page.tsx`.
+- Memperbarui `apps/dashboard/src/app/(dashboard)/profile/page.tsx`.
+- Memperbarui `apps/dashboard/src/app/(dashboard)/routing/page.tsx`.
+- Memperbarui `apps/dashboard/src/app/(dashboard)/security/page.tsx`.
+- Memperbarui `apps/dashboard/src/app/(dashboard)/teams/page.tsx`.
+- Memperbarui `apps/dashboard/src/app/(dashboard)/templates/page.tsx`.
+- Memperbarui `apps/dashboard/src/app/(dashboard)/tickets/[ticketId]/page.tsx`.
+- Memperbarui `apps/dashboard/src/app/(dashboard)/tickets/page.tsx`.
+- Memperbarui `apps/dashboard/src/app/(dashboard)/users/page.tsx`.
+- Memperbarui `apps/dashboard/src/app/(dashboard)/widget/page.tsx`.
+- Memperbarui `apps/dashboard/src/app/globals.css`.
+- Memperbarui `apps/dashboard/src/components/inbox/rich-text.tsx`.
+- Memperbarui `apps/dashboard/src/components/layout/connection-indicator.tsx`.
+- Memperbarui `apps/dashboard/src/components/layout/dashboard-page.tsx`.
+- Memperbarui `apps/dashboard/src/components/layout/sidebar.tsx`.
+- Memperbarui `apps/dashboard/src/components/layout/topbar.tsx`.
+- Memperbarui `apps/dashboard/src/components/ui/badge.tsx`.
+- Memperbarui `apps/dashboard/src/components/ui/button.tsx`.
+- Memperbarui `apps/dashboard/src/components/ui/card.tsx`.
+- Memperbarui `apps/dashboard/src/components/ui/input.tsx`.
+- Memperbarui `apps/dashboard/src/components/ui/modal.tsx`.
+- Memperbarui `apps/dashboard/src/components/ui/toast.tsx`.
+- Memperbarui `apps/dashboard/tailwind.config.ts`.
+- Memperbarui `apps/widget/src/lib/rich-text.tsx`.
+- Memperbarui `apps/widget/vite.config.ts`.
+- Memperbarui `docker-compose.yml`.
+- Memperbarui `package.json`.
+- Memperbarui `packages/ai-core/src/providers/openai-provider.spec.ts`.
+- Memperbarui `packages/ai-core/src/providers/openai-provider.ts`.
+- Memperbarui `pnpm-lock.yaml`.
+- Memperbarui tampilan dan navigasi dashboard, konfigurasi layanan, serta dependency untuk mendukung alur kerja dan pengembangan lokal.
+- Mengembalikan provider AI pada `.env` lokal ke OpenAI untuk pemrosesan AI dan embedding.
+
+### Fixed
+- Memperbaiki penanganan provider AI, knowledge, dan tampilan rich text di dashboard dan widget.
+- Menjadwalkan kembali pengingat dan penutupan chat tidak aktif saat percakapan otomatis kembali ke AI karena agent tidak merespons.
+
+## [0.24.2] - 2026-11-02
+### Added
 - Menambahkan `.nvmrc` agar environment lokal menggunakan Node.js 24.22.1 LTS yang sama dengan CI dan Docker.
 - Menambahkan `packages/database/prisma/migrations/20261102120000_remove_waha_whatsapp_inbox/migration.sql`.
 
@@ -1295,7 +1383,8 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 - Memperbarui `apps/dashboard/src/app/(dashboard)/knowledge/page.tsx`.
 - Memperbarui `package.json`.
 
-[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.24.1...HEAD
+[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.24.2...HEAD
+[0.24.2]: https://github.com/bizdevsg/live-chat/compare/v0.24.1...v0.24.2
 [0.24.1]: https://github.com/bizdevsg/live-chat/compare/v0.24.0...v0.24.1
 [0.24.0]: https://github.com/bizdevsg/live-chat/compare/v0.23.3...v0.24.0
 [0.23.3]: https://github.com/bizdevsg/live-chat/compare/v0.23.2...v0.23.3

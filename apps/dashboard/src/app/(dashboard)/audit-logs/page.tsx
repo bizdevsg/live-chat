@@ -52,12 +52,12 @@ export default function AuditLogsPage() {
           <DashboardTablePanel title="Aktivitas sistem" detail={`${logs.length} aktivitas tercatat untuk pemantauan dan kebutuhan penelusuran.`}>
           <div className="overflow-x-auto">
           <table className="min-w-[760px] w-full text-sm">
-            <thead className="text-left text-[11px] uppercase tracking-[0.28em] text-zinc-500">
+            <thead className="text-left text-[11px] uppercase tracking-wider text-zinc-500">
               <tr>
-                <th className="px-5 py-4">Waktu</th>
-                <th className="px-5 py-4">Aktor</th>
-                <th className="px-5 py-4">Aksi</th>
-                <th className="px-5 py-4">Resource</th>
+                <th className="px-5 py-3.5">Waktu</th>
+                <th className="px-5 py-3.5">Aktor</th>
+                <th className="px-5 py-3.5">Aksi</th>
+                <th className="px-5 py-3.5">Resource</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-ink-600/80">

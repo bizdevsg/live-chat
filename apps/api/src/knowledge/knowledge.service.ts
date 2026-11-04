@@ -1,7 +1,7 @@
 import { HttpStatus, Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { chunkText } from "@solidchat/ai-core";
-import { AI_MODELS, KnowledgeAudience, KnowledgeStatus, ErrorCode, normalizeWikiLinksForIndexing } from "@solidchat/shared";
+import { KnowledgeAudience, KnowledgeStatus, ErrorCode, normalizeWikiLinksForIndexing } from "@solidchat/shared";
 import { PrismaService } from "../prisma/prisma.service";
 import { AuditLogService } from "../common/audit/audit-log.service";
 import { AiProviderFactory } from "../ai/ai-provider.factory";
@@ -384,6 +384,7 @@ export class KnowledgeService {
     const doc = await this.getRawOrThrow(id);
     const site = await this.prisma.site.findUniqueOrThrow({ where: { id: doc.siteId }, select: { organizationId: true } });
     const { provider } = await this.aiProviderFactory.getProviderForSite(doc.siteId);
+    const embeddingModel = this.aiProviderFactory.getEmbeddingModel();
     const chunks = chunkText(normalizeWikiLinksForIndexing(doc.content));
     const embeddingStart = Date.now();
 
@@ -403,7 +404,7 @@ export class KnowledgeService {
           content: chunk.content,
           tokenCount: chunk.tokenCount,
           embedding: embedding.length > 0 ? embedding : undefined,
-          embeddingModel: AI_MODELS.embedding,
+          embeddingModel,
           embeddingDimension: embedding.length || undefined,
           checksum: chunk.checksum,
         },
@@ -417,12 +418,37 @@ export class KnowledgeService {
         source: "KNOWLEDGE_REPROCESS",
         purpose: "EMBEDDING",
         provider: provider.name,
-        model: AI_MODELS.embedding,
+        model: embeddingModel,
         latencyMs: Date.now() - embeddingStart,
         ...usage,
       });
     }
     return { chunkCount: chunks.length };
+  }
+
+  /**
+   * Re-embeds every indexed document (optionally for one site). Needed after changing the
+   * embedding model — e.g. switching AI_PROVIDER between openai and ollama — because vectors
+   * from different models are not comparable, so old chunks would never match new queries.
+   * Sequential on purpose: local embedding servers handle one request at a time anyway.
+   */
+  async reprocessAll(siteId?: string) {
+    const docs = await this.prisma.knowledgeDocument.findMany({
+      where: { ...(siteId ? { siteId } : {}), chunks: { some: {} } },
+      select: { id: true },
+    });
+    const embeddingModel = this.aiProviderFactory.getEmbeddingModel();
+    let chunkCount = 0;
+    const failed: Array<{ documentId: string; error: string }> = [];
+    for (const doc of docs) {
+      try {
+        chunkCount += (await this.reprocess(doc.id)).chunkCount;
+      } catch (error) {
+        failed.push({ documentId: doc.id, error: (error as Error).message });
+        this.logger.warn(`Reprocess failed for knowledge document ${doc.id}: ${(error as Error).message}`);
+      }
+    }
+    return { embeddingModel, documentCount: docs.length, chunkCount, failed };
   }
 
   async listCategories(organizationId: string) {

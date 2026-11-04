@@ -52,7 +52,7 @@ export default function LeadsPage() {
         <div className="space-y-6">
           <DashboardPageHeader
             title="Leads"
-            description="Tampilan lead diperbarui agar tim sales dan operasional bisa membaca kualitas pipeline dan masalah sinkronisasi CRM tanpa membuka detail satu per satu."
+            description="Kualitas pipeline lead dan status sinkronisasi CRM dalam satu tampilan."
           />
           <DashboardPageMetrics
             items={[
@@ -65,30 +65,30 @@ export default function LeadsPage() {
           <DashboardTablePanel title="Lead pipeline" detail={`${leads.length} lead tercatat dengan status sinkronisasi paling baru.`}>
             <div className="overflow-x-auto">
             <table className="min-w-[820px] w-full text-sm">
-              <thead className="text-left text-[11px] uppercase tracking-[0.28em] text-zinc-500">
+              <thead className="text-left text-[11px] uppercase tracking-wider text-zinc-500">
                 <tr>
-                  <th className="px-5 py-4">Nama</th>
-                  <th className="px-5 py-4">Kontak</th>
-                  <th className="px-5 py-4">Produk</th>
-                  <th className="px-5 py-4">Sync CRM</th>
-                  <th className="px-5 py-4">Dibuat</th>
-                  <th className="px-5 py-4" />
+                  <th className="px-5 py-3.5">Nama</th>
+                  <th className="px-5 py-3.5">Kontak</th>
+                  <th className="px-5 py-3.5">Produk</th>
+                  <th className="px-5 py-3.5">Sync CRM</th>
+                  <th className="px-5 py-3.5">Dibuat</th>
+                  <th className="px-5 py-3.5" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-ink-600/80">
                 {leads.map((lead) => (
                   <tr key={lead.id} className="transition-colors hover:bg-ink-700/35">
-                    <td className="px-5 py-4">
+                    <td className="px-5 py-3.5">
                       <div className="font-medium text-zinc-100">{lead.name}</div>
                       <div className="mt-1 text-xs text-zinc-500">Lead {lead.id.slice(0, 8)}</div>
                     </td>
                     <td className="px-5 py-4 text-zinc-400">{lead.email ?? lead.phone ?? "-"}</td>
                     <td className="px-5 py-4 text-zinc-400">{lead.productInterest ?? "-"}</td>
-                    <td className="px-5 py-4">
+                    <td className="px-5 py-3.5">
                       <Badge tone={TONE[lead.syncStatus] ?? "amber"}>{lead.syncStatus}</Badge>
                     </td>
                     <td className="px-5 py-4 text-zinc-500">{new Date(lead.createdAt).toLocaleDateString("id-ID")}</td>
-                    <td className="px-5 py-4">
+                    <td className="px-5 py-3.5">
                       {lead.syncStatus === "FAILED" ? (
                         <Button size="sm" variant="secondary" onClick={() => retry.mutate(lead.id)}>
                           Retry

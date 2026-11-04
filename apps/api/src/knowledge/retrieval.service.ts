@@ -2,7 +2,6 @@ import { Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { KnowledgeRetriever } from "@solidchat/ai-core";
 import {
-  AI_MODELS,
   KNOWLEDGE_FULL_CONTEXT_MAX_TOKENS,
   KnowledgeAudience,
   type KnowledgeEvidence,
@@ -54,7 +53,7 @@ export class RetrievalService {
         ...options.tracking,
         purpose: "EMBEDDING",
         provider: provider.name,
-        model: AI_MODELS.embedding,
+        model: this.aiProviderFactory.getEmbeddingModel(),
         latencyMs: Date.now() - startedAt,
         ...usage,
       });
@@ -80,7 +79,7 @@ export class RetrievalService {
         ...tracking,
         purpose: "EMBEDDING",
         provider: provider.name,
-        model: AI_MODELS.embedding,
+        model: this.aiProviderFactory.getEmbeddingModel(),
         latencyMs: Date.now() - startedAt,
         ...usage,
       });

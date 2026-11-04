@@ -17,7 +17,7 @@ import { cn } from "@/components/ui/cn";
 import Image from "next/image";
 
 function SidebarIcon({ icon, active }: { icon: NavIcon; active: boolean }) {
-  const stroke = active ? "#b99244" : "currentColor";
+  const stroke = active ? "#e9cd7a" : "currentColor";
   const commonProps = {
     fill: "none",
     stroke,
@@ -243,28 +243,28 @@ export function Sidebar() {
       />
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-40 flex h-screen w-[min(19rem,calc(100vw-1rem))] shrink-0 flex-col border-r border-ink-600 bg-ink-800 shadow-2xl transition-transform lg:static lg:z-auto lg:w-72 lg:translate-x-0 lg:shadow-none",
+          "fixed inset-y-0 left-0 z-40 flex h-screen w-[min(19rem,calc(100vw-1rem))] shrink-0 flex-col border-r border-ink-600 bg-ink-950 shadow-2xl transition-transform lg:static lg:z-auto lg:w-64 lg:translate-x-0 lg:shadow-none",
           isSidebarOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
-        <div className="flex h-20 items-center justify-between border-b border-ink-600 px-5 lg:px-6">
+        <div className="flex h-14 items-center justify-between border-b border-ink-600 px-5">
           <div className="flex min-w-0 items-center">
-            <Image src={"/assets/logo-utama-new.png"} alt="Logo Solid Chat" height={300} width={250} className="h-10 w-fit" />
+            <Image src={"/assets/logo-utama-new.png"} alt="Logo Solid Chat" height={300} width={250} className="h-8 w-fit" />
           </div>
           <button
             type="button"
             onClick={closeSidebar}
             aria-label="Tutup menu"
-            className="ml-3 inline-flex h-10 w-10 items-center justify-center rounded-xl border border-ink-600 bg-ink-700 text-zinc-300 transition-colors hover:bg-ink-600 hover:text-white lg:hidden"
+            className="ml-3 inline-flex h-9 w-9 items-center justify-center rounded-lg border border-ink-600 bg-ink-800 text-zinc-300 transition-colors hover:bg-ink-600 hover:text-white lg:hidden"
           >
             <span className="text-lg leading-none">x</span>
           </button>
         </div>
-        <nav className="scrollbar-thin flex-1 overflow-y-auto px-4 py-5">
+        <nav className="scrollbar-thin flex-1 overflow-y-auto px-3 py-4">
           {sections.map((section) => (
-            <div key={section.id} className="mb-7 last:mb-0">
-              <div className="px-3 pb-3 text-[11px] font-semibold uppercase tracking-[0.32em] text-gold-500/70">{section.label}</div>
-              <div className="space-y-1">
+            <div key={section.id} className="mb-5 last:mb-0">
+              <div className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-[0.22em] text-zinc-600">{section.label}</div>
+              <div className="space-y-0.5">
                 {section.items.map((item) => {
                   const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
                   return (
@@ -272,10 +272,10 @@ export function Sidebar() {
                       key={item.href}
                       href={item.href}
                       className={cn(
-                        "flex items-center gap-3 rounded-2xl px-3 py-3 text-sm transition-colors",
+                        "relative flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] transition-colors",
                         active
-                          ? "border border-gold-500/20 bg-gold-500/12 text-gold-500 shadow-[0_0_0_1px_rgba(185,146,68,0.08)]"
-                          : "text-zinc-400 hover:bg-ink-700 hover:text-zinc-100",
+                          ? "bg-gold-500/10 font-medium text-gold-300 before:absolute before:inset-y-1.5 before:left-0 before:w-0.5 before:rounded-full before:bg-gold-500"
+                          : "text-zinc-400 hover:bg-ink-800 hover:text-zinc-100",
                       )}
                       onClick={closeSidebar}
                     >
@@ -284,7 +284,7 @@ export function Sidebar() {
                       {(badgeByHref[item.href] ?? 0) > 0 && (
                         <span
                           className={cn(
-                            "inline-flex min-w-6 shrink-0 items-center justify-center rounded-full px-2 py-0.5 text-[11px] font-semibold leading-none",
+                            "inline-flex min-w-5 shrink-0 items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold leading-none",
                             active ? "bg-gold-500 text-ink-900" : "bg-rose-500 text-white",
                           )}
                         >
@@ -298,18 +298,18 @@ export function Sidebar() {
             </div>
           ))}
         </nav>
-        <div className="border-t border-ink-600 p-4">
+        <div className="border-t border-ink-600 p-3">
           <Link
             href="/profile"
             className={cn(
-              "flex items-center gap-3 rounded-2xl border px-3 py-3 transition-colors",
+              "flex items-center gap-3 rounded-xl border px-3 py-2.5 transition-colors",
               pathname === "/profile"
-                ? "border-gold-500/20 bg-gold-500/12 text-gold-500 shadow-[0_0_0_1px_rgba(185,146,68,0.08)]"
-                : "border-ink-600 bg-ink-700/60 hover:bg-ink-700",
+                ? "border-gold-500/30 bg-gold-500/10 text-gold-300"
+                : "border-ink-600 bg-ink-800 hover:bg-ink-700",
             )}
             onClick={closeSidebar}
           >
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-gold-500/20 bg-gold-500/10 text-sm font-semibold text-gold-500">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-gold-500/20 bg-gold-500/10 text-xs font-semibold text-gold-500">
               {(user?.name ?? "U").slice(0, 2).toUpperCase()}
             </div>
             <div className="min-w-0">

@@ -167,6 +167,18 @@ export class KnowledgeController {
     return { success: true, data };
   }
 
+  /**
+   * Re-embeds every indexed knowledge document. Run once after changing the embedding model
+   * (e.g. switching AI_PROVIDER between openai and ollama). Optional ?siteId= limits it to one site.
+   */
+  @Post("reprocess-all")
+  @RequirePermissions(Permission.KNOWLEDGE_EDIT)
+  async reprocessAll(@Query("siteId") siteId: string | undefined, @CurrentUser() user: JwtAccessPayload) {
+    this.assertSuperAdmin(user);
+    const data = await this.knowledgeService.reprocessAll(siteId?.trim() || undefined);
+    return { success: true, data };
+  }
+
   @Post("upload")
   @RequirePermissions(Permission.KNOWLEDGE_EDIT)
   @UseInterceptors(FileInterceptor("file", { limits: { fileSize: MAX_UPLOAD_BYTES } }))

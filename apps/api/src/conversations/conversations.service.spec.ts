@@ -99,15 +99,21 @@ describe("ConversationsService.autoReturnToAiOnAgentTimeout", () => {
       created: true,
     });
 
-    return { service, prisma, realtime };
+    return { service, prisma, realtime, queue };
   }
 
   it("returns conversation to AI and posts a system activity when agent stays silent", async () => {
-    const { service, prisma, realtime } = createService();
+    const { service, prisma, realtime, queue } = createService();
 
     const restored = await service.autoReturnToAiOnAgentTimeout("conv-1", new Date("2026-09-01T10:00:00.000Z"));
 
     expect(restored).toBe(true);
+    expect(queue.add).toHaveBeenCalledTimes(3);
+    expect(queue.add).toHaveBeenCalledWith(
+      "conversation-inactivity",
+      expect.objectContaining({ conversationId: "conv-1", kind: "close", activityStartedAt: expect.any(String) }),
+      expect.objectContaining({ delay: 600_000 }),
+    );
     expect(prisma.conversation.updateMany).toHaveBeenCalledWith({
       where: {
         id: "conv-1",

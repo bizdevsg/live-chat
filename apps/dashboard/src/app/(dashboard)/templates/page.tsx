@@ -1,13 +1,14 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient, ApiError } from "@/lib/api-client";
 import { useToast } from "@/components/ui/toast";
 import { Topbar } from "@/components/layout/topbar";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input, Label, Select, Textarea } from "@/components/ui/input";
-import { ConfirmModal, Modal } from "@/components/ui/modal";
+import { ConfirmModal } from "@/components/ui/modal";
 import { DashboardEmpty, DashboardPage, DashboardPageHeader, DashboardPageMetrics, DashboardTablePanel } from "@/components/layout/dashboard-page";
 
 interface Template {
@@ -21,44 +22,12 @@ interface Template {
 export default function TemplatesPage() {
   const queryClient = useQueryClient();
   const toast = useToast();
-  const [open, setOpen] = useState(false);
-  const [editTarget, setEditTarget] = useState<Template | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Template | null>(null);
-  const [shortcut, setShortcut] = useState("");
-  const [title, setTitle] = useState("");
-  const [content, setContent] = useState("");
-  const [language, setLanguage] = useState("id");
 
   const query = useQuery({ queryKey: ["templates"], queryFn: () => apiClient.get<Template[]>("/api/v1/admin/templates") });
   const templates = query.data ?? [];
   const languages = new Set(templates.map((template) => template.language)).size;
   const averageLength = templates.length > 0 ? Math.round(templates.reduce((total, template) => total + template.content.length, 0) / templates.length) : 0;
-
-  const create = useMutation({
-    mutationFn: () => apiClient.post("/api/v1/admin/templates", { shortcut, title, content, language }),
-    onSuccess: () => {
-      toast.push("Template dibuat.", "success");
-      queryClient.invalidateQueries({ queryKey: ["templates"] });
-      setOpen(false);
-      setShortcut("");
-      setTitle("");
-      setContent("");
-    },
-    onError: (err) => toast.push(err instanceof ApiError ? err.message : "Gagal membuat template.", "error"),
-  });
-
-  const update = useMutation({
-    mutationFn: () => apiClient.put(`/api/v1/admin/templates/${editTarget!.id}`, { shortcut, title, content, language }),
-    onSuccess: () => {
-      toast.push("Template diperbarui.", "success");
-      queryClient.invalidateQueries({ queryKey: ["templates"] });
-      setEditTarget(null);
-      setShortcut("");
-      setTitle("");
-      setContent("");
-    },
-    onError: (err) => toast.push(err instanceof ApiError ? err.message : "Gagal memperbarui template.", "error"),
-  });
 
   const remove = useMutation({
     mutationFn: (id: string) => apiClient.delete(`/api/v1/admin/templates/${id}`),
@@ -70,13 +39,6 @@ export default function TemplatesPage() {
     onError: (err) => toast.push(err instanceof ApiError ? err.message : "Gagal menghapus template.", "error"),
   });
 
-  const resetForm = () => {
-    setShortcut("");
-    setTitle("");
-    setContent("");
-    setLanguage("id");
-  };
-
   return (
     <>
       <Topbar title="Response Templates" />
@@ -84,8 +46,12 @@ export default function TemplatesPage() {
         <div className="space-y-6">
           <DashboardPageHeader
             title="Response templates"
-            description="Koleksi template diperbarui agar shortcut, bahasa, dan isi balasan cepat terbaca seperti pustaka operasional yang siap pakai."
-            actions={<Button onClick={() => setOpen(true)}>+ Template Baru</Button>}
+            description="Pustaka balasan cepat lengkap dengan shortcut dan bahasa, siap dipakai agent."
+            actions={
+              <Link href="/templates/new">
+                <Button>+ Template Baru</Button>
+              </Link>
+            }
           />
           <DashboardPageMetrics
             items={[
@@ -95,125 +61,37 @@ export default function TemplatesPage() {
               { label: "Shortcut", value: String(templates.length), detail: "Setiap template memiliki shortcut unik untuk pemanggilan cepat." },
             ]}
           />
-          <DashboardTablePanel title="Template library" detail="Semua template disusun sebagai koleksi kartu agar agent bisa cepat mengenali shortcut dan konteks balasannya.">
-            <div className="grid grid-cols-1 gap-4 px-5 py-5 md:grid-cols-2 md:px-6 md:py-6">
+          <DashboardTablePanel title="Template library" detail="Kenali shortcut dan konteks balasan dengan cepat.">
+            <div className="grid grid-cols-1 gap-3 p-4 md:grid-cols-2 md:p-5 xl:grid-cols-3">
               {templates.map((template) => (
-                <section key={template.id} className="rounded-2xl border border-ink-600 bg-ink-800/70 p-5 shadow-[0_16px_40px_rgba(0,0,0,0.12)]">
-                  <div className="mb-1 flex items-center justify-between">
-                    <span className="font-mono text-xs text-gold-500">/{template.shortcut}</span>
-                    <span className="text-xs uppercase tracking-[0.24em] text-zinc-600">{template.language}</span>
+                <section key={template.id} className="flex flex-col rounded-xl border border-ink-600 bg-ink-900/60 p-4 transition-colors hover:border-ink-500">
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <span className="rounded-md bg-gold-500/10 px-2 py-0.5 font-mono text-xs text-gold-300">/{template.shortcut}</span>
+                    <Badge>{template.language.toUpperCase()}</Badge>
                   </div>
-                  <p className="mb-2 text-sm font-medium text-zinc-200">{template.title}</p>
-                  <p className="text-sm leading-6 text-zinc-500">{template.content}</p>
-                  <div className="mt-4 flex gap-2">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => {
-                        setEditTarget(template);
-                        setShortcut(template.shortcut);
-                        setTitle(template.title);
-                        setContent(template.content);
-                        setLanguage(template.language);
-                      }}
-                    >
-                      Edit
-                    </Button>
-                    <Button size="sm" variant="danger" onClick={() => setDeleteTarget(template)}>
+                  <p className="mb-1.5 text-sm font-medium text-zinc-100">{template.title}</p>
+                  <p className="line-clamp-4 flex-1 text-sm leading-6 text-zinc-500">{template.content}</p>
+                  <div className="mt-4 flex gap-1.5 border-t border-ink-600 pt-3">
+                    <Link href={`/templates/${template.id}/edit`}>
+                      <Button size="sm" variant="ghost">
+                        Edit
+                      </Button>
+                    </Link>
+                    <Button size="sm" variant="ghost" className="text-red-400 hover:bg-red-500/10 hover:text-red-300" onClick={() => setDeleteTarget(template)}>
                       Hapus
                     </Button>
                   </div>
                 </section>
               ))}
-              {!query.isLoading && templates.length === 0 ? <DashboardEmpty>Belum ada template yang dibuat.</DashboardEmpty> : null}
+              {!query.isLoading && templates.length === 0 ? (
+                <div className="col-span-full">
+                  <DashboardEmpty>Belum ada template yang dibuat.</DashboardEmpty>
+                </div>
+              ) : null}
             </div>
           </DashboardTablePanel>
         </div>
       </DashboardPage>
-
-      <Modal
-        open={open}
-        title="Template Baru"
-        onClose={() => {
-          setOpen(false);
-          resetForm();
-        }}
-      >
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            create.mutate();
-          }}
-          className="space-y-3"
-        >
-          <div>
-            <Label htmlFor="shortcut">Shortcut</Label>
-            <Input id="shortcut" required placeholder="salam-pembuka" value={shortcut} onChange={(e) => setShortcut(e.target.value)} />
-          </div>
-          <div>
-            <Label htmlFor="title">Judul</Label>
-            <Input id="title" required value={title} onChange={(e) => setTitle(e.target.value)} />
-          </div>
-          <div>
-            <Label htmlFor="content">Isi</Label>
-            <Textarea id="content" required value={content} onChange={(e) => setContent(e.target.value)} />
-          </div>
-          <div>
-            <Label htmlFor="language">Bahasa</Label>
-            <Select id="language" value={language} onChange={(e) => setLanguage(e.target.value)}>
-              <option value="id">Bahasa Indonesia</option>
-              <option value="en">English</option>
-            </Select>
-          </div>
-          <div className="flex justify-end">
-            <Button type="submit" disabled={create.isPending}>
-              Simpan
-            </Button>
-          </div>
-        </form>
-      </Modal>
-
-      <Modal
-        open={!!editTarget}
-        title={`Edit Template${editTarget ? `: /${editTarget.shortcut}` : ""}`}
-        onClose={() => {
-          setEditTarget(null);
-          resetForm();
-        }}
-      >
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            update.mutate();
-          }}
-          className="space-y-3"
-        >
-          <div>
-            <Label htmlFor="edit-shortcut">Shortcut</Label>
-            <Input id="edit-shortcut" required value={shortcut} onChange={(e) => setShortcut(e.target.value)} />
-          </div>
-          <div>
-            <Label htmlFor="edit-title">Judul</Label>
-            <Input id="edit-title" required value={title} onChange={(e) => setTitle(e.target.value)} />
-          </div>
-          <div>
-            <Label htmlFor="edit-content">Isi</Label>
-            <Textarea id="edit-content" required value={content} onChange={(e) => setContent(e.target.value)} />
-          </div>
-          <div>
-            <Label htmlFor="edit-language">Bahasa</Label>
-            <Select id="edit-language" value={language} onChange={(e) => setLanguage(e.target.value)}>
-              <option value="id">Bahasa Indonesia</option>
-              <option value="en">English</option>
-            </Select>
-          </div>
-          <div className="flex justify-end">
-            <Button type="submit" disabled={update.isPending}>
-              Simpan Perubahan
-            </Button>
-          </div>
-        </form>
-      </Modal>
 
       <ConfirmModal
         open={!!deleteTarget}

@@ -4,8 +4,8 @@ import { forwardRef, type InputHTMLAttributes, type TextareaHTMLAttributes, type
 import { cn } from "./cn";
 
 const fieldClass =
-  "w-full rounded-lg border border-ink-600 bg-ink-800 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 " +
-  "focus:outline-none focus:ring-2 focus:ring-gold-500/60 focus:border-gold-500/60 disabled:opacity-50";
+  "w-full rounded-lg border border-ink-600 bg-ink-900 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-600 transition-colors hover:border-ink-500 " +
+  "focus:outline-none focus:ring-2 focus:ring-gold-500/30 focus:border-gold-500/70 disabled:opacity-50";
 
 export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement>>(({ className, ...props }, ref) => (
   <input ref={ref} className={cn(fieldClass, className)} {...props} />
@@ -26,7 +26,7 @@ Select.displayName = "Select";
 
 export function Label({ children, htmlFor }: { children: React.ReactNode; htmlFor?: string }) {
   return (
-    <label htmlFor={htmlFor} className="mb-1 block text-xs font-medium uppercase tracking-wide text-zinc-400">
+    <label htmlFor={htmlFor} className="mb-1.5 block text-xs font-medium text-zinc-400">
       {children}
     </label>
   );

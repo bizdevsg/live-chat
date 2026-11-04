@@ -10,7 +10,11 @@
 }
 
 body {
-  @apply bg-ink-900 text-zinc-100 antialiased;
+  @apply bg-ink-900 font-sans text-zinc-100 antialiased;
+}
+
+:focus-visible {
+  outline-color: rgb(212 175 55 / 0.6);
 }
 
 [data-color-mode="dark"] .w-md-editor,
@@ -213,6 +217,7 @@ body {
 
 .scrollbar-thin::-webkit-scrollbar {
   width: 6px;
+  height: 6px;
 }
 .scrollbar-thin::-webkit-scrollbar-thumb {
   @apply bg-ink-600 rounded-full;
@@ -220,7 +225,11 @@ body {
 
 @layer components {
   main table thead {
-    @apply bg-ink-700/45;
+    @apply bg-ink-900/60;
+  }
+
+  main table thead th {
+    @apply text-[11px] font-semibold uppercase tracking-wider text-zinc-500;
   }
 
   main table tbody tr {
@@ -228,6 +237,6 @@ body {
   }
 
   main table tbody tr:hover {
-    @apply bg-ink-700/35;
+    @apply bg-ink-700/30;
   }
 }

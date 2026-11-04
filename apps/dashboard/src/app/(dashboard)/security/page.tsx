@@ -46,12 +46,12 @@ export default function SecurityPage() {
           <DashboardTablePanel title="Security events" detail={`${events.length} event tersedia untuk ditinjau oleh tim keamanan dan operasional.`}>
           <div className="overflow-x-auto">
           <table className="min-w-[720px] w-full text-sm">
-            <thead className="text-left text-[11px] uppercase tracking-[0.28em] text-zinc-500">
+            <thead className="text-left text-[11px] uppercase tracking-wider text-zinc-500">
               <tr>
-                <th className="px-5 py-4">Waktu</th>
-                <th className="px-5 py-4">Tipe</th>
-                <th className="px-5 py-4">Severity</th>
-                <th className="px-5 py-4">IP</th>
+                <th className="px-5 py-3.5">Waktu</th>
+                <th className="px-5 py-3.5">Tipe</th>
+                <th className="px-5 py-3.5">Severity</th>
+                <th className="px-5 py-3.5">IP</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-ink-600/80">
@@ -59,7 +59,7 @@ export default function SecurityPage() {
                 <tr key={event.id} className="transition-colors hover:bg-ink-700/35">
                   <td className="px-5 py-4 text-zinc-500">{new Date(event.createdAt).toLocaleString("id-ID")}</td>
                   <td className="px-5 py-4 text-zinc-100">{event.type}</td>
-                  <td className="px-5 py-4">
+                  <td className="px-5 py-3.5">
                     <Badge tone={SEVERITY_TONE[event.severity] ?? "neutral"}>{event.severity}</Badge>
                   </td>
                   <td className="px-5 py-4 text-zinc-500">{event.ipAddress ?? "-"}</td>

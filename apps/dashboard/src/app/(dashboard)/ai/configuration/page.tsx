@@ -88,7 +88,7 @@ export default function AiConfigurationPage() {
                 e.preventDefault();
                 save.mutate();
               }}
-              className="space-y-5 px-5 py-5 md:px-6 md:py-6"
+              className="space-y-5 px-5 py-5"
             >
               <div>
                 <Label htmlFor="aiName">Nama Asisten AI</Label>

@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "./cn";
 
@@ -18,6 +18,10 @@ const ToastContext = createContext<ToastContextValue | null>(null);
 
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
+  // The portal target only exists in the browser; render it after mount so the first client render
+  // matches the server HTML and hydration doesn't fail.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   const push = useCallback((message: string, tone: Toast["tone"] = "info") => {
     const id = Date.now() + Math.random();
@@ -28,7 +32,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <ToastContext.Provider value={{ push }}>
       {children}
-      {typeof document !== "undefined" &&
+      {mounted &&
         createPortal(
           <div className="fixed bottom-4 right-4 z-[100] flex flex-col gap-2">
             {toasts.map((t) => (
@@ -36,7 +40,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                 key={t.id}
                 role="status"
                 className={cn(
-                  "rounded-lg border px-4 py-2 text-sm shadow-lg",
+                  "min-w-[14rem] rounded-xl border px-4 py-3 text-sm shadow-pop backdrop-blur",
                   t.tone === "success" && "border-emerald-600 bg-emerald-950 text-emerald-300",
                   t.tone === "error" && "border-red-600 bg-red-950 text-red-300",
                   t.tone === "info" && "border-ink-600 bg-ink-800 text-zinc-200",

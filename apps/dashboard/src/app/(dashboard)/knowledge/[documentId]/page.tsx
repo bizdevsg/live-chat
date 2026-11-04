@@ -149,7 +149,7 @@ export default function KnowledgeDetailPage() {
 
         <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1.35fr)_360px]">
           <Card className="self-start overflow-hidden border-ink-500/60 bg-ink-800/75 !p-0">
-            <div className="border-b border-ink-700 px-5 py-4">
+            <div className="border-b border-ink-700 px-5 py-3.5">
               <Label htmlFor="title">Judul Artikel</Label>
               <Input id="title" value={title} disabled={!editable} onChange={(e) => setTitle(e.target.value)} />
             </div>

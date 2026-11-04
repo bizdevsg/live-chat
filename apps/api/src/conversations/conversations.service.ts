@@ -1057,6 +1057,8 @@ export class ConversationsService {
     });
     if (flipped.count === 0) return false;
 
+    await this.safelyRefreshAiInactivityTimeout(conversationId, new Date());
+
     if (this.shouldReleaseAgent(conversation)) {
       await this.prisma.agentProfile
         .update({ where: { userId: conversation.assignedAgentId! }, data: { activeChatCount: { decrement: 1 } } })
