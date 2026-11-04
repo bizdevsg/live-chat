@@ -10,6 +10,7 @@ import type { CreateKnowledgeDocumentDto, ListKnowledgeQueryDto, PublicKnowledge
 import { StorageService } from "../storage/storage.service";
 import { normalizeOfficialSourceUrl, parseOfficialSourceHosts } from "./official-source-url";
 import { AiRunRecorderService } from "../common/ai-run-recorder.service";
+import { createZip, type ZipEntry } from "./zip.util";
 
 function slugify(title: string): string {
   return title
@@ -21,6 +22,18 @@ function slugify(title: string): string {
 
 function titleFromFileName(fileName: string): string {
   return fileName.trim().replace(/\.[^.]+$/, "");
+}
+
+/** Makes a title/category safe to use as one path segment inside the export archive. */
+function toPathSegment(value: string | null | undefined): string {
+  return (value ?? "")
+    // eslint-disable-next-line no-control-regex
+    .replace(/[\\/:*?"<>|\u0000-\u001f]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/^\.+|\.+$/g, "")
+    .slice(0, 120)
+    .trim();
 }
 
 const ACTIVE_STATUSES = [KnowledgeStatus.ACTIVE, KnowledgeStatus.PUBLISHED] as const;
@@ -168,6 +181,70 @@ export class KnowledgeService {
       throw new NotFoundApiException(ErrorCode.NOT_FOUND, "Artikel knowledge publik tidak ditemukan.");
     }
     return this.serializePublicDocument(document);
+  }
+
+  /**
+   * Builds a ZIP with every knowledge article of the site as `<Kategori>/<Judul>.md` (the title is
+   * the file name, so re-uploading a file maps back to the same article) plus a `manifest.json`
+   * with the metadata that is not part of the markdown itself.
+   */
+  async exportAll(siteId: string, organizationId: string, userId: string) {
+    const documents = await this.prisma.knowledgeDocument.findMany({
+      where: { siteId },
+      orderBy: [{ title: "asc" }],
+      include: { category: { select: { name: true } } },
+    });
+
+    const usedPaths = new Set<string>();
+    const entries: ZipEntry[] = [];
+    const manifest: Array<Record<string, unknown>> = [];
+
+    for (const doc of documents) {
+      const folder = toPathSegment(doc.category?.name) || "Tanpa Kategori";
+      const baseName = toPathSegment(doc.title) || doc.slug || doc.id;
+      let path = `${folder}/${baseName}.md`;
+      for (let counter = 2; usedPaths.has(path.toLowerCase()); counter += 1) {
+        path = `${folder}/${baseName} (${counter}).md`;
+      }
+      usedPaths.add(path.toLowerCase());
+
+      entries.push({ name: path, data: doc.content, modifiedAt: doc.updatedAt });
+      manifest.push({
+        path,
+        id: doc.id,
+        title: doc.title,
+        slug: doc.slug,
+        category: doc.category?.name ?? null,
+        status: doc.status,
+        audience: doc.audience,
+        version: doc.version,
+        summary: doc.summary,
+        sourceUrl: doc.sourceUrl,
+        effectiveDate: doc.effectiveDate?.toISOString() ?? null,
+        expiredDate: doc.expiredDate?.toISOString() ?? null,
+        createdAt: doc.createdAt.toISOString(),
+        updatedAt: doc.updatedAt.toISOString(),
+      });
+    }
+
+    const exportedAt = new Date();
+    entries.push({
+      name: "manifest.json",
+      data: JSON.stringify({ exportedAt: exportedAt.toISOString(), total: documents.length, documents: manifest }, null, 2),
+      modifiedAt: exportedAt,
+    });
+
+    await this.auditLog.record({
+      organizationId,
+      actorType: "USER",
+      actorId: userId,
+      action: "knowledge.exported",
+      resourceType: "knowledge_document",
+      resourceId: siteId,
+      afterData: { count: documents.length },
+    });
+
+    return { buffer: createZip(entries), count: documents.length, exportedAt };
   }
 
   async getOrThrow(id: string) {

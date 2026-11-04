@@ -3,27 +3,9 @@
 import Link from "next/link";
 import { useEffect, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  Activity,
-  ArrowRight,
-  ArrowRightLeft,
-  CalendarDays,
-  CircleAlert,
-  Clock3,
-  Hourglass,
-  Inbox,
-  LoaderCircle,
-  MessagesSquare,
-  Radio,
-  RefreshCw,
-  ShieldCheck,
-  Star,
-  Ticket,
-  UsersRound,
-  type LucideIcon,
-} from "lucide-react";
+import { Activity, CircleAlert, Inbox, LoaderCircle, RefreshCw, UsersRound } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { DashboardPage } from "@/components/layout/dashboard-page";
+import { DashboardPage, DashboardPageHeader, DashboardPageMetrics } from "@/components/layout/dashboard-page";
 import { Topbar } from "@/components/layout/topbar";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/components/ui/cn";
@@ -74,60 +56,6 @@ function formatChartDate(value: string) {
     : new Intl.DateTimeFormat("id-ID", { day: "2-digit", month: "short" }).format(date);
 }
 
-function PrimaryMetric({
-  label,
-  value,
-  detail,
-  icon: Icon,
-  accent = false,
-}: {
-  label: string;
-  value: number;
-  detail: string;
-  icon: LucideIcon;
-  accent?: boolean;
-}) {
-  return (
-    <section
-      className={cn(
-        "group relative min-h-44 overflow-hidden rounded-xl border px-5 py-5 transition-colors",
-        accent
-          ? "border-gold-400/60 bg-[linear-gradient(145deg,rgba(212,175,55,0.19),rgba(212,175,55,0.04)_62%)]"
-          : "border-ink-600 bg-ink-800/65 hover:border-ink-500",
-      )}
-    >
-      <div className="flex items-start justify-between gap-4">
-        <span className={cn("grid h-10 w-10 place-items-center rounded-xl", accent ? "bg-gold-400 text-ink-950" : "bg-ink-700 text-zinc-400")}>
-          <Icon className="h-4.5 w-4.5" strokeWidth={1.8} aria-hidden="true" />
-        </span>
-        {accent ? <span className="rounded-full border border-gold-400/25 bg-gold-400/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-gold-300">Perlu respons</span> : null}
-      </div>
-      <div className="mt-6 flex items-end justify-between gap-4">
-        <div>
-          <p className="text-xs font-medium uppercase tracking-wider text-zinc-500">{label}</p>
-          <p className={cn("mt-2 text-3xl font-semibold tracking-[-0.04em]", accent ? "text-gold-300" : "text-zinc-50")}>{value}</p>
-        </div>
-        <p className="max-w-32 text-right text-xs leading-5 text-zinc-500">{detail}</p>
-      </div>
-    </section>
-  );
-}
-
-function SecondaryMetric({ icon: Icon, label, value, detail }: { icon: LucideIcon; label: string; value: string | number; detail: string }) {
-  return (
-    <div className="flex min-w-0 items-center gap-3 px-4 py-4 sm:px-5">
-      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-ink-600 bg-ink-900 text-gold-500">
-        <Icon className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
-      </span>
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-xs text-zinc-500">{label}</p>
-        <p className="mt-0.5 text-lg font-semibold tabular-nums text-zinc-100">{value}</p>
-      </div>
-      <span className="hidden max-w-28 text-right text-[11px] leading-4 text-zinc-600 2xl:block">{detail}</span>
-    </div>
-  );
-}
-
 function PanelHeader({ eyebrow, title, action }: { eyebrow: string; title: string; action?: ReactNode }) {
   return (
     <div className="flex items-center justify-between gap-4 border-b border-ink-600/80 px-5 py-4 sm:px-6">
@@ -140,26 +68,10 @@ function PanelHeader({ eyebrow, title, action }: { eyebrow: string; title: strin
   );
 }
 
-function PriorityRow({ icon: Icon, label, value, href, tone }: { icon: LucideIcon; label: string; value: number; href?: string; tone: "rose" | "gold" | "green" }) {
-  const content = (
-    <div className={cn("flex items-center gap-3 px-5 py-4 transition-colors", href && "hover:bg-ink-700/35")}>
-      <span className={cn("grid h-9 w-9 place-items-center rounded-lg", tone === "rose" ? "bg-rose-400/10 text-rose-400" : tone === "green" ? "bg-emerald-400/10 text-emerald-400" : "bg-gold-400/10 text-gold-400")}>
-        <Icon className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
-      </span>
-      <span className="min-w-0 flex-1 text-sm text-zinc-300">{label}</span>
-      <span className="text-lg font-semibold tabular-nums text-zinc-100">{value}</span>
-      {href ? <ArrowRight className="h-4 w-4 text-zinc-600" aria-hidden="true" /> : null}
-    </div>
-  );
-  return href ? <Link href={href}>{content}</Link> : content;
-}
-
 function LoadingState() {
   return (
     <div className="space-y-5" aria-label="Memuat data beranda">
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {Array.from({ length: 4 }, (_, index) => <div key={index} className="h-44 animate-pulse rounded-xl border border-ink-600 bg-ink-800/60" />)}
-      </div>
+      <div className="h-[116px] animate-pulse rounded-xl border border-ink-600 bg-ink-800/60" />
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1.65fr)_minmax(320px,0.75fr)]">
         <div className="h-[430px] animate-pulse rounded-xl border border-ink-600 bg-ink-800/60" />
         <div className="h-[430px] animate-pulse rounded-xl border border-ink-600 bg-ink-800/60" />
@@ -223,27 +135,13 @@ export default function OverviewPage() {
   return (
     <>
       <Topbar title="Beranda" />
-      <DashboardPage className="bg-[radial-gradient(circle_at_88%_-10%,rgba(212,175,55,0.09),transparent_32rem)]">
+      <DashboardPage>
         <div className="space-y-5">
-          <header className="relative overflow-hidden rounded-xl border border-ink-600 bg-ink-800/75 px-5 py-5 shadow-[0_20px_60px_rgba(0,0,0,0.16)] sm:px-6 lg:px-7 lg:py-6">
-            <div className="absolute inset-y-0 left-0 w-1 bg-gradient-to-b from-gold-300 via-gold-500 to-transparent" />
-            <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-3 text-xs">
-                  <div className="inline-flex items-center gap-2 font-semibold uppercase tracking-wider text-gold-400">
-                    <div className="h-2 w-2 rounded-full bg-emerald-600/50 animate-ping flex items-center justify-center">
-                      <div className="h-1 w-1 rounded-full bg-emerald-500" />
-                    </div>
-
-                    Live operations
-                  </div>
-                  <span className="h-3 w-px bg-ink-500" />
-                  <span className="inline-flex items-center gap-1.5 capitalize text-zinc-500"><CalendarDays className="h-3.5 w-3.5" aria-hidden="true" />{today}</span>
-                </div>
-                <h1 className="mt-3 truncate text-2xl font-semibold tracking-[-0.03em] text-zinc-50 sm:text-2xl">Selamat datang{userName ? `, ${userName.split(" ")[0]}` : ""}</h1>
-                <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-500">Pantau antrean, kapasitas agent, dan performa layanan hari ini.</p>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
+          <DashboardPageHeader
+            title={`Selamat datang${userName ? `, ${userName.split(" ")[0]}` : ""}`}
+            description={`${today} · Pantau antrean, kapasitas agent, dan performa layanan hari ini.`}
+            actions={
+              <>
                 {canRunCleanup ? (
                   <Button variant="secondary" className="h-10" disabled={cleanup.isPending} onClick={() => cleanup.mutate()}>
                     {cleanup.isPending ? <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Activity className="h-4 w-4" aria-hidden="true" />}
@@ -255,18 +153,24 @@ export default function OverviewPage() {
                     <Inbox className="h-4 w-4" aria-hidden="true" />Buka Inbox
                   </Link>
                 ) : null}
-              </div>
-            </div>
-          </header>
+              </>
+            }
+          />
 
           {!socketReady || overview.isLoading ? <LoadingState /> : data ? (
             <>
-              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                <PrimaryMetric label="Menunggu agent" value={data.waitingAgent} detail="Percakapan butuh respons" icon={Hourglass} accent={data.waitingAgent > 0} />
-                <PrimaryMetric label="Conversation aktif" value={data.activeConversations} detail="Sedang berlangsung" icon={Radio} />
-                <PrimaryMetric label="Chat hari ini" value={data.totalChatToday} detail="Masuk sejak 00.00" icon={MessagesSquare} />
-                <PrimaryMetric label="Ticket terbuka" value={data.openTickets} detail="Belum terselesaikan" icon={Ticket} />
-              </div>
+              <DashboardPageMetrics
+                items={[
+                  { label: "Menunggu agent", value: String(data.waitingAgent), tone: data.waitingAgent > 0 ? "alert" : undefined, href: canOpenInbox ? "/inbox" : undefined, detail: "Percakapan yang butuh respons agent." },
+                  { label: "Conversation aktif", value: String(data.activeConversations), detail: "Sedang berlangsung." },
+                  { label: "Chat hari ini", value: String(data.totalChatToday), detail: "Masuk sejak 00.00." },
+                  { label: "Ticket terbuka", value: String(data.openTickets), tone: data.openTickets > 0 ? "warn" : undefined, href: canOpenTickets ? "/tickets" : undefined, detail: "Belum terselesaikan." },
+                  { label: "Belum selesai", value: String(data.unresolvedCount), tone: data.unresolvedCount > 0 ? "warn" : undefined, href: canOpenInbox ? "/inbox" : undefined, detail: "Percakapan yang belum diselesaikan." },
+                  { label: "AI containment", value: `${Math.round(data.aiContainmentRate * 100)}%`, detail: "Percakapan yang ditangani AI tanpa agent." },
+                  { label: "Handoff hari ini", value: String(data.handoffCount), detail: "Dialihkan ke agent." },
+                  { label: "CSAT rata-rata", value: data.customerSatisfactionAvg?.toFixed(1) ?? "-", detail: "Skor kepuasan customer." },
+                ]}
+              />
 
               <div className="grid gap-5 xl:grid-cols-[minmax(0,1.65fr)_minmax(320px,0.75fr)]">
                 <section className="overflow-hidden rounded-xl border border-ink-600 bg-ink-800/65">
@@ -313,23 +217,9 @@ export default function OverviewPage() {
                     ) : <div className="px-5 py-9 text-center"><UsersRound className="mx-auto h-5 w-5 text-zinc-700" aria-hidden="true" /><p className="mt-2 text-sm text-zinc-500">Belum ada agent aktif.</p></div>}
                   </section>
 
-                  <section className="overflow-hidden rounded-xl border border-ink-600 bg-ink-800/65">
-                    <PanelHeader eyebrow="Action queue" title="Prioritas sekarang" />
-                    <div className="divide-y divide-ink-600/70">
-                      <PriorityRow icon={Hourglass} label="Menunggu agent" value={data.waitingAgent} href={canOpenInbox ? "/inbox" : undefined} tone={data.waitingAgent ? "rose" : "green"} />
-                      <PriorityRow icon={Clock3} label="Belum selesai" value={data.unresolvedCount} href={canOpenInbox ? "/inbox" : undefined} tone={data.unresolvedCount ? "gold" : "green"} />
-                      <PriorityRow icon={Ticket} label="Ticket terbuka" value={data.openTickets} href={canOpenTickets ? "/tickets" : undefined} tone={data.openTickets ? "rose" : "green"} />
-                    </div>
-                  </section>
                 </div>
               </div>
 
-              <section className="grid overflow-hidden rounded-xl border border-ink-600 bg-ink-800/45 sm:grid-cols-2 sm:divide-x sm:divide-y-0 sm:divide-ink-600 xl:grid-cols-4 [&>*]:border-b [&>*]:border-ink-600 sm:[&>*]:border-b-0">
-                <SecondaryMetric icon={UsersRound} label="Agent aktif" value={data.agentsOnline} detail="Terhubung sekarang" />
-                <SecondaryMetric icon={ShieldCheck} label="AI containment" value={`${Math.round(data.aiContainmentRate * 100)}%`} detail="Ditangani otomatis" />
-                <SecondaryMetric icon={ArrowRightLeft} label="Handoff hari ini" value={data.handoffCount} detail="Dialihkan ke agent" />
-                <SecondaryMetric icon={Star} label="CSAT rata-rata" value={data.customerSatisfactionAvg?.toFixed(1) ?? "-"} detail="Skor kepuasan" />
-              </section>
             </>
           ) : (
             <div className="rounded-xl border border-rose-500/20 bg-ink-800 p-10 text-center">

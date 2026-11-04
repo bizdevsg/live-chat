@@ -33,7 +33,7 @@ export default function SecurityPage() {
         <div className="space-y-6">
           <DashboardPageHeader
             title="Security"
-            description="Halaman keamanan kini difokuskan pada pembacaan sinyal insiden, distribusi severity, dan sumber trafik yang perlu perhatian cepat."
+            description="Sinyal insiden, distribusi severity, dan sumber trafik yang perlu perhatian."
           />
           <DashboardPageMetrics
             items={[

@@ -8,7 +8,7 @@ import { useToast } from "@/components/ui/toast";
 import { Topbar } from "@/components/layout/topbar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { DashboardPage, DashboardPageHeader, DashboardPageMetrics, DashboardTablePanel } from "@/components/layout/dashboard-page";
+import { DashboardPage, DashboardPageHeader, DashboardTablePanel } from "@/components/layout/dashboard-page";
 
 type WidgetSettingsForm = {
   widgetEnabled: boolean;
@@ -92,16 +92,7 @@ export default function WidgetSettingsPage() {
         <div className="space-y-6">
           <DashboardPageHeader
             title="Widget settings"
-            description="Area widget kini dibagi menjadi tiga surface utama: pemasangan script, domain governance, dan perilaku experience di sisi user."
-          />
-          <DashboardPageMetrics
-            items={[
-              { label: "Site", value: site.name, detail: `Konfigurasi aktif untuk ${site.siteKey}.` },
-              { label: "Domain", value: String(site.domains.length), detail: "Jumlah domain yang diizinkan memuat widget." },
-              { label: "Widget", value: settings.widgetEnabled ? "Aktif" : "Off", detail: "Status master untuk tampilan widget." },
-              { label: "Attachment", value: settings.allowAttachments ? "On" : "Off", detail: "Izin upload file dari percakapan pelanggan." },
-              { label: "Timeout Agent", value: `${settings.agentReplyTimeoutSeconds} detik`, detail: "Batas waktu agent membalas sebelum AI takeover lagi." },
-            ]}
+            description={`Pemasangan script, domain yang diizinkan, dan perilaku widget untuk ${site.name} (${site.siteKey}).`}
           />
           <div className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
           <DashboardTablePanel title="Script pemasangan" detail="Gunakan snippet ini untuk menyematkan widget ke website tujuan.">

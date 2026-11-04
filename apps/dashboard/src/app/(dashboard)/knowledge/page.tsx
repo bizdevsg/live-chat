@@ -9,6 +9,7 @@ import { Download, LoaderCircle, RefreshCw, Send, UploadCloud } from "lucide-rea
 import { apiClient, ApiError } from "@/lib/api-client";
 import { useToast } from "@/components/ui/toast";
 import { Topbar } from "@/components/layout/topbar";
+import { DashboardPage, DashboardPageHeader } from "@/components/layout/dashboard-page";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -100,9 +101,6 @@ const STATUS_TONE: Record<string, "neutral" | "gold" | "green" | "red" | "amber"
   NON_ACTIVE: "neutral",
 };
 
-// Mirrors the limit enforced on the upload page.
-const MAX_BATCH_UPLOAD_FILES = 50;
-
 interface KnowledgeListResponse {
   items: KnowledgeDoc[];
   total: number;
@@ -184,6 +182,7 @@ export default function KnowledgePage() {
   const [isBatchDeleteConfirmOpen, setIsBatchDeleteConfirmOpen] = useState(false);
   const [selectedDocumentIds, setSelectedDocumentIds] = useState<string[]>([]);
   const [downloadingDocId, setDownloadingDocId] = useState<string | null>(null);
+  const [isExportingAll, setIsExportingAll] = useState(false);
   const [pendingToggleId, setPendingToggleId] = useState<string | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const previewStateRef = useRef<StoredKnowledgePreviewState>(readKnowledgePreviewState());
@@ -311,6 +310,39 @@ export default function KnowledgePage() {
       setDownloadingDocId(null);
     }
   }
+
+  async function downloadAllKnowledge() {
+    if (isExportingAll) return;
+    setIsExportingAll(true);
+    try {
+      const blob = await apiClient.download("/api/v1/knowledge/export");
+      const now = new Date();
+      const pad = (value: number) => String(value).padStart(2, "0");
+      const stamp = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}`;
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `knowledge-base-${stamp}.zip`;
+      link.click();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+      toast.push("Seluruh Knowledge Base berhasil diunduh dalam format ZIP.", "success");
+    } catch (error) {
+      toast.push(error instanceof ApiError ? error.message : "Gagal mengunduh Knowledge Base.", "error");
+    } finally {
+      setIsExportingAll(false);
+    }
+  }
+
+  const exportAllButton = (
+    <Button variant="secondary" onClick={() => void downloadAllKnowledge()} disabled={isExportingAll}>
+      {isExportingAll ? (
+        <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />
+      ) : (
+        <Download className="h-4 w-4" aria-hidden="true" />
+      )}
+      {isExportingAll ? "Menyiapkan ZIP..." : "Download Semua (ZIP)"}
+    </Button>
+  );
 
   const docs = query.data?.items ?? [];
   const totalDocuments = query.data?.total ?? 0;
@@ -443,436 +475,47 @@ export default function KnowledgePage() {
   return (
     <>
       <Topbar title="Knowledge Base" />
-      <main className="scrollbar-thin flex-1 overflow-y-auto p-6 xl:p-8">
-        <Card className="mb-6 overflow-hidden border-gold-500/15 bg-[radial-gradient(circle_at_top_left,rgba(212,175,55,0.16),transparent_34%),linear-gradient(180deg,rgba(33,33,37,0.96),rgba(17,17,20,0.98))] p-0">
-          <div className="grid gap-6 p-6 lg:grid-cols-[minmax(0,1.3fr)_auto] lg:items-end">
-            <div>
-              <div className="mb-3 flex flex-wrap items-center gap-2">
-                <Badge tone="gold">Markdown Only</Badge>
-                <Badge tone="blue">Simple Status</Badge>
-                <Badge tone="green">AI Retrieval Ready</Badge>
-              </div>
-              <h2 className="text-2xl font-semibold tracking-tight text-zinc-50">Knowledge Base yang lebih siap dipakai harian</h2>
-              <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-300">
-                Kelola artikel markdown dengan status sederhana: aktif atau non-aktif. Hanya Super Admin yang dapat mengubah isi Knowledge Base.
-              </p>
-            </div>
-            {isSuperAdmin ? (
-              <div className="flex flex-wrap gap-2">
-                <Link href="/knowledge/upload">
-                  <Button variant="secondary">
-                    <UploadCloud className="h-4 w-4" aria-hidden="true" />
-                    Upload Knowledge
-                  </Button>
-                  </Link>
-                <Link href="/knowledge/new">
-                  <Button>+ Artikel Baru</Button>
-                </Link>
-              </div>
-            ) : (
-              <div className="rounded-xl border border-ink-600 bg-ink-900/50 px-4 py-3 text-sm text-zinc-400">
-                Mode baca saja. Perubahan KB hanya untuk Super Admin.
-              </div>
-            )}
-          </div>
-        </Card>
-
-        <section className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <Card className="border-ink-500/60 bg-ink-800/75">
-            <p className="text-xs uppercase tracking-[0.22em] text-zinc-500">Total Artikel</p>
-            <p className="mt-3 text-3xl font-semibold text-zinc-50">{stats.total}</p>
-            <p className="mt-2 text-sm text-zinc-400">Seluruh artikel knowledge yang tersedia di site ini.</p>
-          </Card>
-          <Card className="border-emerald-500/20 bg-emerald-500/5">
-            <p className="text-xs uppercase tracking-[0.22em] text-emerald-300/80">Active</p>
-            <p className="mt-3 text-3xl font-semibold text-zinc-50">{stats.active}</p>
-            <p className="mt-2 text-sm text-zinc-400">Artikel aktif yang dipakai untuk knowledge retrieval AI.</p>
-          </Card>
-          <Card className="border-ink-500/60 bg-ink-800/75">
-            <p className="text-xs uppercase tracking-[0.22em] text-zinc-400">Non Active</p>
-            <p className="mt-3 text-3xl font-semibold text-zinc-50">{stats.nonActive}</p>
-            <p className="mt-2 text-sm text-zinc-400">Artikel tersimpan tetapi belum dipakai AI customer.</p>
-          </Card>
-          <Card className="border-gold-500/20 bg-gold-500/5">
-            <p className="text-xs uppercase tracking-[0.22em] text-gold-500/80">Access</p>
-            <p className="mt-3 text-xl font-semibold text-zinc-50">{isSuperAdmin ? "Super Admin" : "Read Only"}</p>
-            <p className="mt-2 text-sm text-zinc-400">Perubahan Knowledge Base dibatasi khusus untuk role Super Admin.</p>
-          </Card>
-        </section>
-
-        <Card className="mb-6 overflow-hidden border-blue-500/20 bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.16),transparent_28%),linear-gradient(180deg,rgba(33,33,37,0.96),rgba(17,17,20,0.98))]">
-          <div className="flex flex-col gap-4 p-6 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <div className="mb-3 flex flex-wrap items-center gap-2">
-                <Badge tone="blue">AI Tester</Badge>
-                <Badge tone="green">Knowledge ACTIVE</Badge>
-                <Badge tone="gold">Chat Preview</Badge>
-              </div>
-              <h3 className="text-xl font-semibold tracking-tight text-zinc-50">Testing AI dan knowledge yang sedang aktif</h3>
-              <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-300">
-                Buka modal preview untuk menguji AI seperti customer tanpa memakan area utama halaman Knowledge Base.
-              </p>
-            </div>
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="rounded-xl border border-ink-600 bg-ink-900/60 px-4 py-3 text-sm text-zinc-300">
-                {previewMessages.length > 0 ? `${previewMessages.length} item transcript tersimpan` : "Belum ada transcript test"}
-              </div>
-              <Button onClick={() => setIsPreviewOpen(true)}>Buka AI Tester</Button>
-            </div>
-          </div>
-        </Card>
-
-        <Card className="hidden">
-          <div className="mb-5 flex flex-wrap items-center gap-2">
-            <Badge tone="blue">AI Tester</Badge>
-            <Badge tone="green">Knowledge ACTIVE</Badge>
-            <Badge tone="gold">Chat Preview</Badge>
-          </div>
-          <div className="grid gap-6 xl:grid-cols-[minmax(320px,0.86fr)_minmax(0,1.34fr)]">
-            <section className="space-y-4">
-              <div>
-                <h3 className="text-xl font-semibold tracking-tight text-zinc-50">Testing AI dan knowledge yang sedang aktif</h3>
-                <p className="mt-2 text-sm leading-6 text-zinc-300">
-                  Kirim pertanyaan seperti customer. Preview di kanan berbentuk transcript chat, dan klik balasan AI untuk melihat detail intent, confidence, retrieval, serta evidence di inspector ini.
-                </p>
-              </div>
-
-              <Card className="border-ink-500/60 bg-ink-900/70 p-4">
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div>
-                    <p className="text-[11px] uppercase tracking-[0.22em] text-zinc-500">Intent</p>
-                    <p className="mt-2 text-sm font-semibold text-zinc-100">{testResult?.classification.intent ?? "-"}</p>
-                  </div>
-                  <div>
-                    <p className="text-[11px] uppercase tracking-[0.22em] text-zinc-500">Confidence</p>
-                    <p className="mt-2 text-sm font-semibold text-zinc-100">
-                      {testResult ? `${Math.round(testResult.classification.confidence * 100)}%` : "-"}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-[11px] uppercase tracking-[0.22em] text-zinc-500">Sentiment</p>
-                    <p className="mt-2 text-sm font-semibold text-zinc-100">{testResult?.classification.sentiment ?? "-"}</p>
-                  </div>
-                  <div>
-                    <p className="text-[11px] uppercase tracking-[0.22em] text-zinc-500">Evidence</p>
-                    <p className="mt-2 text-sm font-semibold text-zinc-100">{testResult ? `${testResult.evidence.length} sumber` : "-"}</p>
-                  </div>
-                </div>
-              </Card>
-
-              <Card className="border-ink-500/60 bg-ink-900/70 p-4">
-                <div className="flex flex-wrap items-center gap-2">
-                  <Badge tone="gold">{testResult?.site.aiName ?? "AI Preview"}</Badge>
-                  <Badge tone="blue">{testResult?.site.language?.toUpperCase() ?? "ID"}</Badge>
-                  {testResult?.forcedHandoffReason ? <Badge tone="red">Forced Handoff: {testResult.forcedHandoffReason}</Badge> : null}
-                  {testResult?.classification.containsSensitiveData ? <Badge tone="amber">Sensitive Data</Badge> : null}
-                  {testResult?.classification.promptInjectionDetected ? <Badge tone="red">Prompt Injection</Badge> : null}
-                </div>
-                <p className="mt-3 text-xs uppercase tracking-[0.22em] text-zinc-500">Query Retrieval</p>
-                <p className="mt-2 rounded-xl border border-ink-600 bg-ink-800/80 px-3 py-3 text-sm text-zinc-200">
-                  {testResult?.retrievalQuery || "Pilih salah satu balasan AI dari transcript untuk melihat query retrieval-nya."}
-                </p>
-              </Card>
-
-              <Card className="border-ink-500/60 bg-ink-900/70 p-4">
-                <div className="mb-4 flex items-center justify-between gap-3">
-                  <div>
-                    <h4 className="text-sm font-semibold text-zinc-100">Evidence yang Dipakai</h4>
-                    <p className="mt-1 text-xs text-zinc-500">Chunk knowledge atau market evidence yang masuk ke prompt jawaban terpilih.</p>
-                  </div>
-                  <span className="text-xs text-zinc-500">{testResult?.evidence.length ?? 0} item</span>
-                </div>
-                <div className="space-y-3">
-                  {testResult?.evidence.length ? (
-                    testResult.evidence.map((item) => (
-                      <div key={item.chunkId} className="rounded-xl border border-ink-600 bg-ink-800/80 px-4 py-4">
-                        <div className="mb-2 flex flex-wrap items-center gap-2">
-                          <Badge tone={item.sourceType === "MARKET" ? "blue" : "green"}>{item.sourceType}</Badge>
-                          <Badge tone="neutral">{item.audience}</Badge>
-                          <Badge tone="gold">v{item.version}</Badge>
-                        </div>
-                        <p className="text-sm font-semibold text-zinc-100">{item.title}</p>
-                        <p className="mt-2 text-sm leading-6 text-zinc-400">{truncateEvidence(item.content)}</p>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="rounded-xl border border-dashed border-ink-600 bg-ink-800/40 px-4 py-4 text-sm text-zinc-500">
-                      Belum ada evidence yang dipilih. Kirim pertanyaan lalu klik balasan AI untuk memeriksa sumber knowledge yang dipakai.
-                    </div>
-                  )}
-                </div>
-              </Card>
-            </section>
-
-            <section className="flex items-start justify-center">
-              <div className="flex w-full max-w-[390px] min-h-[720px] flex-col overflow-hidden rounded-[18px] border border-zinc-700 bg-[#1f1f23] shadow-[0_28px_80px_rgba(0,0,0,0.34)]">
-                <div className="flex items-center justify-between bg-[linear-gradient(180deg,#ffcd4d_0%,#f4ba33_100%)] px-4 py-4 text-ink-950">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[radial-gradient(circle_at_30%_30%,#fff1c1,#d28c2d_68%,#7d4b11)] text-sm font-semibold text-white shadow-inner">
-                      AI
-                    </div>
-                    <div>
-                      <p className="text-[15px] font-semibold leading-none">{previewAiName}</p>
-                      <div className="mt-1 flex items-center gap-1.5 text-[12px] text-ink-900/80">
-                        <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                        Online
-                      </div>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    aria-label="Reset preview chat"
-                    onClick={handleResetPreview}
-                    className="rounded-full p-2 text-ink-900/70 transition-colors hover:bg-white/15 hover:text-ink-950"
-                  >
-                    <RefreshCw className="h-4 w-4" />
-                  </button>
-                </div>
-
-                <div className="flex-1 space-y-4 overflow-y-auto bg-[#1f1f23] px-4 py-5">
-                  <div className="flex justify-start">
-                    <div className="max-w-[82%]">
-                      <div className="mb-1 flex items-center gap-2">
-                        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[radial-gradient(circle_at_30%_30%,#fff1c1,#d28c2d_68%,#7d4b11)] text-[10px] font-semibold text-white">
-                          AI
-                        </div>
-                        <span className="text-xs font-medium text-gold-300">{previewAiName}</span>
-                      </div>
-                      <div className="rounded-xl rounded-tl-sm bg-[#2d2d33] px-4 py-3 text-sm leading-6 text-zinc-100">
-                        {getPreviewGreeting(previewAiName)}
-                      </div>
-                      <div className="mt-1 text-[11px] text-zinc-500">{formatPreviewTime(new Date().toISOString())}</div>
-                    </div>
-                  </div>
-
-                  {previewMessages.length === 0 ? (
-                    <div className="rounded-xl border border-dashed border-zinc-700 bg-zinc-900/40 px-4 py-5 text-center text-sm leading-6 text-zinc-500">
-                      Belum ada transcript. Kirim pertanyaan pertama untuk menguji knowledge aktif.
-                    </div>
-                  ) : null}
-
-                  {previewMessages.map((message) => {
-                    if (message.role === "VISITOR") {
-                      return (
-                        <div key={message.id} className="flex justify-end">
-                          <div className="max-w-[82%]">
-                            <div className="rounded-xl rounded-br-sm bg-gold-500 px-4 py-3 text-sm leading-6 text-ink-950">
-                              <div className="whitespace-pre-wrap">{message.content}</div>
-                            </div>
-                            <div className="mt-1 text-right text-[11px] text-zinc-500">{formatPreviewTime(message.createdAt)}</div>
-                          </div>
-                        </div>
-                      );
-                    }
-
-                    if (message.pending) {
-                      return (
-                        <div key={message.id} className="flex justify-start">
-                          <div className="max-w-[82%]">
-                            <div className="mb-1 flex items-center gap-2">
-                              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[radial-gradient(circle_at_30%_30%,#fff1c1,#d28c2d_68%,#7d4b11)] text-[10px] font-semibold text-white">
-                                AI
-                              </div>
-                              <span className="text-xs font-medium text-gold-300">{previewAiName}</span>
-                            </div>
-                            <div className="flex items-center gap-1 rounded-xl rounded-tl-sm bg-[#2d2d33] px-4 py-3">
-                              <span className="h-2 w-2 animate-bounce rounded-full bg-zinc-300 [animation-delay:-0.3s]" />
-                              <span className="h-2 w-2 animate-bounce rounded-full bg-zinc-300 [animation-delay:-0.15s]" />
-                              <span className="h-2 w-2 animate-bounce rounded-full bg-zinc-300" />
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    }
-
-                    const isAssistant = message.role === "AI";
-                    const isSelected = selectedMessageId === message.id;
-                    const assistantLabel = message.result?.site.aiName ?? previewAiName;
-
-                    return (
-                      <div key={message.id} className="flex justify-start">
-                        <div className="max-w-[86%]">
-                          <div className="mb-1 flex items-center gap-2">
-                            <div
-                              className={cn(
-                                "flex h-7 w-7 items-center justify-center rounded-full text-[10px] font-semibold text-white",
-                                isAssistant ? "bg-[radial-gradient(circle_at_30%_30%,#fff1c1,#d28c2d_68%,#7d4b11)]" : "bg-zinc-700",
-                              )}
-                            >
-                              {isAssistant ? "AI" : "SYS"}
-                            </div>
-                            <span className={cn("text-xs font-medium", isAssistant ? "text-gold-300" : "text-zinc-400")}>
-                              {isAssistant ? assistantLabel : "System"}
-                            </span>
-                          </div>
-                          <div
-                            role={message.result ? "button" : undefined}
-                            tabIndex={message.result ? 0 : undefined}
-                            onClick={() => {
-                              if (message.result) setSelectedMessageId(message.id);
-                            }}
-                            onKeyDown={(event) => {
-                              if (!message.result) return;
-                              if (event.key === "Enter" || event.key === " ") {
-                                event.preventDefault();
-                                setSelectedMessageId(message.id);
-                              }
-                            }}
-                            className={cn(
-                              "w-full rounded-xl rounded-tl-sm border px-4 py-3 text-left text-sm leading-6 transition-colors",
-                              isAssistant
-                                ? "ai-tester-markdown border-zinc-700 bg-[#2d2d33] text-zinc-100 hover:border-gold-500/40"
-                                : message.error
-                                  ? "border-red-500/25 bg-red-500/10 text-red-100"
-                                  : "border-zinc-700 bg-zinc-800/80 text-zinc-300",
-                              message.result ? "cursor-pointer focus:outline-none focus:ring-2 focus:ring-gold-500/40" : "cursor-default",
-                              isSelected ? "border-gold-500/60 shadow-[0_0_0_1px_rgba(212,175,55,0.15)]" : "",
-                            )}
-                          >
-                            {isAssistant ? (
-                              <div data-color-mode="dark">
-                                <MarkdownPreview source={message.content} />
-                              </div>
-                            ) : (
-                              <div className="whitespace-pre-wrap">{message.content}</div>
-                            )}
-                          </div>
-                          <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-zinc-500">
-                            <span>{formatPreviewTime(message.createdAt)}</span>
-                            {message.result?.answer ? <span>{Math.round(message.result.answer.confidence * 100)}%</span> : null}
-                            {message.result?.answer?.lowConfidence ? <Badge tone="amber">Low Confidence</Badge> : null}
-                            {message.result?.answer?.wouldAutoHandoff ? <Badge tone="gold">Auto Handoff</Badge> : null}
-                            {message.result?.answer?.handoffReason ? <Badge tone="red">{message.result.answer.handoffReason}</Badge> : null}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                  <div ref={previewEndRef} />
-                </div>
-
-                <div className="border-t border-zinc-700 bg-[#1f1f23] px-3 py-3">
-                  <div className="mb-2 flex items-center gap-2 text-xs text-zinc-400">
-                    <button
-                      type="button"
-                      className="underline decoration-dotted underline-offset-2 hover:text-white"
-                      onClick={() => setTestMessage(PREVIEW_SAMPLE_MESSAGE)}
-                    >
-                      Isi Contoh
-                    </button>
-                    <span className="text-zinc-600">•</span>
-                    <span className="text-zinc-500">History tersimpan di browser dashboard</span>
-                  </div>
-                  <div className="flex items-end gap-2">
-                    <Textarea
-                      value={testMessage}
-                      onChange={(event) => setTestMessage(event.target.value)}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter" && !event.shiftKey) {
-                          event.preventDefault();
-                          handleAiPreviewSend().catch(() => undefined);
-                        }
-                      }}
-                      placeholder="Ketik pertanyaan untuk test AI dan knowledge..."
-                      rows={1}
-                      className="min-h-[54px] resize-none rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-3 text-sm leading-5 text-white placeholder:text-zinc-500 focus:border-gold-500/70"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => handleAiPreviewSend().catch(() => undefined)}
-                      disabled={aiTester.isPending || testMessage.trim().length < 2}
-                      aria-label="Kirim test"
-                      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gold-500 text-ink-950 transition-opacity disabled:opacity-40"
-                    >
-                      <Send className="h-4 w-4" strokeWidth={2.5} />
-                    </button>
-                  </div>
-                  <p className="mt-2 text-center text-[10px] text-zinc-600">Preview ini hanya untuk testing AI dan knowledge aktif.</p>
-                </div>
-              </div>
-            </section>
-          </div>
-        </Card>
-
-        <Card className="mb-6 border-ink-500/60 bg-ink-800/75">
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h3 className="text-sm font-semibold text-zinc-100">Filter dan Pencarian</h3>
-              <p className="mt-1 text-sm text-zinc-400">Cari berdasarkan nama artikel, lalu saring dengan status, audience, dan kategori.</p>
-            </div>
-            <div className="flex items-center gap-2 text-xs text-zinc-500">
-              <span>{totalDocuments} artikel ditemukan</span>
-              {activeFilterCount > 0 && <span>{activeFilterCount} filter aktif</span>}
-            </div>
-          </div>
-          <div className="grid gap-3 xl:grid-cols-[minmax(0,1.4fr)_repeat(3,minmax(0,180px))]">
-            <div>
-              <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-zinc-400">Cari Artikel</label>
-              <Input
-                value={search}
-                onChange={(e) => {
-                  setSearch(e.target.value);
-                  setPage(1);
-                }}
-                placeholder="Cari nama artikel..."
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-zinc-400">Status</label>
-              <Select
-                value={status}
-                onChange={(e) => {
-                  setStatus(e.target.value);
-                  setPage(1);
-                }}
-              >
-                <option value="">Semua status</option>
-                <option value="ACTIVE">ACTIVE</option>
-                <option value="NON_ACTIVE">NON_ACTIVE</option>
-              </Select>
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-zinc-400">Audience</label>
-              <Select
-                value={audience}
-                onChange={(e) => {
-                  setAudience(e.target.value);
-                  setPage(1);
-                }}
-              >
-                <option value="">Semua audience</option>
-                <option value="PUBLIC">PUBLIC</option>
-                <option value="AGENT_ONLY">AGENT_ONLY</option>
-                <option value="INTERNAL">INTERNAL</option>
-              </Select>
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-zinc-400">Kategori</label>
-              <Select
-                value={categoryId}
-                onChange={(e) => {
-                  setCategoryId(e.target.value);
-                  setPage(1);
-                }}
-              >
-                <option value="">Semua kategori</option>
-                {categories.data?.map((category) => (
-                  <option key={category.id} value={category.id}>{category.name}</option>
-                ))}
-              </Select>
-            </div>
-          </div>
-        </Card>
-
-        <Card className="mb-4 text-sm text-zinc-400">
-          Knowledge disimpan sebagai Markdown. Upload file dibatasi ke <code className="rounded bg-ink-900 px-1.5 py-0.5 text-zinc-200">.md</code> dan bisa memilih hingga {MAX_BATCH_UPLOAD_FILES} file sekaligus, dan hanya artikel berstatus <code className="rounded bg-ink-900 px-1.5 py-0.5 text-zinc-200">ACTIVE</code> yang dipakai untuk retrieval AI.
-        </Card>
+      <DashboardPage>
+        <div className="space-y-5">
+          <DashboardPageHeader
+            title="Knowledge Base"
+            description="Artikel markdown yang dipakai AI sebagai sumber jawaban. Hanya Super Admin yang dapat mengubah isinya."
+            actions={
+              <>
+                <Button variant="secondary" onClick={() => setIsPreviewOpen(true)}>
+                  <Send className="h-4 w-4" aria-hidden="true" />
+                  {previewMessages.length > 0 ? `AI Tester (${previewMessages.length})` : "AI Tester"}
+                </Button>
+                {exportAllButton}
+                {isSuperAdmin ? (
+                  <>
+                    <Link href="/knowledge/upload">
+                      <Button variant="secondary">
+                        <UploadCloud className="h-4 w-4" aria-hidden="true" />
+                        Upload
+                      </Button>
+                    </Link>
+                    <Link href="/knowledge/new">
+                      <Button>+ Artikel Baru</Button>
+                    </Link>
+                  </>
+                ) : (
+                  <Badge>Mode baca saja</Badge>
+                )}
+              </>
+            }
+          />
 
         <Card className="overflow-hidden !p-0">
           <div className="flex items-center justify-between border-b border-ink-700 px-4 py-4">
             <div>
               <h3 className="text-sm font-semibold text-zinc-100">Daftar Artikel</h3>
-              <p className="mt-1 text-sm text-zinc-500">Ringkasan, kategori, audience, dan status review dalam satu tabel kerja.</p>
+              <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-500">
+                <span>{stats.total} total</span>
+                <span className="text-emerald-300/90">{stats.active} aktif</span>
+                <span>{stats.nonActive} non-aktif</span>
+                {activeFilterCount > 0 ? <span className="text-gold-300">{totalDocuments} cocok dengan filter</span> : null}
+              </p>
             </div>
             <div className="flex flex-wrap items-center justify-end gap-2">
               {isSuperAdmin && selectedVisibleDocumentIds.length > 0 && (
@@ -891,9 +534,60 @@ export default function KnowledgePage() {
                   </Button>
                 </>
               )}
+            </div>
+          </div>
+
+          <div className="grid gap-2 border-b border-ink-700 px-4 py-3 md:grid-cols-[minmax(0,1fr)_repeat(3,minmax(0,170px))_auto]">
+            <Input
+              aria-label="Cari artikel"
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(1);
+              }}
+              placeholder="Cari nama artikel..."
+            />
+            <Select
+              aria-label="Status"
+              value={status}
+              onChange={(e) => {
+                setStatus(e.target.value);
+                setPage(1);
+              }}
+            >
+              <option value="">Semua status</option>
+              <option value="ACTIVE">ACTIVE</option>
+              <option value="NON_ACTIVE">NON_ACTIVE</option>
+            </Select>
+            <Select
+              aria-label="Audience"
+              value={audience}
+              onChange={(e) => {
+                setAudience(e.target.value);
+                setPage(1);
+              }}
+            >
+              <option value="">Semua audience</option>
+              <option value="PUBLIC">PUBLIC</option>
+              <option value="AGENT_ONLY">AGENT_ONLY</option>
+              <option value="INTERNAL">INTERNAL</option>
+            </Select>
+            <Select
+              aria-label="Kategori"
+              value={categoryId}
+              onChange={(e) => {
+                setCategoryId(e.target.value);
+                setPage(1);
+              }}
+            >
+              <option value="">Semua kategori</option>
+              {categories.data?.map((category) => (
+                <option key={category.id} value={category.id}>{category.name}</option>
+              ))}
+            </Select>
+            {activeFilterCount > 0 ? (
               <Button
                 variant="ghost"
-                size="sm"
                 onClick={() => {
                   setStatus("");
                   setAudience("");
@@ -903,9 +597,9 @@ export default function KnowledgePage() {
                   setPage(1);
                 }}
               >
-                Reset Filter
+                Reset ({activeFilterCount})
               </Button>
-            </div>
+            ) : null}
           </div>
 
           <div className="overflow-x-auto">
@@ -1059,7 +753,8 @@ export default function KnowledgePage() {
             </div>
           )}
         </Card>
-      </main>
+        </div>
+      </DashboardPage>
       <Modal
         open={isPreviewOpen}
         title="AI Tester"

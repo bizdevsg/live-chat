@@ -3,7 +3,15 @@
 Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
-- Belum ada perubahan terdeteksi.
+
+### Added
+- Menambahkan ekspor knowledge base sebagai arsip ZIP berisi artikel Markdown beserta pengujiannya.
+
+### Changed
+- Memperbarui halaman dashboard, knowledge, profil, routing, tiket, dan widget untuk menyempurnakan alur pengguna.
+
+### Fixed
+- Mengaktifkan kembali pengingat dan penutupan otomatis saat percakapan kembali ditangani AI.
 
 ## [0.25.1] - 2026-11-04
 ### Changed

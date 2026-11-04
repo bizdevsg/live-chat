@@ -9,7 +9,7 @@ import { useToast } from "@/components/ui/toast";
 import { Topbar } from "@/components/layout/topbar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Label, Select } from "@/components/ui/input";
+import { Select } from "@/components/ui/input";
 import { ConfirmModal } from "@/components/ui/modal";
 import { DashboardEmpty, DashboardPage, DashboardPageHeader, DashboardPageMetrics, DashboardTablePanel } from "@/components/layout/dashboard-page";
 
@@ -101,9 +101,16 @@ function RoutingPageContent() {
         <div className="space-y-6">
           <DashboardPageHeader
             title="Routing rules"
-            description="Atur pemilihan site, distribusi assignment, dan logika handoff dalam satu tempat."
+            description="Atur distribusi assignment dan logika handoff untuk site yang dipilih."
             actions={
-              <div className="flex gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <Select id="siteId" aria-label="Site" className="h-10 w-60" value={selectedSiteId} onChange={(e) => setSelectedSiteId(e.target.value)}>
+                  {sitesQuery.data?.map((site) => (
+                    <option key={site.id} value={site.id}>
+                      {site.name} ({site.siteKey})
+                    </option>
+                  ))}
+                </Select>
                 <Link href={`/routing/rules/new${siteSuffix}`}>
                   <Button>+ Routing Rule</Button>
                 </Link>
@@ -115,35 +122,12 @@ function RoutingPageContent() {
           />
           <DashboardPageMetrics
             items={[
-              { label: "Site aktif", value: selectedSite ? selectedSite.name : "-", detail: selectedSite ? selectedSite.siteKey : "Pilih site untuk memuat aturan." },
+              { label: "Rule aktif", value: String(activeRouting + activeHandoff), detail: `${activeRouting} routing dan ${activeHandoff} handoff rule aktif untuk ${selectedSite ? selectedSite.name : "site ini"}.` },
               { label: "Routing rule", value: String(routingRules.length), detail: `${activeRouting} rule aktif untuk site ini.` },
               { label: "Handoff rule", value: String(handoffRules.length), detail: `${activeHandoff} rule aktif untuk site ini.` },
               { label: "Team target", value: String(teamsQuery.data?.length ?? 0), detail: "Pilihan tim yang tersedia untuk assignment atau handoff." },
             ]}
           />
-          <DashboardTablePanel
-            title="Site scope"
-            detail="Semua rule pada halaman ini mengikuti site yang dipilih. Ganti site untuk melihat konfigurasi yang berbeda."
-            toolbar={
-              <div className="w-full min-w-[16rem]">
-                <Label htmlFor="siteId">Site</Label>
-                <Select id="siteId" value={selectedSiteId} onChange={(e) => setSelectedSiteId(e.target.value)}>
-                  {sitesQuery.data?.map((site) => (
-                    <option key={site.id} value={site.id}>
-                      {site.name} ({site.siteKey})
-                    </option>
-                  ))}
-                </Select>
-              </div>
-            }
-          >
-            <div className="px-4 py-3.5 text-sm text-zinc-400 sm:px-5">
-              {selectedSite
-                ? `Konfigurasi yang ditampilkan saat ini berlaku untuk ${selectedSite.name} (${selectedSite.siteKey}).`
-                : "Memuat pilihan site..."}
-            </div>
-          </DashboardTablePanel>
-
           <DashboardTablePanel title="Routing rules" detail="Aturan distribusi inbound conversation ke team tujuan untuk site yang sedang dipilih.">
             <div className="overflow-x-auto">
               <table className="w-full min-w-[900px] text-sm">

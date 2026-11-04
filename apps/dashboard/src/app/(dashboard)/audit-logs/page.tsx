@@ -35,7 +35,7 @@ export default function AuditLogsPage() {
         <div className="space-y-6">
           <DashboardPageHeader
             title="Audit log"
-            description="Aktivitas penting kini disusun dengan ritme yang lebih rapi agar perubahan sistem, pelaku, dan resource yang terdampak dapat ditelusuri dalam satu alur baca."
+            description="Jejak perubahan sistem: siapa melakukan apa, pada resource mana."
           />
           <DashboardPageMetrics
             items={[

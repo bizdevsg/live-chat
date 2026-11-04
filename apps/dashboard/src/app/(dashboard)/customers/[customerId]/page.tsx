@@ -34,7 +34,7 @@ export default function CustomerDetailPage() {
         <div className="space-y-6">
         <DashboardPageHeader
           title={customer.name}
-          description="Profil customer kini menempatkan identitas, percakapan, dan ticket support dalam layout yang lebih cepat dibaca oleh agent maupun admin."
+          description="Identitas, percakapan, dan ticket support customer."
         />
         <DashboardPageMetrics
           items={[

@@ -307,6 +307,27 @@ describe("ConversationsService.requestAgent (agents handle up to 5 concurrent ch
     expect(prisma.conversation.update).not.toHaveBeenCalled();
   });
 
+  it("restarts the AI inactivity timers when no agent is online", async () => {
+    const { service, queue } = createService();
+
+    await service.requestAgent("conv-1", "CUSTOMER_REQUESTED_HUMAN", "USER_BUTTON");
+
+    const kinds = queue.add.mock.calls.filter(([name]) => name === "conversation-inactivity").map(([, data]) => data.kind);
+    expect(kinds.sort()).toEqual(["close", "closing-warning", "reminder"]);
+  });
+
+  it("restarts the AI inactivity timers when no team can take the handoff", async () => {
+    const { service, queue } = createService({ onlineAgents: [{ userId: "agent-1", activeChatCount: 0, maxConcurrentChats: 5 }] });
+    jest
+      .spyOn(service as unknown as { resolveTeamForHandoff: () => Promise<null> }, "resolveTeamForHandoff")
+      .mockResolvedValue(null);
+
+    await service.requestAgent("conv-1", "CUSTOMER_REQUESTED_HUMAN", "USER_BUTTON");
+
+    const kinds = queue.add.mock.calls.filter(([name]) => name === "conversation-inactivity").map(([, data]) => data.kind);
+    expect(kinds.sort()).toEqual(["close", "closing-warning", "reminder"]);
+  });
+
   it("queues the visitor for manual pickup when every agent is at capacity", async () => {
     const { service, prisma, notifications } = createService({
       onlineAgents: [{ userId: "agent-1", activeChatCount: 5, maxConcurrentChats: 5 }],
@@ -415,6 +436,43 @@ describe("ConversationsService.requestAgent (agents handle up to 5 concurrent ch
       where: { userId: "agent-2", activeChatCount: { gt: 0 } },
       data: { activeChatCount: { decrement: 1 } },
     });
+  });
+});
+
+describe("ConversationsService.returnToAi", () => {
+  it("restarts the AI inactivity timers when an agent hands the conversation back", async () => {
+    const conversation = {
+      id: "conv-1",
+      organizationId: "org-1",
+      siteId: "site-1",
+      assignedAgentId: "agent-1",
+      assignedTeamId: "team-1",
+      status: ConversationStatus.AGENT_ACTIVE,
+      handlerType: HandlerType.HUMAN,
+    };
+    const prisma = {
+      conversation: { findUnique: jest.fn().mockResolvedValue(conversation), update: jest.fn().mockResolvedValue(conversation) },
+      agentProfile: { update: jest.fn().mockResolvedValue({}) },
+    };
+    const queue = { getJob: jest.fn().mockResolvedValue(null), add: jest.fn() };
+    const service = new ConversationsService(
+      prisma as never,
+      { toConversation: jest.fn(), toTeam: jest.fn(), toAgent: jest.fn(), toSite: jest.fn() } as never,
+      { record: jest.fn() } as never,
+      { record: jest.fn() } as never,
+      { notifyAgent: jest.fn(), notifyTeam: jest.fn(), notifyOrganization: jest.fn() } as never,
+      queue as never,
+    );
+    jest.spyOn(service, "logEvent").mockResolvedValue(undefined);
+    jest.spyOn(service, "postMessage").mockResolvedValue({ message: { id: "m1" } } as never);
+    jest
+      .spyOn(service as unknown as { safelyScheduleClaraWebhook: () => Promise<void> }, "safelyScheduleClaraWebhook")
+      .mockResolvedValue(undefined);
+
+    await service.returnToAi("conv-1", "agent-1");
+
+    const kinds = queue.add.mock.calls.filter(([name]) => name === "conversation-inactivity").map(([, data]) => data.kind);
+    expect(kinds.sort()).toEqual(["close", "closing-warning", "reminder"]);
   });
 });
 

@@ -9,11 +9,13 @@ import {
   Post,
   Put,
   Query,
+  Res,
   UploadedFile,
   UseGuards,
   UseInterceptors,
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
+import type { Response } from "express";
 import { ApiTags } from "@nestjs/swagger";
 import { Permission, SystemRole } from "@solidchat/shared";
 import { PermissionsGuard } from "../common/guards/permissions.guard";
@@ -69,6 +71,20 @@ export class KnowledgeController {
     const siteId = await this.resolveSiteId(user);
     const data = await this.knowledgeService.list(siteId, query);
     return { success: true, data };
+  }
+
+  /** Downloads every knowledge article of the organization's site as a ZIP of markdown files. */
+  @Get("export")
+  @RequirePermissions(Permission.KNOWLEDGE_EDIT, Permission.KNOWLEDGE_APPROVE, Permission.AUDIT_LOG_VIEW)
+  async exportAll(@CurrentUser() user: JwtAccessPayload, @Res() res: Response) {
+    const siteId = await this.resolveSiteId(user);
+    const { buffer, exportedAt } = await this.knowledgeService.exportAll(siteId, user.organizationId, user.sub);
+    const stamp = exportedAt.toISOString().slice(0, 16).replace(/[-:]/g, "").replace("T", "-");
+    res.setHeader("Content-Type", "application/zip");
+    res.setHeader("Content-Disposition", `attachment; filename="knowledge-base-${stamp}.zip"`);
+    res.setHeader("Content-Length", String(buffer.length));
+    res.setHeader("Cache-Control", "no-store");
+    res.end(buffer);
   }
 
   @Post("documents")

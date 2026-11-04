@@ -637,6 +637,11 @@ export class ConversationsService {
     if (!onlineAgent) {
       await this.postSystemMessage(conversationId, "Mohon maaf, saat ini belum ada agent yang sedang online. AI tetap siap membantu Anda.");
       await this.logEvent(conversationId, "handoff.unavailable_no_agent", "SYSTEM", null, { reason, source });
+      // requestAgent cancelled the AI inactivity timers above; the AI keeps the conversation here,
+      // so restart them (otherwise a silent visitor would never be auto-closed after 10 minutes).
+      if (conversation.status === ConversationStatus.AI_ACTIVE && conversation.handlerType === HandlerType.AI) {
+        await this.safelyRefreshAiInactivityTimeout(conversationId, new Date());
+      }
       return conversation;
     }
 
@@ -657,6 +662,8 @@ export class ConversationsService {
         data: { status: ConversationStatus.AI_ACTIVE, handlerType: HandlerType.AI, assignedAgentId: null },
       });
       await this.safelyCancelAgentReplyTimeout(conversationId);
+      // Back to AI-only handling: restart the inactivity lifecycle cancelled at the top of requestAgent.
+      await this.safelyRefreshAiInactivityTimeout(conversationId, new Date());
       await this.logEvent(conversationId, "handoff.deferred_no_team", "SYSTEM", null, { reason, source });
       this.realtime.toConversation(conversationId, "conversation:updated", {
         conversationId,
@@ -990,6 +997,9 @@ export class ConversationsService {
         .update({ where: { userId: conversation.assignedAgentId ?? agentId }, data: { activeChatCount: { decrement: 1 } } })
         .catch(() => undefined);
     }
+    // The conversation is AI-handled again, so the AI inactivity lifecycle (reminder -> closing
+    // warning -> auto close) must run again even if the visitor stays silent.
+    await this.safelyRefreshAiInactivityTimeout(conversationId, new Date());
     await this.logEvent(conversationId, "conversation.returned_to_ai", "USER", agentId, {});
     await this.postSystemMessage(conversationId, "Percakapan dikembalikan ke AI untuk membantu Anda kembali.");
     this.realtime.toConversation(conversationId, "conversation:updated", {

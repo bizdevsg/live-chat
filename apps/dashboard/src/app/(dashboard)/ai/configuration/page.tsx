@@ -66,7 +66,7 @@ export default function AiConfigurationPage() {
         <div className="space-y-6">
           <DashboardPageHeader
             title="AI configuration"
-            description="Ruang konfigurasi AI dirapikan agar prompt inti, identitas assistant, dan batasan operasional bisa dibaca sebagai satu kontrol pusat."
+            description="Prompt inti, identitas assistant, dan batasan operasional AI."
             actions={
               <Button type="submit" form="ai-configuration-form" disabled={save.isPending}>
                 {save.isPending ? "Menyimpan..." : "Simpan Konfigurasi"}

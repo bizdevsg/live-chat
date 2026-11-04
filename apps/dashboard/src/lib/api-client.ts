@@ -89,6 +89,34 @@ async function request<T>(path: string, init: RequestInit = {}, retry = true): P
   return body.data as T;
 }
 
+/** GET a binary response (e.g. a ZIP export) with the same auth, refresh and error handling as `request`. */
+async function requestBlob(path: string, retry = true): Promise<Blob> {
+  const accessToken = authTokenStore.getAccessToken();
+  const response = await fetch(`${API_URL}${path}`, {
+    method: "GET",
+    credentials: "include",
+    headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+  });
+
+  if (response.status === 401 && retry && !path.includes("/auth/")) {
+    const refreshed = await tryRefresh();
+    if (refreshed) return requestBlob(path, false);
+  }
+
+  if (!response.ok) {
+    const body = (await response.json().catch(() => ({}))) as ApiEnvelope<unknown>;
+    if (response.status === 401) authTokenStore.clear();
+    throw new ApiError(
+      body.error?.code ?? "UNKNOWN_ERROR",
+      body.error?.message ?? "Terjadi kesalahan tak terduga.",
+      response.status,
+      body.error?.requestId,
+    );
+  }
+
+  return response.blob();
+}
+
 /**
  * Force a one-shot access-token refresh (deduped with any in-flight HTTP refresh).
  * Used by the socket layer so a rejected handshake can recover without a page reload.
@@ -103,6 +131,7 @@ export const apiClient = {
   put: <T>(path: string, data?: unknown) => request<T>(path, { method: "PUT", body: data !== undefined ? JSON.stringify(data) : undefined }),
   delete: <T>(path: string) => request<T>(path, { method: "DELETE" }),
   upload: <T>(path: string, formData: FormData) => request<T>(path, { method: "POST", body: formData }),
+  download: (path: string) => requestBlob(path),
 };
 
 export { API_URL };

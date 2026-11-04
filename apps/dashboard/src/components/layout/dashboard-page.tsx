@@ -1,4 +1,5 @@
 import type { HTMLAttributes, ReactNode } from "react";
+import Link from "next/link";
 import { Inbox } from "lucide-react";
 import { cn } from "@/components/ui/cn";
 
@@ -6,6 +7,10 @@ type DashboardMetric = {
   label: string;
   value: string;
   detail?: string;
+  /** Makes the whole cell a link. */
+  href?: string;
+  /** Colours the value: alert = needs attention now, warn = pending work. */
+  tone?: "alert" | "warn";
 };
 
 export function DashboardPage({ className, ...props }: HTMLAttributes<HTMLElement>) {
@@ -45,19 +50,47 @@ export function DashboardPageHeader({
 export function DashboardPageMetrics({ items, className }: { items: DashboardMetric[]; className?: string }) {
   if (items.length === 0) return null;
 
+  // One slim strip instead of a card per metric; the longer explanation is kept as a tooltip.
   return (
-    <div className={cn("grid gap-3 sm:grid-cols-2 xl:grid-cols-4", className)}>
-      {items.map((item) => (
-        <section
-          key={`${item.label}:${item.value}`}
-          className="rounded-xl border border-ink-600 bg-ink-800 px-4 py-4 shadow-panel sm:px-5"
-        >
-          <p className="text-xs font-medium uppercase tracking-wider text-zinc-500">{item.label}</p>
-          <p className="mt-2 text-2xl font-semibold tracking-tight text-zinc-50 sm:text-3xl">{item.value}</p>
-          {item.detail ? <p className="mt-2 text-xs leading-5 text-zinc-500">{item.detail}</p> : null}
-        </section>
-      ))}
-    </div>
+    <section
+      className={cn(
+        "grid grid-cols-2 overflow-hidden rounded-xl border border-ink-600 bg-ink-800 shadow-panel xl:grid-cols-4",
+        className,
+      )}
+    >
+      {items.map((item, index) => {
+        const cellClass = cn(
+          "min-w-0 border-ink-600 px-4 py-3 sm:px-5",
+          index % 2 === 1 && "border-l",
+          index >= 2 && "border-t xl:border-t-0",
+          index > 0 && "xl:border-l",
+          index >= 4 && "xl:border-t",
+        );
+        const content = (
+          <>
+            <p className="truncate text-[11px] font-medium uppercase tracking-wider text-zinc-500">{item.label}</p>
+            <p
+              className={cn(
+                "mt-1 truncate text-xl font-semibold tracking-tight",
+                item.tone === "alert" ? "text-rose-400" : item.tone === "warn" ? "text-gold-300" : "text-zinc-50",
+              )}
+            >
+              {item.value}
+            </p>
+          </>
+        );
+        const key = `${item.label}:${item.value}`;
+        return item.href ? (
+          <Link key={key} href={item.href} title={item.detail} className={cn(cellClass, "transition-colors hover:bg-ink-700/40")}>
+            {content}
+          </Link>
+        ) : (
+          <div key={key} title={item.detail} className={cellClass}>
+            {content}
+          </div>
+        );
+      })}
+    </section>
   );
 }
 
@@ -84,8 +117,9 @@ export function DashboardTablePanel({
       <div className="border-b border-ink-600 px-4 py-3.5 sm:px-5">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
           <div>
-            <h2 className="text-sm font-semibold tracking-tight text-zinc-100">{title}</h2>
-            <p className="mt-1 text-xs leading-5 text-zinc-500">{detail}</p>
+            <h2 className="text-sm font-semibold tracking-tight text-zinc-100" title={detail}>
+              {title}
+            </h2>
           </div>
           {toolbar ? <div className="flex shrink-0 flex-wrap items-center gap-2">{toolbar}</div> : null}
         </div>
