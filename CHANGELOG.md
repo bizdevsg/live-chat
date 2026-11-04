@@ -3,6 +3,11 @@
 Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
+### Changed
+- Memperbarui `apps/dashboard/src/app/(dashboard)/inbox/[conversationId]/page.tsx`.
+- Memperbarui `package.json`.
+
+## [0.25.2] - 2026-11-04
 ### Added
 - Menambahkan ekspor knowledge base sebagai arsip ZIP berisi artikel Markdown beserta pengujiannya.
 
@@ -1399,7 +1404,8 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 - Memperbarui `apps/dashboard/src/app/(dashboard)/knowledge/page.tsx`.
 - Memperbarui `package.json`.
 
-[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.25.1...HEAD
+[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.25.2...HEAD
+[0.25.2]: https://github.com/bizdevsg/live-chat/compare/v0.25.1...v0.25.2
 [0.25.1]: https://github.com/bizdevsg/live-chat/compare/v0.25.0...v0.25.1
 [0.25.0]: https://github.com/bizdevsg/live-chat/compare/v0.24.2...v0.25.0
 [0.24.2]: https://github.com/bizdevsg/live-chat/compare/v0.24.1...v0.24.2

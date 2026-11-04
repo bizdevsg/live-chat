@@ -245,7 +245,7 @@ function MessageBubble({ message, showSeen, visitorName }: { message: MessageIte
         {/* Sender label and bubble border use the same colour, matching the widget conversation. */}
         <div className={`px-1 text-xs font-semibold ${senderStyle} ${mine ? "text-right" : "text-left"}`}>{senderLabel}</div>
         <div
-          className={`mt-2 rounded-xl border text-sm leading-relaxed text-white ${hasImage ? "p-1.5" : "px-4 py-3"} ${mine ? "rounded-br-sm" : "rounded-tl-md"} ${bubbleStyle}`}
+          className={`mt-2 rounded-xl border text-sm leading-relaxed text-white backdrop-blur-[2px] ${hasImage ? "p-1.5" : "px-4 py-3"} ${mine ? "rounded-br-sm" : "rounded-tl-md"} ${bubbleStyle}`}
         >
           {hasImage ? <div className="grid gap-1">{message.attachments?.map((attachment) => (
             <ImageAttachment key={attachment.id} conversationId={message.conversationId} attachment={attachment} />
