@@ -3,6 +3,10 @@
 Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
+### Changed
+- Memperbarui `package.json`.
+
+## [0.25.0] - 2026-11-04
 ### Added
 - Menambahkan `apps/api/src/config/env.validation.spec.ts`.
 - Menambahkan `apps/dashboard/src/app/(dashboard)/inbox/[conversationId]/ticket/new/page.tsx`.
@@ -1383,7 +1387,8 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 - Memperbarui `apps/dashboard/src/app/(dashboard)/knowledge/page.tsx`.
 - Memperbarui `package.json`.
 
-[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.24.2...HEAD
+[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.25.0...HEAD
+[0.25.0]: https://github.com/bizdevsg/live-chat/compare/v0.24.2...v0.25.0
 [0.24.2]: https://github.com/bizdevsg/live-chat/compare/v0.24.1...v0.24.2
 [0.24.1]: https://github.com/bizdevsg/live-chat/compare/v0.24.0...v0.24.1
 [0.24.0]: https://github.com/bizdevsg/live-chat/compare/v0.23.3...v0.24.0
