@@ -4,7 +4,7 @@ import { type ReactNode, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Download, LoaderCircle } from "lucide-react";
+import { Download, LoaderCircle, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { apiClient } from "@/lib/api-client";
 import { useConversationRealtimeStore } from "@/lib/conversation-realtime-store";
 import { getDashboardSocket } from "@/lib/socket";
@@ -72,6 +72,7 @@ export default function InboxLayout({ children }: { children: ReactNode }) {
   const params = useParams<{ conversationId?: string }>();
   const [tab, setTab] = useState<Tab>("waiting");
   const [isBackingUp, setIsBackingUp] = useState(false);
+  const [leftOpen, setLeftOpen] = useState(true);
   const queryClient = useQueryClient();
   const toast = useToast();
   const user = useAuthStore((state) => state.user);
@@ -186,8 +187,26 @@ export default function InboxLayout({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-w-0 flex-1 flex-col overflow-hidden md:flex-row">
       <div
-        className="flex max-h-[42vh] min-h-[240px] w-full min-w-0 flex-col border-b border-ink-600 bg-ink-800/40 md:max-h-none md:min-h-0 md:w-72 md:shrink-0 md:border-b-0 md:border-r"
+        className={cn(
+          "flex w-full min-w-0 flex-col border-b border-ink-600 bg-ink-800/40 transition-[width] md:border-b-0 md:border-r",
+          leftOpen
+            ? "max-h-[42vh] min-h-[240px] md:max-h-none md:min-h-0 md:w-72 md:shrink-0"
+            : "max-h-11 md:max-h-none md:w-11 md:shrink-0",
+        )}
       >
+        <div className={cn("flex items-center border-b border-ink-600", leftOpen ? "justify-between px-3 py-1.5" : "justify-center py-1.5")}>
+          {leftOpen ? <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Percakapan</span> : null}
+          <button
+            type="button"
+            onClick={() => setLeftOpen((current) => !current)}
+            aria-label={leftOpen ? "Tutup daftar chat" : "Buka daftar chat"}
+            className="rounded-md p-1.5 text-zinc-500 transition-colors hover:bg-ink-700 hover:text-zinc-200"
+          >
+            {leftOpen ? <PanelLeftClose className="h-4 w-4" aria-hidden="true" /> : <PanelLeftOpen className="h-4 w-4" aria-hidden="true" />}
+          </button>
+        </div>
+        {!leftOpen ? null : (
+          <>
         {isSuperAdmin ? (
           <div className="border-b border-ink-600 p-3">
             <Button
@@ -260,6 +279,8 @@ export default function InboxLayout({ children }: { children: ReactNode }) {
             })()
           ))}
         </div>
+          </>
+        )}
       </div>
       <div className="flex min-h-0 min-w-0 flex-1 flex-col xl:flex-row">{children}</div>
     </div>

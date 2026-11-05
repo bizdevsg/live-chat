@@ -20,7 +20,7 @@ import { AutoReturnCountdown } from "@/components/inbox/auto-return-countdown";
 import { RichText } from "@/components/inbox/rich-text";
 import { Permission } from "@/lib/permissions";
 import type { ConversationDetail, MessageItem, MessageReceiptItem } from "@/lib/types";
-import { Download, FileText, ImagePlus, Send, X } from "lucide-react";
+import { ArrowRightLeft, Download, FileText, ImagePlus, PanelRightClose, PanelRightOpen, Send, Ticket, X } from "lucide-react";
 
 const ALLOWED_IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp"];
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
@@ -281,6 +281,7 @@ export default function ConversationDetailPage() {
   const [note, setNote] = useState("");
   const [transferOpen, setTransferOpen] = useState(false);
   const [transcriptOpen, setTranscriptOpen] = useState(false);
+  const [rightOpen, setRightOpen] = useState(true);
   const [visitorTyping, setVisitorTyping] = useState(false);
   const [aiTyping, setAiTyping] = useState(false);
   const [pendingImage, setPendingImage] = useState<{ file: File; previewUrl: string } | null>(null);
@@ -604,18 +605,26 @@ export default function ConversationDetailPage() {
               </Button>
             )}
             {isHydrated && !isClosed && hasPermission(Permission.CONVERSATION_TRANSFER) && (
-              <Button size="sm" variant="secondary" onClick={() => setTransferOpen(true)}>
-                Transfer
+              <Button size="sm" variant="secondary" title="Transfer" aria-label="Transfer" onClick={() => setTransferOpen(true)}>
+                <ArrowRightLeft className="h-4 w-4" />
               </Button>
             )}
-            <Link href={`/inbox/${conversationId}/ticket/new`}>
-              <Button size="sm" variant="secondary">
-                Buat Ticket
+            <Link href={`/inbox/${conversationId}/ticket/new`} title="Buat Ticket">
+              <Button size="sm" variant="secondary" aria-label="Buat Ticket">
+                <Ticket className="h-4 w-4" />
               </Button>
             </Link>
-            <Button size="sm" variant="secondary" onClick={() => setTranscriptOpen(true)}>
-              <FileText className="mr-1.5 h-4 w-4" />
-              Transkrip
+            <Button size="sm" variant="secondary" title="Transkrip" aria-label="Transkrip" onClick={() => setTranscriptOpen(true)}>
+              <FileText className="h-4 w-4" />
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => setRightOpen((current) => !current)}
+              title={rightOpen ? "Tutup panel info" : "Buka panel info"}
+              aria-label={rightOpen ? "Tutup panel info" : "Buka panel info"}
+            >
+              {rightOpen ? <PanelRightClose className="h-4 w-4" /> : <PanelRightOpen className="h-4 w-4" />}
             </Button>
             {!isInactive ? (
               <Button
@@ -795,6 +804,7 @@ export default function ConversationDetailPage() {
         </div>
       </div>
 
+      {rightOpen ? (
       <aside className="w-full overflow-y-auto border-t border-ink-600 bg-ink-800/40 p-4 xl:w-80 xl:shrink-0 xl:border-l xl:border-t-0">
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
           <section>
@@ -856,6 +866,7 @@ export default function ConversationDetailPage() {
           )}
         </div>
       </aside>
+      ) : null}
 
       <TransferModal
         open={transferOpen}

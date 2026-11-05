@@ -3,6 +3,12 @@
 Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
+### Changed
+- Memperbarui `apps/dashboard/src/app/(dashboard)/inbox/[conversationId]/page.tsx`.
+- Memperbarui `apps/dashboard/src/app/(dashboard)/inbox/layout.tsx`.
+- Memperbarui `package.json`.
+
+## [0.27.0] - 2026-11-05
 ### Added
 - Menambahkan `apps/dashboard/src/components/templates/batch-template-modal.tsx`.
 
@@ -1431,7 +1437,8 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 - Memperbarui `apps/dashboard/src/app/(dashboard)/knowledge/page.tsx`.
 - Memperbarui `package.json`.
 
-[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.26.1...HEAD
+[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.27.0...HEAD
+[0.27.0]: https://github.com/bizdevsg/live-chat/compare/v0.26.1...v0.27.0
 [0.26.1]: https://github.com/bizdevsg/live-chat/compare/v0.26.0...v0.26.1
 [0.26.0]: https://github.com/bizdevsg/live-chat/compare/v0.25.3...v0.26.0
 [0.25.3]: https://github.com/bizdevsg/live-chat/compare/v0.25.2...v0.25.3
