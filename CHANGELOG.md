@@ -3,6 +3,16 @@
 Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
+### Added
+- Menambahkan `apps/dashboard/src/components/templates/batch-template-modal.tsx`.
+
+### Changed
+- Memperbarui `apps/api/src/admin/dto/admin.dto.ts`.
+- Memperbarui `apps/api/src/admin/rules.controller.ts`.
+- Memperbarui `apps/dashboard/src/app/(dashboard)/templates/page.tsx`.
+- Memperbarui `package.json`.
+
+## [0.26.1] - 2026-11-05
 ### Changed
 - Memperbarui `apps/dashboard/src/app/(dashboard)/analytics/page.tsx`.
 - Memperbarui `apps/dashboard/src/app/(dashboard)/tickets/page.tsx`.
@@ -1421,7 +1431,8 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 - Memperbarui `apps/dashboard/src/app/(dashboard)/knowledge/page.tsx`.
 - Memperbarui `package.json`.
 
-[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.26.0...HEAD
+[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.26.1...HEAD
+[0.26.1]: https://github.com/bizdevsg/live-chat/compare/v0.26.0...v0.26.1
 [0.26.0]: https://github.com/bizdevsg/live-chat/compare/v0.25.3...v0.26.0
 [0.25.3]: https://github.com/bizdevsg/live-chat/compare/v0.25.2...v0.25.3
 [0.25.2]: https://github.com/bizdevsg/live-chat/compare/v0.25.1...v0.25.2

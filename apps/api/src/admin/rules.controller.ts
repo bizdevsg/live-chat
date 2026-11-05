@@ -7,7 +7,8 @@ import { CurrentUser } from "../common/decorators/current-user.decorator";
 import { PrismaService } from "../prisma/prisma.service";
 import { AuditLogService } from "../common/audit/audit-log.service";
 import { NotFoundApiException } from "../common/errors/api.exception";
-import { CreateHandoffRuleDto, CreateRoutingRuleDto, CreateTemplateDto, UpdateTemplateDto } from "./dto/admin.dto";
+import { BatchCreateTemplateDto, CreateHandoffRuleDto, CreateRoutingRuleDto, CreateTemplateDto, UpdateTemplateDto } from "./dto/admin.dto";
+import { Prisma } from "@solidchat/database";
 
 @ApiTags("admin-rules")
 @UseGuards(PermissionsGuard)
@@ -125,6 +126,36 @@ export class RulesController {
       data: { organizationId: user.organizationId, shortcut: dto.shortcut, title: dto.title, content: dto.content, language: dto.language ?? "id" },
     });
     return { success: true, data: template };
+  }
+
+  @Post("templates/batch")
+  @RequirePermissions(Permission.TEMPLATE_MANAGE)
+  async createTemplatesBatch(@Body() dto: BatchCreateTemplateDto, @CurrentUser() user: JwtAccessPayload) {
+    // Created sequentially (not createMany) so each row's own unique-shortcut conflict can be
+    // reported back individually instead of failing — or silently dropping — the whole batch.
+    const created: Awaited<ReturnType<typeof this.prisma.responseTemplate.create>>[] = [];
+    const skipped: { shortcut: string; title: string; reason: string }[] = [];
+    for (const item of dto.templates) {
+      try {
+        const template = await this.prisma.responseTemplate.create({
+          data: {
+            organizationId: user.organizationId,
+            shortcut: item.shortcut,
+            title: item.title,
+            content: item.content,
+            language: item.language ?? "id",
+          },
+        });
+        created.push(template);
+      } catch (error) {
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+          skipped.push({ shortcut: item.shortcut, title: item.title, reason: "Shortcut sudah dipakai." });
+          continue;
+        }
+        throw error;
+      }
+    }
+    return { success: true, data: { created, skipped } };
   }
 
   @Put("templates/:id")

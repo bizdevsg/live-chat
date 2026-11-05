@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ConfirmModal } from "@/components/ui/modal";
 import { DashboardEmpty, DashboardPage, DashboardPageHeader, DashboardPageMetrics, DashboardTablePanel } from "@/components/layout/dashboard-page";
+import { BatchTemplateModal } from "@/components/templates/batch-template-modal";
 
 interface Template {
   id: string;
@@ -23,6 +24,7 @@ export default function TemplatesPage() {
   const queryClient = useQueryClient();
   const toast = useToast();
   const [deleteTarget, setDeleteTarget] = useState<Template | null>(null);
+  const [batchModal, setBatchModal] = useState<"manual" | "json" | null>(null);
 
   const query = useQuery({ queryKey: ["templates"], queryFn: () => apiClient.get<Template[]>("/api/v1/admin/templates") });
   const templates = query.data ?? [];
@@ -48,9 +50,17 @@ export default function TemplatesPage() {
             title="Response templates"
             description="Pustaka balasan cepat lengkap dengan shortcut dan bahasa, siap dipakai agent."
             actions={
-              <Link href="/templates/new">
-                <Button>+ Template Baru</Button>
-              </Link>
+              <>
+                <Button variant="secondary" onClick={() => setBatchModal("json")}>
+                  Upload JSON
+                </Button>
+                <Button variant="secondary" onClick={() => setBatchModal("manual")}>
+                  + Tambah Batch
+                </Button>
+                <Link href="/templates/new">
+                  <Button>+ Template Baru</Button>
+                </Link>
+              </>
             }
           />
           <DashboardPageMetrics
@@ -104,6 +114,8 @@ export default function TemplatesPage() {
         }}
         onClose={() => setDeleteTarget(null)}
       />
+
+      <BatchTemplateModal open={batchModal !== null} mode={batchModal ?? "manual"} onClose={() => setBatchModal(null)} />
     </>
   );
 }
