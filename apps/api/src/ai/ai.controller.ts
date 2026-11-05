@@ -10,6 +10,7 @@ import { AiOrchestratorService } from "./ai-orchestrator.service";
 import { AiProviderFactory } from "./ai-provider.factory";
 import { UpdateAiConfigurationDto, AiFeedbackDto, AiKnowledgeTestDto } from "./dto/ai.dto";
 import { ForbiddenApiException, NotFoundApiException } from "../common/errors/api.exception";
+import { estimateAiRunCostUsd } from "./ai-cost.util";
 
 const ANSWER_PROMPT_PURPOSE = "ANSWER";
 const DEFAULT_AI_NAME = "Asisten Virtual";
@@ -160,6 +161,9 @@ export class AiController {
   async listRuns(
     @CurrentUser() user: JwtAccessPayload,
     @Query("conversationId") conversationId?: string,
+    @Query("status") status?: string,
+    @Query("purpose") purpose?: string,
+    @Query("source") source?: string,
     @Query("page") page = "1",
   ) {
     const pageNum = Number(page) || 1;
@@ -167,6 +171,9 @@ export class AiController {
     const where = {
       organizationId: user.organizationId,
       conversationId: conversationId || undefined,
+      status: status || undefined,
+      purpose: purpose || undefined,
+      source: source || undefined,
     };
     const [items, total] = await Promise.all([
       this.prisma.aiRun.findMany({
@@ -177,7 +184,11 @@ export class AiController {
       }),
       this.prisma.aiRun.count({ where }),
     ]);
-    return { success: true, data: { items, total, page: pageNum, pageSize } };
+    const itemsWithCost = items.map((item) => ({
+      ...item,
+      estimatedCostUsd: estimateAiRunCostUsd(item.provider, item.model, item.inputTokens, item.outputTokens),
+    }));
+    return { success: true, data: { items: itemsWithCost, total, page: pageNum, pageSize } };
   }
 
   @Get("handoffs")
@@ -257,6 +268,7 @@ export class AiController {
       success: true,
       data: {
         ...run,
+        estimatedCostUsd: estimateAiRunCostUsd(run.provider, run.model, run.inputTokens, run.outputTokens),
         handoffReason: run.handoffRequired
           ? getEventPayloadString(handoffEvent?.payload, "reason") ?? run.conversation?.handoffReason ?? "UNSPECIFIED"
           : null,
