@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { ApiError } from "../lib/api";
+import { isValidEmail, isValidPhone } from "../lib/validators";
 
 export interface PreChatValues {
   name: string;
@@ -10,14 +11,6 @@ export interface PreChatValues {
 }
 
 const MESSAGE_MAX_LENGTH = 2000;
-
-function isValidEmail(value: string) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
-}
-
-function isValidPhone(value: string) {
-  return value.replace(/\D/g, "").length >= 8;
-}
 
 export function PreChatForm({
   onSubmit,

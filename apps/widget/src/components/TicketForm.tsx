@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { MailCheck } from "lucide-react";
 import { ApiError } from "../lib/api";
+import { isValidEmail, isValidPhone } from "../lib/validators";
 
 export interface TicketValues {
   name: string;
@@ -19,14 +20,6 @@ const CATEGORY_OPTIONS = [
 ];
 
 const DEFAULT_CATEGORY = CATEGORY_OPTIONS[0]?.value ?? "GENERAL";
-
-function isValidEmail(value: string) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
-}
-
-function isValidPhone(value: string) {
-  return value.replace(/\D/g, "").length >= 8;
-}
 
 export function TicketForm({
   onSubmit,
