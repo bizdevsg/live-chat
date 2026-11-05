@@ -27,14 +27,12 @@ export function Topbar({ title }: { title: string }) {
         </button>
         <div className="min-w-0">
           <h1 className="truncate text-sm font-semibold tracking-tight text-zinc-100">{title}</h1>
-          <p className="hidden text-[11px] text-zinc-600 sm:block">SolidChat workspace</p>
+          <ConnectionIndicator />
         </div>
       </div>
       <div className="flex w-full items-center justify-between gap-2 sm:w-auto sm:justify-end sm:gap-3 md:gap-4">
         <AgentStatusToggle />
-        <div className="hidden md:block">
-          <ConnectionIndicator />
-        </div>
+
         <Button
           variant="danger"
           size="sm"

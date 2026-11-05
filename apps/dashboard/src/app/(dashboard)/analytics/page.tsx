@@ -58,7 +58,7 @@ export default function AnalyticsPage() {
   const exportUrl = `${API_URL}/api/v1/analytics/export?${filters}`;
   const data = overview.data;
 
-  return <><Topbar title="Analytics" /><DashboardPage><div className="mx-auto max-w-[1480px] space-y-5">
+  return <><Topbar title="Analytics" /><DashboardPage><div className="space-y-5">
     <DashboardPageHeader title="Analytics" description="Pantau performa percakapan, AI, dan tim support untuk periode yang dipilih." actions={<><label className="sr-only" htmlFor="analytics-range">Periode analitik</label><select id="analytics-range" value={rangeDays} onChange={(event) => setRangeDays(event.target.value)} className="h-10 rounded-lg border border-ink-600 bg-ink-800 px-3 text-sm text-zinc-200 outline-none transition-colors focus:border-gold-500">{RANGE_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select><a href={exportUrl} target="_blank" rel="noreferrer"><Button variant="secondary" className="gap-2"><Download className="h-4 w-4" aria-hidden="true" />Export CSV</Button></a></>} />
 
     <DashboardPageMetrics items={[

@@ -100,7 +100,7 @@ export default function TicketsPage() {
     startTransition(() => { setStatus(nextStatus); setPage(1); });
   }
 
-  return <><Topbar title="Tickets" /><DashboardPage><div className="mx-auto max-w-[1480px] space-y-5">
+  return <><Topbar title="Tickets" /><DashboardPage><div className="space-y-5">
     <DashboardPageHeader title="Tickets" description="Kelola dan tindak lanjuti setiap permintaan customer." />
 
     <TicketCounts />
