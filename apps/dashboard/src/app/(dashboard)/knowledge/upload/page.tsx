@@ -5,7 +5,7 @@ import type { DragEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { LoaderCircle, UploadCloud } from "lucide-react";
+import { LoaderCircle, UploadCloud, X } from "lucide-react";
 import { apiClient, ApiError } from "@/lib/api-client";
 import { useToast } from "@/components/ui/toast";
 import { Button } from "@/components/ui/button";
@@ -128,16 +128,18 @@ export default function UploadKnowledgePage() {
     setUploadReport(null);
     const markdownFiles = files.filter((file) => file.name.toLowerCase().endsWith(".md"));
     const rejectedCount = files.length - markdownFiles.length;
+    // Append to the current selection; a re-picked file with the same name replaces the earlier one.
     const uniqueByName = new Map<string, File>();
-    for (const file of markdownFiles) uniqueByName.set(file.name.toLocaleLowerCase("id-ID"), file);
+    for (const file of [...selectedUploadFiles, ...markdownFiles]) uniqueByName.set(file.name.toLocaleLowerCase("id-ID"), file);
     const deduplicatedFiles = [...uniqueByName.values()];
     const acceptedFiles = deduplicatedFiles.slice(0, MAX_BATCH_UPLOAD_FILES);
 
     if (rejectedCount > 0) {
       toast.push(`${rejectedCount} file dilewati karena bukan Markdown (.md).`, "error");
     }
-    if (deduplicatedFiles.length < markdownFiles.length) {
-      toast.push(`${markdownFiles.length - deduplicatedFiles.length} file duplikat dalam pilihan dilewati.`, "error");
+    const duplicateCount = selectedUploadFiles.length + markdownFiles.length - deduplicatedFiles.length;
+    if (duplicateCount > 0) {
+      toast.push(`${duplicateCount} file dengan nama sama digabung.`, "error");
     }
     if (deduplicatedFiles.length > MAX_BATCH_UPLOAD_FILES) {
       toast.push(`Maksimal ${MAX_BATCH_UPLOAD_FILES} file dapat diunggah sekaligus.`, "error");
@@ -260,7 +262,7 @@ export default function UploadKnowledgePage() {
                 {upload.isPending
                   ? "Jangan tutup halaman sampai proses selesai."
                   : selectedUploadFiles.length > 0
-                    ? "Klik area ini untuk mengganti pilihan file."
+                    ? "Klik area ini untuk menambah file lagi."
                     : `atau klik untuk memilih hingga ${MAX_BATCH_UPLOAD_FILES} file .md`}
               </p>
             </div>
@@ -282,7 +284,21 @@ export default function UploadKnowledgePage() {
                   {selectedUploadFiles.map((file) => (
                     <li key={`${file.name}-${file.size}-${file.lastModified}`} className="flex items-center justify-between gap-3 py-1 text-xs">
                       <span className="min-w-0 truncate text-zinc-300">{file.name}</span>
-                      <span className="shrink-0 text-zinc-600">{Math.max(1, Math.ceil(file.size / 1024))} KB</span>
+                      <span className="flex shrink-0 items-center gap-3">
+                        <span className="text-zinc-600">{Math.max(1, Math.ceil(file.size / 1024))} KB</span>
+                        <button
+                          type="button"
+                          aria-label={`Hapus ${file.name}`}
+                          disabled={isCheckingUploadConflicts}
+                          onClick={() => {
+                            setUploadConflicts([]);
+                            setSelectedUploadFiles((prev) => prev.filter((item) => item !== file));
+                          }}
+                          className="text-zinc-500 transition-colors hover:text-red-300"
+                        >
+                          <X className="h-3.5 w-3.5" aria-hidden="true" />
+                        </button>
+                      </span>
                     </li>
                   ))}
                 </ul>

@@ -3,6 +3,11 @@
 Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
+### Changed
+- Memperbarui `apps/dashboard/src/app/(dashboard)/knowledge/upload/page.tsx`.
+- Memperbarui `package.json`.
+
+## [0.28.1] - 2026-11-05
 ### Added
 - Menambahkan `apps/widget/src/lib/validators.ts`.
 
@@ -1446,7 +1451,8 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 - Memperbarui `apps/dashboard/src/app/(dashboard)/knowledge/page.tsx`.
 - Memperbarui `package.json`.
 
-[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.28.0...HEAD
+[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.28.1...HEAD
+[0.28.1]: https://github.com/bizdevsg/live-chat/compare/v0.28.0...v0.28.1
 [0.28.0]: https://github.com/bizdevsg/live-chat/compare/v0.27.0...v0.28.0
 [0.27.0]: https://github.com/bizdevsg/live-chat/compare/v0.26.1...v0.27.0
 [0.26.1]: https://github.com/bizdevsg/live-chat/compare/v0.26.0...v0.26.1
