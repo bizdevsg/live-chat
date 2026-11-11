@@ -4,6 +4,7 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
 ### Changed
+- Memperbarui `.gitignore`.
 - Memperbarui `package.json`.
 
 ## [0.28.2] - 2026-11-11

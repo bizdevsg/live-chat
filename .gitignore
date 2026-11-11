@@ -21,3 +21,4 @@ minio-data
 mysql-data
 redis-data
 tmp
+deploy/
