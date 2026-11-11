@@ -32,6 +32,23 @@ function isTransientAiProviderError(error: unknown): boolean {
   return /timed out|timeout|ECONNRESET|ETIMEDOUT|fetch failed/i.test(error.message);
 }
 
+const EMPTY_ANSWER_FALLBACK =
+  "Maaf, saya belum dapat memberikan jawaban untuk pertanyaan tersebut. Silakan jelaskan lebih detail atau tekan Hubungi Agent agar dibantu petugas kami.";
+
+/** Message used when the classifier picks a handoff action but leaves its reply blank. */
+export function fallbackHandoffReply(action: string): string {
+  switch (action) {
+    case "OUT_OF_SCOPE":
+      return "Maaf, saya hanya dapat membantu seputar layanan Solid Gold. Ada hal lain terkait layanan kami yang bisa saya bantu?";
+    case "OFFER":
+      return "Untuk hal ini dibutuhkan bantuan petugas kami. Apakah Anda ingin saya hubungkan dengan agent?";
+    case "TRANSFER":
+      return "Baik, saya akan menghubungkan Anda dengan petugas kami. Mohon tunggu sebentar ya.";
+    default:
+      return EMPTY_ANSWER_FALLBACK;
+  }
+}
+
 /** A second retrieval query is only useful when the latest message depends on earlier turns. */
 export function shouldUseContextualRetrieval(message: string, history: ChatTurn[]): boolean {
   if (history.length <= 1) return false;
@@ -332,9 +349,12 @@ export class AiOrchestratorService {
         return;
       }
 
+      const handoffAction = classification.handoffAction ?? "NONE";
+      // The classifier is told to write a reply for every non-NONE action but sometimes returns an
+      // empty string, which used to be saved as a blank AI bubble. Fall back to a fixed message.
       const handoffDecision = {
-        action: classification.handoffAction ?? "NONE",
-        reply: classification.handoffReply ?? "",
+        action: handoffAction,
+        reply: classification.handoffReply?.trim() || fallbackHandoffReply(handoffAction),
       };
       if (handoffDecision.action !== "NONE") {
         await this.conversations.postMessage({
@@ -449,7 +469,8 @@ export class AiOrchestratorService {
       await this.conversations.postMessage({
         conversationId,
         senderType: SenderType.AI,
-        content: formatAnswerForCustomer(answer.answer, answer.sources, site.settings.showAiSourcesToCustomer),
+        content:
+          formatAnswerForCustomer(answer.answer ?? "", answer.sources, site.settings.showAiSourcesToCustomer) || EMPTY_ANSWER_FALLBACK,
         messageType: MessageType.TEXT,
         aiRunId: aiRun.id,
         metadata: { confidence: answer.confidence, intent: answer.intent, sources: answer.sources },

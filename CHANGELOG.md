@@ -4,6 +4,7 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
 ### Changed
+- Memperbarui `apps/api/src/ai/ai-orchestrator.service.ts`.
 - Memperbarui `package.json`.
 
 ## [0.28.3] - 2026-11-11
