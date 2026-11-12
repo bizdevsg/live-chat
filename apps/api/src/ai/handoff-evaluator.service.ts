@@ -6,8 +6,8 @@ const RULES: Array<{ reason: HandoffReason; test: (message: string, classificati
   { reason: HandoffReason.SENSITIVE_DATA_DETECTED, test: (_m, c) => c.containsSensitiveData },
   { reason: HandoffReason.SUSPECTED_FRAUD, test: (m) => /(penipuan|fraud|scam|dugaan tipu)/i.test(m) },
   { reason: HandoffReason.LEGAL_THREAT, test: (m) => /(polisi|somasi|tuntut|pengacara|lapor hukum)/i.test(m) },
-  { reason: HandoffReason.ACCOUNT_LOCKED, test: (m) => /(akun (saya )?terkunci|tidak bisa login|lupa password)/i.test(m) },
-  { reason: HandoffReason.LOGIN_ISSUE, test: (m) => /(gagal login|tidak bisa masuk akun)/i.test(m) },
+  // Login / locked-account / forgot-password rules removed: the knowledge base has its own login
+  // troubleshooting flow and the site prompt decides when to offer CS (see fix/handoff-evidence-first).
   { reason: HandoffReason.DEPOSIT_ISSUE, test: (m, c) => c.intent === AiIntent.DEPOSIT && /(belum masuk|gagal|bermasalah|pending)/i.test(m) },
   {
     reason: HandoffReason.WITHDRAWAL_ISSUE,

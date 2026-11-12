@@ -35,6 +35,12 @@ describe("HandoffEvaluatorService", () => {
     expect(result).toBeNull();
   });
 
+  it("no longer forces handoff for login / locked-account / forgot-password wording", () => {
+    for (const text of ["kenapa saya tidak bisa login?", "gabisa login", "gagal login", "tidak bisa masuk akun", "lupa password", "akun saya terkunci"]) {
+      expect(evaluator.evaluate(text, classification())).toBeNull();
+    }
+  });
+
   it("detects a deposit issue when intent and keyword both match", () => {
     const result = evaluator.evaluate("deposit saya belum masuk", classification({ intent: AiIntent.DEPOSIT }));
     expect(result).toBe(HandoffReason.DEPOSIT_ISSUE);

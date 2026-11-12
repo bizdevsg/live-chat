@@ -16,6 +16,7 @@ import { ConversationsService } from "../conversations/conversations.service";
 import { RetrievalService } from "../knowledge/retrieval.service";
 import { AiProviderFactory } from "./ai-provider.factory";
 import { HandoffEvaluatorService } from "./handoff-evaluator.service";
+import { resolveHandoffAction } from "./handoff-override";
 import { SecurityEventService } from "../common/security/security-event.service";
 import { RealtimeEmitterService } from "../realtime/realtime-emitter.service";
 import { MarketDataService } from "../market-data/market-data.service";
@@ -349,33 +350,6 @@ export class AiOrchestratorService {
         return;
       }
 
-      const handoffAction = classification.handoffAction ?? "NONE";
-      // The classifier is told to write a reply for every non-NONE action but sometimes returns an
-      // empty string, which used to be saved as a blank AI bubble. Fall back to a fixed message.
-      const handoffDecision = {
-        action: handoffAction,
-        reply: classification.handoffReply?.trim() || fallbackHandoffReply(handoffAction),
-      };
-      if (handoffDecision.action !== "NONE") {
-        await this.conversations.postMessage({
-          conversationId,
-          senderType: SenderType.AI,
-          content: handoffDecision.reply,
-          messageType: MessageType.TEXT,
-          metadata: { handoffDecision: handoffDecision.action },
-        });
-        if (handoffDecision.action === "TRANSFER") {
-          await this.markAiRunHandoff(classificationRun.id);
-          await this.conversations.requestAgent(
-            conversationId,
-            HandoffReason.CUSTOMER_REQUESTED_HUMAN,
-            HandoffSource.AI_DECISION,
-          );
-          await this.summarize(conversationId, "HANDOFF");
-        }
-        return;
-      }
-
       // Search the explicit latest question first. Embedding the whole recent transcript into one
       // query made a clear question such as "top up 2095000 jadi berapa" compete with unrelated
       // older turns and occasionally lose its rate/minimum evidence. Conversation context remains
@@ -414,6 +388,37 @@ export class AiOrchestratorService {
         ...contextualKnowledgeEvidence.filter((item) => !focusedChunkIds.has(item.chunkId)),
       ];
       const evidence = [...marketEvidence, ...knowledgeEvidence];
+
+      // Handoff decided by the classifier is checked against retrieval: the classifier never sees the
+      // knowledge base, so with evidence available it only keeps a TRANSFER the visitor actually asked for.
+      const handoffResolution = resolveHandoffAction({
+        classifierAction: classification.handoffAction ?? "NONE",
+        evidenceCount: evidence.length,
+        message: lastVisitorMessage.content,
+        history,
+      });
+      if (handoffResolution.finalAction !== "NONE") {
+        // The classifier is told to write a reply for every non-NONE action but sometimes returns an
+        // empty string, which used to be saved as a blank AI bubble. Fall back to a fixed message.
+        await this.conversations.postMessage({
+          conversationId,
+          senderType: SenderType.AI,
+          content: classification.handoffReply?.trim() || fallbackHandoffReply(handoffResolution.finalAction),
+          messageType: MessageType.TEXT,
+          metadata: { handoffDecision: handoffResolution },
+        });
+        if (handoffResolution.finalAction === "TRANSFER") {
+          await this.markAiRunHandoff(classificationRun.id);
+          await this.conversations.requestAgent(
+            conversationId,
+            HandoffReason.CUSTOMER_REQUESTED_HUMAN,
+            HandoffSource.AI_DECISION,
+          );
+          await this.summarize(conversationId, "HANDOFF");
+        }
+        return;
+      }
+
       const realtimePriceAnswer = this.marketData.getRealtimePriceAnswer(
         lastVisitorMessage.content,
         history.map((turn) => turn.content).join("\n"),
@@ -473,7 +478,7 @@ export class AiOrchestratorService {
           formatAnswerForCustomer(answer.answer ?? "", answer.sources, site.settings.showAiSourcesToCustomer) || EMPTY_ANSWER_FALLBACK,
         messageType: MessageType.TEXT,
         aiRunId: aiRun.id,
-        metadata: { confidence: answer.confidence, intent: answer.intent, sources: answer.sources },
+        metadata: { confidence: answer.confidence, intent: answer.intent, sources: answer.sources, handoffDecision: handoffResolution },
       });
     } catch (error) {
       // Every step above (classification, handoff decision, retrieval, the answer call itself)

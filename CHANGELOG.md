@@ -3,7 +3,14 @@
 Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
+### Added
+- Menambahkan `apps/api/src/ai/ai-orchestrator-handoff.spec.ts`.
+- Menambahkan `apps/api/src/ai/handoff-override.ts`.
+
 ### Changed
+- Memperbarui `apps/api/src/ai/ai-orchestrator.service.ts`.
+- Memperbarui `apps/api/src/ai/handoff-evaluator.service.spec.ts`.
+- Memperbarui `apps/api/src/ai/handoff-evaluator.service.ts`.
 - Memperbarui `package.json`.
 
 ## [0.29.0] - 2026-11-12
