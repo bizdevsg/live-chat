@@ -22,8 +22,28 @@ import { Permission } from "@/lib/permissions";
 import type { ConversationDetail, MessageItem, MessageReceiptItem } from "@/lib/types";
 import { ArrowRightLeft, Download, FileText, ImagePlus, PanelRightClose, PanelRightOpen, Send, Ticket, X } from "lucide-react";
 
-const ALLOWED_IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp"];
+const ALLOWED_IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp", "application/pdf"];
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+
+/** A non-image (PDF) attachment: a chip that swaps the attachment id for a signed URL and opens it on click. */
+function FileAttachment({ conversationId, attachment }: { conversationId: string; attachment: NonNullable<MessageItem["attachments"]>[number] }) {
+  const [opening, setOpening] = useState(false);
+  async function open() {
+    setOpening(true);
+    try {
+      const { url } = await apiClient.get<{ url: string }>(`/api/v1/agent/conversations/${conversationId}/attachments/${attachment.id}/url`);
+      window.open(url, "_blank", "noopener,noreferrer");
+    } finally {
+      setOpening(false);
+    }
+  }
+  return (
+    <button type="button" onClick={() => void open()} disabled={opening} className="flex w-full items-center gap-2 rounded-lg bg-black/20 px-3 py-2 text-left text-sm hover:bg-black/30 disabled:opacity-60">
+      <FileText className="h-5 w-5 shrink-0" />
+      <span className="min-w-0 flex-1 truncate">{attachment.fileName}</span>
+    </button>
+  );
+}
 
 function ImageAttachment({ conversationId, attachment }: { conversationId: string; attachment: NonNullable<MessageItem["attachments"]>[number] }) {
   const image = useQuery({
@@ -194,7 +214,7 @@ function MessageBubble({ message, showSeen, visitorName }: { message: MessageIte
   const isSystem = message.senderType === "SYSTEM" || message.messageType === "SYSTEM";
   const isSuggestion = message.messageType === "AI_SUGGESTION";
   const isNote = message.messageType === "INTERNAL_NOTE";
-  const hasImage = message.messageType === "IMAGE" && (message.attachments?.length ?? 0) > 0;
+  const hasImage = (message.messageType === "IMAGE" || message.messageType === "FILE") && (message.attachments?.length ?? 0) > 0;
   const messageTime = formatMessageTime(message.createdAt);
   // Keep the dashboard's agent-on-the-right reading direction, while using the widget's
   // role colours: visitor = olive, AI = orange, agent = green.
@@ -248,7 +268,9 @@ function MessageBubble({ message, showSeen, visitorName }: { message: MessageIte
           className={`mt-2 rounded-xl border text-sm leading-relaxed text-white backdrop-blur-[2px] ${hasImage ? "p-1.5" : "px-4 py-3"} ${mine ? "rounded-br-sm" : "rounded-tl-md"} ${bubbleStyle}`}
         >
           {hasImage ? <div className="grid gap-1">{message.attachments?.map((attachment) => (
-            <ImageAttachment key={attachment.id} conversationId={message.conversationId} attachment={attachment} />
+            attachment.mimeType === "application/pdf"
+              ? <FileAttachment key={attachment.id} conversationId={message.conversationId} attachment={attachment} />
+              : <ImageAttachment key={attachment.id} conversationId={message.conversationId} attachment={attachment} />
           ))}</div> : null}
           {message.content?.trim() ? (
             isVisitor ? (
@@ -693,18 +715,18 @@ export default function ConversationDetailPage() {
             <input
               ref={imageInputRef}
               type="file"
-              accept="image/png,image/jpeg,image/webp"
+              accept="image/png,image/jpeg,image/webp,application/pdf"
               className="hidden"
               onChange={(event) => {
                 const file = event.target.files?.[0];
                 if (!file) return;
                 if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
-                  toast.push("Format gambar harus PNG, JPEG, atau WEBP.", "error");
+                  toast.push("Format file harus PNG, JPEG, WEBP, atau PDF.", "error");
                   event.target.value = "";
                   return;
                 }
                 if (file.size > MAX_IMAGE_BYTES) {
-                  toast.push("Ukuran gambar maksimal 10 MB.", "error");
+                  toast.push("Ukuran file maksimal 10 MB.", "error");
                   event.target.value = "";
                   return;
                 }
@@ -768,8 +790,12 @@ export default function ConversationDetailPage() {
 
           {pendingImage ? (
             <div className="mt-2 flex items-center justify-between gap-3 rounded-xl border border-ink-600 bg-ink-800 px-3 py-2 text-xs text-zinc-300">
-              <img src={pendingImage.previewUrl} alt="" className="h-14 w-14 shrink-0 rounded-lg object-cover" />
-              <span className="min-w-0 flex-1 truncate">Gambar akan dikirim bersama pesan</span>
+              {pendingImage.file.type === "application/pdf" ? (
+                <FileText className="h-8 w-8 shrink-0" />
+              ) : (
+                <img src={pendingImage.previewUrl} alt="" className="h-14 w-14 shrink-0 rounded-lg object-cover" />
+              )}
+              <span className="min-w-0 flex-1 truncate">{pendingImage.file.type === "application/pdf" ? `${pendingImage.file.name} akan dikirim bersama pesan` : "Gambar akan dikirim bersama pesan"}</span>
               <Button
                 variant="ghost"
                 className="h-8 w-8 px-0"

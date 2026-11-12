@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Param, Post, Query, UploadedFile, UseGuards, UseInterceptors } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
 import { ApiTags } from "@nestjs/swagger";
-import { MAX_ATTACHMENT_SIZE_BYTES, MessageType, Permission, type JwtAccessPayload } from "@solidchat/shared";
+import { MAX_ATTACHMENT_SIZE_BYTES, Permission, type JwtAccessPayload } from "@solidchat/shared";
 import { PermissionsGuard } from "../common/guards/permissions.guard";
 import { RequirePermissions } from "../common/decorators/permissions.decorator";
 import { CurrentUser } from "../common/decorators/current-user.decorator";
@@ -10,7 +10,7 @@ import { ConversationsService } from "../conversations/conversations.service";
 import { AiOrchestratorService } from "../ai/ai-orchestrator.service";
 import { StorageService } from "../storage/storage.service";
 import { FindCrmCustomerByEmailDto, InternalNoteDto, SendAgentMessageDto, TransferConversationDto, UpdateAgentStatusDto } from "./dto/agent.dto";
-import { assertValidImageUpload, imageExtension } from "../common/utils/image-upload";
+import { assertValidAttachmentUpload, attachmentMessageType, attachmentStorageName } from "../common/utils/image-upload";
 
 @ApiTags("agent")
 @UseGuards(PermissionsGuard)
@@ -121,13 +121,13 @@ export class AgentController {
   @UseInterceptors(FileInterceptor("file", { limits: { fileSize: MAX_ATTACHMENT_SIZE_BYTES } }))
   async uploadImage(@Param("id") id: string, @UploadedFile() file: Express.Multer.File, @Body() dto: SendAgentMessageDto, @CurrentUser() user: JwtAccessPayload) {
     await this.agentService.assertConversationAccess(user, id);
-    assertValidImageUpload(file);
-    const storageKey = this.storage.buildStorageKey(`conversations/${id}`, `image${imageExtension(file.mimetype)}`);
+    assertValidAttachmentUpload(file);
+    const storageKey = this.storage.buildStorageKey(`conversations/${id}`, attachmentStorageName(file.mimetype));
     await this.storage.upload(storageKey, file.buffer, file.mimetype);
     try {
       const result = await this.conversations.postMessage({
         conversationId: id, senderType: "AGENT", senderId: user.sub, content: dto.content?.trim() || "",
-        clientMessageId: dto.clientMessageId, messageType: MessageType.IMAGE,
+        clientMessageId: dto.clientMessageId, messageType: attachmentMessageType(file.mimetype),
         attachments: [{ storageKey, fileName: file.originalname, mimeType: file.mimetype, sizeBytes: file.size }],
       });
       if (!result.created) await this.storage.remove(storageKey).catch(() => undefined);

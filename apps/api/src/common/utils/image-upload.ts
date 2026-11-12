@@ -26,3 +26,32 @@ export function assertValidImageUpload(file: Express.Multer.File | undefined): a
 export function imageExtension(mimeType: SupportedImageMimeType): string {
   return IMAGE_EXTENSIONS[mimeType];
 }
+
+const PDF_MIME_TYPE = "application/pdf";
+export type SupportedAttachmentMimeType = SupportedImageMimeType | typeof PDF_MIME_TYPE;
+
+/** PDF readers tolerate a few junk bytes before the header, so look for "%PDF-" in the first 1 KiB. */
+function isPdf(buffer: Buffer): boolean {
+  return buffer.subarray(0, 1024).includes(Buffer.from("%PDF-"));
+}
+
+/** Chat attachments: images (PNG/JPEG/WEBP) or PDF. Avatars keep using the image-only check above. */
+export function assertValidAttachmentUpload(file: Express.Multer.File | undefined): asserts file is Express.Multer.File & { mimetype: SupportedAttachmentMimeType } {
+  if (file?.mimetype === PDF_MIME_TYPE) {
+    if (!isPdf(file.buffer)) throw new BadRequestException("File PDF tidak valid.");
+    return;
+  }
+  if (!file || !(file.mimetype in IMAGE_SIGNATURES) || !IMAGE_SIGNATURES[file.mimetype as SupportedImageMimeType](file.buffer)) {
+    throw new BadRequestException("Upload hanya mendukung gambar PNG, JPEG, WEBP, atau file PDF yang valid.");
+  }
+}
+
+/** Storage key file name: `image.png` or `document.pdf` — extension is trusted, never from the upload name. */
+export function attachmentStorageName(mimeType: SupportedAttachmentMimeType): string {
+  return mimeType === PDF_MIME_TYPE ? "document.pdf" : `image${imageExtension(mimeType)}`;
+}
+
+/** PDFs go out as FILE messages; images stay IMAGE. */
+export function attachmentMessageType(mimeType: SupportedAttachmentMimeType): "FILE" | "IMAGE" {
+  return mimeType === PDF_MIME_TYPE ? "FILE" : "IMAGE";
+}

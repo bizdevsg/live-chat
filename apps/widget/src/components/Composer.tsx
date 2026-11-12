@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { SiteConfig } from "../hooks/use-widget-session";
-import { Headset, ImagePlus, Send, Smile, X } from "lucide-react";
+import { FileText, Headset, ImagePlus, Send, Smile, X } from "lucide-react";
 
 const COMPOSER_MIN_HEIGHT = 46;
 const COMPOSER_MAX_LINES = 3;
@@ -12,7 +12,7 @@ const COMPOSER_MAX_HEIGHT =
   COMPOSER_VERTICAL_PADDING +
   COMPOSER_BORDER;
 
-const ALLOWED_IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp"];
+const ALLOWED_IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp", "application/pdf"];
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 const WIDGET_SURFACE_COLOR = "#2e2e2e";
 const EMOJI_MART_DATA_URL = "https://cdn.jsdelivr.net/npm/@emoji-mart/data";
@@ -133,12 +133,12 @@ export function Composer({
   function stageImage(file: File | undefined) {
     if (!file || !canUploadImage || disabled || uploading) return;
     if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
-      setUploadError("Format gambar harus PNG, JPEG, atau WEBP.");
+      setUploadError("Format file harus PNG, JPEG, WEBP, atau PDF.");
       if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
     if (file.size > MAX_IMAGE_BYTES) {
-      setUploadError("Ukuran gambar maksimal 10 MB.");
+      setUploadError("Ukuran file maksimal 10 MB.");
       if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
@@ -198,8 +198,14 @@ export function Composer({
       )}
       {pendingImage ? (
         <div className="mb-2 flex items-center gap-2 rounded-xl border border-zinc-700 bg-zinc-900 p-2">
-          <img src={pendingImage.previewUrl} alt="" className="h-14 w-14 shrink-0 rounded-lg object-cover" />
-          <span className="min-w-0 flex-1 truncate text-xs text-zinc-400">Gambar akan dikirim bersama pesan</span>
+          {pendingImage.file.type === "application/pdf" ? (
+            <FileText className="h-8 w-8 shrink-0 text-zinc-300" />
+          ) : (
+            <img src={pendingImage.previewUrl} alt="" className="h-14 w-14 shrink-0 rounded-lg object-cover" />
+          )}
+          <span className="min-w-0 flex-1 truncate text-xs text-zinc-400">
+            {pendingImage.file.type === "application/pdf" ? `${pendingImage.file.name} akan dikirim bersama pesan` : "Gambar akan dikirim bersama pesan"}
+          </span>
           <button
             onClick={clearPendingImage}
             disabled={uploading}
@@ -212,11 +218,11 @@ export function Composer({
       ) : null}
       <div className="flex items-end gap-2">
         {canUploadImage ? (
-          <button onClick={() => fileInputRef.current?.click()} disabled={disabled || uploading || !!pendingImage} aria-label="Lampirkan gambar" className="flex h-11 w-11 shrink-0 items-center justify-center self-end rounded-full border border-zinc-700 text-zinc-200 disabled:opacity-40">
+          <button onClick={() => fileInputRef.current?.click()} disabled={disabled || uploading || !!pendingImage} aria-label="Lampirkan gambar atau PDF" className="flex h-11 w-11 shrink-0 items-center justify-center self-end rounded-full border border-zinc-700 text-zinc-200 disabled:opacity-40">
             <ImagePlus className="h-4 w-4" />
           </button>
         ) : null}
-        <input ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(event) => stageImage(event.target.files?.[0])} />
+        <input ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/webp,application/pdf" className="hidden" onChange={(event) => stageImage(event.target.files?.[0])} />
         <div className="relative min-w-0 flex-1">
           {emojiPickerOpen ? (
             <div className="absolute bottom-12 right-0 z-20 w-[352px] max-w-[calc(100vw-3rem)] rounded-xl border border-zinc-700 bg-zinc-800 p-1 shadow-xl">

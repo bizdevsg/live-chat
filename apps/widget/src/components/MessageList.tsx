@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { FileText, Loader2 } from "lucide-react";
 import type { WidgetMessage } from "../hooks/use-conversation";
 import type { SiteConfig } from "../hooks/use-widget-session";
 import { RichText } from "../lib/rich-text";
@@ -56,6 +56,24 @@ function ImageAttachment({ conversationId, attachment, token }: { conversationId
   return url ? <img src={url} alt="Lampiran gambar" className="block max-h-64 max-w-full rounded-xl object-contain" /> : null;
 }
 
+/** A PDF attachment: a chip that fetches a short-lived signed URL on click and opens it in a new tab. */
+function FileAttachment({ conversationId, attachment, token }: { conversationId: string; attachment: NonNullable<WidgetMessage["attachments"]>[number]; token: string }) {
+  const [opening, setOpening] = useState(false);
+  function open() {
+    setOpening(true);
+    api.get<{ url: string }>(`/api/v1/widget/conversations/${conversationId}/attachments/${attachment.id}/url`, token)
+      .then((data) => window.open(data.url, "_blank", "noopener,noreferrer"))
+      .catch(() => undefined)
+      .finally(() => setOpening(false));
+  }
+  return (
+    <button type="button" onClick={open} disabled={opening} className="flex w-full items-center gap-2 rounded-xl bg-black/20 px-3 py-2 text-left text-sm text-white disabled:opacity-60">
+      <FileText className="h-5 w-5 shrink-0" />
+      <span className="min-w-0 flex-1 truncate">{attachment.fileName}</span>
+    </button>
+  );
+}
+
 /**
  * A single message row. Everything about its layout and styling is driven by `senderType`:
  *
@@ -75,7 +93,7 @@ function Bubble({ message, config, token }: { message: WidgetMessage; config: Si
   const isVisitor = message.senderType === "VISITOR" || message.senderType === "CUSTOMER";
   const isAi = message.senderType === "AI";
   const isSystem = message.senderType === "SYSTEM";
-  const hasImage = message.messageType === "IMAGE" && (message.attachments?.length ?? 0) > 0;
+  const hasImage = (message.messageType === "IMAGE" || message.messageType === "FILE") && (message.attachments?.length ?? 0) > 0;
   // Only applied to incoming (AI / agent) bubbles; unused for visitor + system.
   const senderStyle = getSenderStyle(message.senderType);
   // Name above an incoming bubble: the configured AI name, or the agent's own name ("Agent" fallback).
@@ -107,7 +125,9 @@ function Bubble({ message, config, token }: { message: WidgetMessage; config: Si
             `}
         // Colour is controlled by the role: olive visitor, orange AI, green agent.
         >
-          {hasImage ? <div className="grid gap-1">{message.attachments?.map((attachment) => <ImageAttachment key={attachment.id} conversationId={message.conversationId} attachment={attachment} token={token} />)}</div> : null}
+          {hasImage ? <div className="grid gap-1">{message.attachments?.map((attachment) => attachment.mimeType === "application/pdf"
+            ? <FileAttachment key={attachment.id} conversationId={message.conversationId} attachment={attachment} token={token} />
+            : <ImageAttachment key={attachment.id} conversationId={message.conversationId} attachment={attachment} token={token} />)}</div> : null}
           {message.content?.trim() ? (
             isVisitor ? (
               // Visitor text is shown verbatim — newlines preserved, no markdown parsing.

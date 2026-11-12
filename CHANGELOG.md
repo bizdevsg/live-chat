@@ -3,7 +3,16 @@
 Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
+### Added
+- Menambahkan `apps/api/src/common/utils/image-upload.spec.ts`.
+
 ### Changed
+- Memperbarui `apps/api/src/agent/agent.controller.ts`.
+- Memperbarui `apps/api/src/common/utils/image-upload.ts`.
+- Memperbarui `apps/api/src/widget/widget.controller.ts`.
+- Memperbarui `apps/dashboard/src/app/(dashboard)/inbox/[conversationId]/page.tsx`.
+- Memperbarui `apps/widget/src/components/Composer.tsx`.
+- Memperbarui `apps/widget/src/components/MessageList.tsx`.
 - Memperbarui `package.json`.
 
 ## [0.28.4] - 2026-11-11

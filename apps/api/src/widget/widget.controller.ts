@@ -22,7 +22,7 @@ import {
 import { CreateLeadDto } from "../leads/dto/lead.dto";
 import { WidgetRateLimitService } from "./widget-rate-limit.service";
 import { StorageService } from "../storage/storage.service";
-import { assertValidImageUpload, imageExtension } from "../common/utils/image-upload";
+import { assertValidAttachmentUpload, attachmentMessageType, attachmentStorageName } from "../common/utils/image-upload";
 
 @ApiTags("widget")
 @Public()
@@ -122,14 +122,14 @@ export class WidgetController {
     await this.widgetRateLimit.consume("image", req.visitor.siteId, req.visitor.visitorId, { limit: 6, windowMs: 60 * 60_000, message: "Terlalu banyak upload gambar. Coba lagi nanti." });
     const conversation = await this.widgetService.assertOwnership(id, req.visitor.visitorId);
     if (conversation.handlerType !== HandlerType.HUMAN || !conversation.assignedAgentId) {
-      throw new BadRequestException("Gambar hanya dapat dikirim saat conversation sedang ditangani agent.");
+      throw new BadRequestException("Gambar/PDF hanya dapat dikirim saat conversation sedang ditangani agent.");
     }
-    assertValidImageUpload(file);
-    const storageKey = this.storage.buildStorageKey(`conversations/${id}`, `image${imageExtension(file.mimetype)}`);
+    assertValidAttachmentUpload(file);
+    const storageKey = this.storage.buildStorageKey(`conversations/${id}`, attachmentStorageName(file.mimetype));
     await this.storage.upload(storageKey, file.buffer, file.mimetype);
     try {
       const result = await this.conversations.postMessage({
-        conversationId: id, senderType: SenderType.VISITOR, content: dto.content?.trim() || "", messageType: MessageType.IMAGE,
+        conversationId: id, senderType: SenderType.VISITOR, content: dto.content?.trim() || "", messageType: attachmentMessageType(file.mimetype),
         clientMessageId: dto.clientMessageId, attachments: [{ storageKey, fileName: file.originalname, mimeType: file.mimetype, sizeBytes: file.size }],
       });
       if (!result.created) await this.storage.remove(storageKey).catch(() => undefined);
