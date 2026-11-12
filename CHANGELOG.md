@@ -3,6 +3,10 @@
 Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
+### Changed
+- Memperbarui `package.json`.
+
+## [0.29.0] - 2026-11-12
 ### Added
 - Menambahkan `apps/api/src/common/utils/image-upload.spec.ts`.
 
@@ -1474,7 +1478,8 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 - Memperbarui `apps/dashboard/src/app/(dashboard)/knowledge/page.tsx`.
 - Memperbarui `package.json`.
 
-[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.28.4...HEAD
+[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.29.0...HEAD
+[0.29.0]: https://github.com/bizdevsg/live-chat/compare/v0.28.4...v0.29.0
 [0.28.4]: https://github.com/bizdevsg/live-chat/compare/v0.28.3...v0.28.4
 [0.28.3]: https://github.com/bizdevsg/live-chat/compare/v0.28.2...v0.28.3
 [0.28.2]: https://github.com/bizdevsg/live-chat/compare/v0.28.1...v0.28.2
