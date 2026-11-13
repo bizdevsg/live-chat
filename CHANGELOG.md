@@ -6,6 +6,8 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ### Fixed
 - Menampilkan judul Markdown pada pesan di inbox dan widget sebagai judul tebal tanpa tanda pagar, agar jawaban AI lebih mudah dibaca.
+
+## [0.29.2] - 2026-11-13
 ### Changed
 - Memperbarui `apps/api/src/ai/ai-answer-source.spec.ts`.
 - Memperbarui `apps/api/src/ai/ai-orchestrator.service.ts`.
@@ -1505,7 +1507,8 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 - Memperbarui `apps/dashboard/src/app/(dashboard)/knowledge/page.tsx`.
 - Memperbarui `package.json`.
 
-[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.29.1...HEAD
+[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.29.2...HEAD
+[0.29.2]: https://github.com/bizdevsg/live-chat/compare/v0.29.1...v0.29.2
 [0.29.1]: https://github.com/bizdevsg/live-chat/compare/v0.29.0...v0.29.1
 [0.29.0]: https://github.com/bizdevsg/live-chat/compare/v0.28.4...v0.29.0
 [0.28.4]: https://github.com/bizdevsg/live-chat/compare/v0.28.3...v0.28.4
