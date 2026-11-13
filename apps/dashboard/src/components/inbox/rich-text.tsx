@@ -31,7 +31,7 @@ function toBlocks(content: string): Block[] {
 
     const heading = line.match(/^#{1,6}\s+(.+?)\s*#*\s*$/);
     if (heading) {
-      blocks.push({ type: "heading", lines: [heading[1]] });
+      blocks.push({ type: "heading", lines: [heading[1] ?? ""] });
       afterBlankLine = false;
       continue;
     }
@@ -57,7 +57,7 @@ export function RichText({ content }: { content: string }) {
     <>
       {toBlocks(content).map((block, blockIndex) => {
         const key = `block-${blockIndex}`;
-        if (block.type === "heading") return <p key={key} className={blockIndex === 0 ? "font-semibold" : "mt-2 font-semibold"}>{renderInline(block.lines[0], key)}</p>;
+        if (block.type === "heading") return <p key={key} className={blockIndex === 0 ? "font-semibold" : "mt-2 font-semibold"}>{renderInline(block.lines[0] ?? "", key)}</p>;
         if (block.type === "bullet-list") return <ul key={key} className="my-1 list-disc space-y-0.5 pl-4 first:mt-0">{block.lines.map((line, lineIndex) => <li key={`${key}-${lineIndex}`}>{renderInline(line, `${key}-${lineIndex}`)}</li>)}</ul>;
         if (block.type === "numbered-list") return <ol key={key} className="my-1 list-decimal space-y-0.5 pl-4 first:mt-0">{block.lines.map((line, lineIndex) => <li key={`${key}-${lineIndex}`}>{renderInline(line, `${key}-${lineIndex}`)}</li>)}</ol>;
         return <p key={key} className={blockIndex === 0 ? "" : "mt-2"}>{block.lines.map((line, lineIndex) => <span key={`${key}-${lineIndex}`}>{lineIndex > 0 ? <br /> : null}{renderInline(line, `${key}-${lineIndex}`)}</span>)}</p>;

@@ -68,7 +68,7 @@ function toBlocks(content: string): Block[] {
 
     const heading = line.match(/^#{1,6}\s+(.+?)\s*#*\s*$/);
     if (heading) {
-      blocks.push({ type: "heading", lines: [heading[1]] });
+      blocks.push({ type: "heading", lines: [heading[1] ?? ""] });
       afterBlankLine = false;
       continue;
     }
@@ -99,7 +99,7 @@ export function RichText({ content }: { content: string }) {
       {blocks.map((block, bi) => {
         const key = `b-${bi}`;
         if (block.type === "heading") {
-          return <p key={key} className={bi === 0 ? "font-semibold" : "mt-2 font-semibold"}>{renderInline(block.lines[0], key)}</p>;
+          return <p key={key} className={bi === 0 ? "font-semibold" : "mt-2 font-semibold"}>{renderInline(block.lines[0] ?? "", key)}</p>;
         }
         if (block.type === "bullet-list") {
           return (
