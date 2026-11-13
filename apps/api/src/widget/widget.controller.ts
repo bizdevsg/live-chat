@@ -111,7 +111,7 @@ export class WidgetController {
     });
     // AI turn processing runs after the message is persisted+broadcast (§16); errors here must
     // never break the visitor-facing send acknowledgement.
-    this.aiOrchestrator.scheduleVisitorTurn(id).catch(() => undefined);
+    if (result.created) this.aiOrchestrator.scheduleVisitorTurn(id, result.message.id).catch(() => undefined);
     return { success: true, data: result.message };
   }
 

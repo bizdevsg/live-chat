@@ -51,9 +51,9 @@ describe("HandoffEvaluatorService", () => {
     expect(result).toBeNull();
   });
 
-  it("blocks requests for guaranteed profit (§17)", () => {
+  it("lets the answer path address requests for guaranteed profit", () => {
     const result = evaluator.evaluate("apakah ada jaminan profit kalau saya deposit?", classification());
-    expect(result).toBe(HandoffReason.PROFIT_GUARANTEE_REQUEST);
+    expect(result).toBeNull();
   });
 
   it("blocks specific buy/sell order requests (§17 no personal trading advice)", () => {

@@ -63,6 +63,9 @@ export function resolveHandoffAction(input: {
 }): HandoffResolution {
   const { classifierAction, evidenceCount, message, history } = input;
   const base = { classifierAction, evidenceCount };
+  if (/(jaminan profit|pasti untung|garansi profit)/i.test(message) && !asksForHuman(message)) {
+    return { ...base, finalAction: "NONE", overriddenByEvidence: classifierAction !== "NONE" };
+  }
   if (classifierAction === "NONE" || evidenceCount === 0) {
     return { ...base, finalAction: classifierAction, overriddenByEvidence: false };
   }

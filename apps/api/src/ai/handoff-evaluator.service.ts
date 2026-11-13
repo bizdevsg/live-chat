@@ -19,7 +19,6 @@ const RULES: Array<{ reason: HandoffReason; test: (message: string, classificati
   { reason: HandoffReason.TRANSACTION_DISPUTE, test: (m) => /(selisih dana|transaksi (salah|tidak sesuai)|dispute)/i.test(m) },
   { reason: HandoffReason.PERSONAL_DATA_CHANGE, test: (m) => /(ubah (data|nomor|email) (pribadi|akun)|ganti (nomor hp|email))/i.test(m) },
   { reason: HandoffReason.DOCUMENT_VERIFICATION, test: (m) => /(verifikasi (dokumen|ktp|npwp)|upload ktp)/i.test(m) },
-  { reason: HandoffReason.PROFIT_GUARANTEE_REQUEST, test: (m) => /(jaminan profit|pasti untung|garansi profit)/i.test(m) },
   { reason: HandoffReason.BUY_SELL_REQUEST, test: (m) => /(saya (mau|ingin) (beli|jual|buy|sell)|order (buy|sell))/i.test(m) },
   { reason: HandoffReason.PERSONAL_TRADING_DECISION, test: (m) => /(sebaiknya saya (beli|jual)|rekomendasi (buy|sell) untuk saya)/i.test(m) },
   { reason: HandoffReason.SECURITY_RISK, test: (m) => /(akun saya diretas|kena hack|transaksi tidak saya lakukan)/i.test(m) },

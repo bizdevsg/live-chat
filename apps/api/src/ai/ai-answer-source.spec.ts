@@ -21,6 +21,12 @@ describe("AI answer official source links", () => {
     expect(formatAnswerForCustomer("Daftar di https://example.com/evil", [officialSource], false)).toBe("Daftar di");
   });
 
+  it("keeps links present in the retrieved document text", () => {
+    const url = "https://sg-berjangka.com/id/ebook";
+    expect(formatAnswerForCustomer(`Unduh ${url}`, [officialSource], false, [`Ebook: ${url}`])).toContain(url);
+    expect(formatAnswerForCustomer("Buka https://example.com/evil", [officialSource], false, [`Ebook: ${url}`])).toBe("Buka");
+  });
+
   it("keeps markdown labels but removes unofficial markdown-link targets", () => {
     expect(formatAnswerForCustomer("Buka [halaman ini](https://example.com/evil)", [officialSource], false)).toBe(
       "Buka halaman ini",

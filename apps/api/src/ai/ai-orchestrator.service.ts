@@ -61,8 +61,11 @@ export function shouldUseContextualRetrieval(message: string, history: ChatTurn[
   return hasContextReference || isShortAmbiguousQuestion;
 }
 
-export function formatAnswerForCustomer(answer: string, sources: KnowledgeSource[], showSources: boolean): string {
+export function formatAnswerForCustomer(answer: string, sources: KnowledgeSource[], showSources: boolean, evidenceText: string[] = []): string {
   const allowedUrls = new Set(sources.map((source) => source.sourceUrl).filter((url): url is string => Boolean(url)));
+  for (const content of evidenceText) {
+    for (const url of content.match(/https?:\/\/[^\s<>"')\]]+/gi) ?? []) allowedUrls.add(url.replace(/[.,;!?]+$/, ""));
+  }
   const safeAnswer = answer
     .replace(/\[([^\]]+)]\((https?:\/\/[^\s)]+)\)/gi, (_match, label: string, url: string) =>
       allowedUrls.has(url) ? `${label}: ${url}` : label,
@@ -95,6 +98,7 @@ export function formatAnswerForCustomer(answer: string, sources: KnowledgeSource
 export class AiOrchestratorService {
   /** Guards against double-answering when a visitor fires several messages in quick succession. */
   private readonly inFlightTurns = new Set<string>();
+  private readonly pendingTurns = new Map<string, string[]>();
 
   constructor(
     private readonly prisma: PrismaService,
@@ -114,7 +118,7 @@ export class AiOrchestratorService {
    * delay; visitors who want a human use the "Hubungi Agent" button or are handed off
    * automatically when the AI cannot answer confidently.
    */
-  async scheduleVisitorTurn(conversationId: string): Promise<void> {
+  async scheduleVisitorTurn(conversationId: string, messageId?: string): Promise<void> {
     const conversation = await this.prisma.conversation.findUnique({
       where: { id: conversationId },
       select: { status: true, handlerType: true },
@@ -123,23 +127,26 @@ export class AiOrchestratorService {
       return;
     }
 
-    await this.processVisitorTurn(conversationId);
+    await this.processVisitorTurn(conversationId, messageId);
   }
 
-  async processVisitorTurn(conversationId: string): Promise<void> {
+  async processVisitorTurn(conversationId: string, messageId?: string): Promise<void> {
     // Serialize turns per conversation so a visitor firing several messages in quick
     // succession never triggers overlapping AI answers.
+    if (messageId) {
+      const pending = this.pendingTurns.get(conversationId) ?? [];
+      if (!pending.includes(messageId)) pending.push(messageId);
+      this.pendingTurns.set(conversationId, pending);
+    }
     if (this.inFlightTurns.has(conversationId)) return;
     this.inFlightTurns.add(conversationId);
     try {
-      await this.runVisitorTurn(conversationId);
+      if (!messageId) await this.runVisitorTurn(conversationId);
+      const pending = this.pendingTurns.get(conversationId);
+      while (pending?.length) await this.runVisitorTurn(conversationId, pending.shift());
     } finally {
       this.inFlightTurns.delete(conversationId);
-    }
-
-    // If the visitor sent another message while the AI was answering, handle it now.
-    if (await this.conversations.hasPendingVisitorMessageSince(conversationId, new Date(0))) {
-      await this.processVisitorTurn(conversationId);
+      this.pendingTurns.delete(conversationId);
     }
   }
 
@@ -262,6 +269,7 @@ export class AiOrchestratorService {
                 answer.answer,
                 answer.sources,
                 site.settings?.showAiSourcesToCustomer ?? false,
+                evidence.map((item) => item.content),
               ),
               lowConfidence: answer.confidence < DEFAULT_CONFIDENCE_THRESHOLD,
               // The answer generator's uncertainty flag is not a transfer decision. In production,
@@ -283,22 +291,29 @@ export class AiOrchestratorService {
     }
   }
 
-  private async runVisitorTurn(conversationId: string): Promise<void> {
+  private async runVisitorTurn(conversationId: string, messageId?: string): Promise<void> {
     const conversation = await this.prisma.conversation.findUnique({
       where: { id: conversationId },
       include: { customer: { select: { name: true } } },
     });
-    if (!conversation || conversation.handlerType !== HandlerType.AI) return;
+    if (!conversation || conversation.handlerType !== HandlerType.AI || conversation.status === "CLOSED" || conversation.status === "RESOLVED") return;
 
     const site = await this.prisma.site.findUnique({ where: { id: conversation.siteId }, include: { settings: true } });
     if (!site?.settings?.aiEnabled) return;
 
+    const target = messageId ? await this.prisma.message.findUnique({ where: { id: messageId }, select: { createdAt: true } }) : null;
+    if (messageId && !target) return;
     const messages = await this.prisma.message.findMany({
-      where: { conversationId, deletedAt: null, isInternal: false },
+      where: { conversationId, deletedAt: null, isInternal: false, ...(target ? { createdAt: { lte: target.createdAt } } : {}) },
       orderBy: { createdAt: "desc" },
       take: 20,
     });
     const ordered = messages.reverse();
+    if (messageId) {
+      const targetIndex = ordered.findIndex((message) => message.id === messageId);
+      if (targetIndex < 0) return;
+      ordered.splice(targetIndex + 1);
+    }
     const lastVisitorMessage = [...ordered].reverse().find((m) => m.senderType === SenderType.VISITOR || m.senderType === SenderType.CUSTOMER);
     if (!lastVisitorMessage) return;
 
@@ -475,7 +490,7 @@ export class AiOrchestratorService {
         conversationId,
         senderType: SenderType.AI,
         content:
-          formatAnswerForCustomer(answer.answer ?? "", answer.sources, site.settings.showAiSourcesToCustomer) || EMPTY_ANSWER_FALLBACK,
+          formatAnswerForCustomer(answer.answer ?? "", answer.sources, site.settings.showAiSourcesToCustomer, evidence.map((item) => item.content)) || EMPTY_ANSWER_FALLBACK,
         messageType: MessageType.TEXT,
         aiRunId: aiRun.id,
         metadata: { confidence: answer.confidence, intent: answer.intent, sources: answer.sources, handoffDecision: handoffResolution },

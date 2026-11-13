@@ -4,7 +4,20 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
 ### Changed
+- Memperbarui `apps/api/src/ai/ai-answer-source.spec.ts`.
+- Memperbarui `apps/api/src/ai/ai-orchestrator.service.ts`.
+- Memperbarui `apps/api/src/ai/handoff-evaluator.service.spec.ts`.
+- Memperbarui `apps/api/src/ai/handoff-evaluator.service.ts`.
+- Memperbarui `apps/api/src/ai/handoff-override.ts`.
+- Memperbarui `apps/api/src/realtime/widget.gateway.ts`.
+- Memperbarui `apps/api/src/widget/widget.controller.ts`.
 - Memperbarui `package.json`.
+- Memperbarui `packages/ai-core/src/providers/openai-provider.ts`.
+- Memproses pesan visitor yang masuk saat AI bekerja secara berurutan agar tidak terlewat; klaim jaminan profit diarahkan ke jawaban AI sebelum penawaran agent.
+
+### Fixed
+- Mempertahankan tautan resmi yang tercantum dalam isi knowledge pada jawaban dan transkrip percakapan.
+- Mencegah JSON respons AI yang tidak lengkap dan revisi internal reviewer ditampilkan kepada customer; jawaban yang gagal pemeriksaan dibuat ulang melalui model utama.
 
 ## [0.29.1] - 2026-11-12
 ### Added

@@ -218,11 +218,10 @@ const GROUNDING_REVIEW_SCHEMA = {
     // ignored downstream.
     fabricatedClaims: { type: "array", items: { type: "string" } },
     grounded: { type: "boolean" },
-    revisedAnswer: { type: "string" },
     confidence: { type: "number" },
     handoffRequired: { type: "boolean" },
   },
-  required: ["fabricatedClaims", "grounded", "revisedAnswer", "confidence", "handoffRequired"],
+  required: ["fabricatedClaims", "grounded", "confidence", "handoffRequired"],
   additionalProperties: false,
 } as const;
 
@@ -237,7 +236,6 @@ const CALCULATION_REVIEW_SCHEMA = {
     expression: { type: "string" },
     statedResult: { type: "string" },
     verifiedResult: { type: "string" },
-    revisedAnswer: { type: "string" },
   },
   required: [
     "calculationNeeded",
@@ -248,7 +246,6 @@ const CALCULATION_REVIEW_SCHEMA = {
     "expression",
     "statedResult",
     "verifiedResult",
-    "revisedAnswer",
   ],
   additionalProperties: false,
 } as const;
@@ -406,9 +403,7 @@ export const GROUNDING_REVIEW_RULES: readonly string[] = [
   "HASIL KALKULASI yang diturunkan langsung dari angka, rate, atau rumus eksplisit di dokumen referensi juga grounded, meskipun hasil akhirnya tidak tertulis secara literal di dokumen. Contoh: jika dokumen menyatakan 1 USD = IDR 10.000 dan customer memberi 800 USD, hasil IDR 8.000.000 BUKAN fabricated claim. Validitas matematikanya diperiksa oleh reviewer kalkulasi terpisah; jangan menolak hasil seperti itu pada review ini.",
   "URL atau tautan adalah fakta spesifik. Tandai sebagai fabricatedClaims setiap URL pada draft yang tidak tertulis persis di dokumen referensi.",
   "Kalau ragu apakah sebuah fakta ada di dokumen atau tidak, anggap ADA (jangan masukkan ke fabricatedClaims). Menolak jawaban yang sebenarnya benar jauh lebih merugikan customer daripada jawaban yang sedikit kurang lengkap.",
-  'Balas HANYA dengan JSON valid, satu objek, tanpa markdown code block, tanpa teks lain: {"fabricatedClaims": string[], "grounded": boolean, "revisedAnswer": string, "confidence": number 0-1, "handoffRequired": boolean}. Escape semua tanda kutip ganda di dalam string dengan benar.',
-  "Kalau grounded=true: revisedAnswer boleh sama persis dengan draft, dan handoffRequired=false.",
-  "Kalau grounded=false: revisedAnswer harus jawaban aman dalam bahasa yang sama dengan draft yang jujur mengakui informasinya belum lengkap dan mengarahkan ke petugas manusia — jangan menyebut kata 'dokumen'/'artikel' — dan set handoffRequired=true.",
+  'Balas HANYA dengan JSON valid: {"fabricatedClaims": string[], "grounded": boolean, "confidence": number 0-1, "handoffRequired": boolean}. Berikan vonis saja, jangan susun jawaban customer.',
 ];
 
 /** Assembles the reviewer prompt: fixed rules above + the runtime material being judged. */
@@ -446,12 +441,12 @@ function buildCalculationReviewPrompt(parts: {
     "Untuk konversi mata uang, gunakan kurs/fixed rate yang tertulis eksplisit di DOKUMEN REFERENSI. Jika customer memberi nominal dan meminta nilai setara/hasil konversi, expression harus memuat nominal customer × atau ÷ rate sesuai arah konversi. Jangan hanya mengulang nominal awal sebagai hasil akhir.",
     "Untuk perbandingan batas minimum/maksimum dengan mata uang yang sama, WAJIB bandingkan nominal customer dengan batas yang tertulis. Gunakan expression berupa nominal customer - batas; verifiedResult positif atau nol berarti memenuhi, negatif berarti belum memenuhi. Jika mata uang berbeda, lakukan perbandingan hanya bila kurs eksplisit tersedia; jika tidak, jangan menyimpulkan memenuhi atau tidak memenuhi.",
     "PENTING: bila rumus/evidence memuat Contract Size dan n Lot, operasi Contract Size × n Lot WAJIB dihitung penuh. Jangan pernah menghilangkan salah satunya.",
-    "Kalau ada nilai input yang belum diberikan customer/dokumen, set assumptionsDetected=true atau isi missingInputs, set calculationValid=false, dan revisedAnswer harus jujur menyebut data apa yang masih dibutuhkan tanpa memberi hasil akhir numerik.",
-    "Kalau draft salah hitung atau ada faktor yang hilang, set calculationValid=false, isi omittedFactors yang relevan, isi expression dengan ekspresi numerik lengkap yang benar, isi verifiedResult dengan hasil hitung yang benar, dan revisedAnswer harus memperbaiki jawaban secara singkat.",
+    "Kalau ada nilai input yang belum diberikan, set assumptionsDetected=true atau isi missingInputs dan set calculationValid=false.",
+    "Kalau draft salah hitung atau ada faktor yang hilang, set calculationValid=false, isi omittedFactors, expression, dan verifiedResult.",
     "expression WAJIB berupa ekspresi numerik yang sudah disubstitusi penuh, hanya boleh berisi angka, spasi, kurung, dan operator + - * /. Jangan tulis huruf, mata uang, tanda persen, atau simbol lain di field itu.",
     "statedResult dan verifiedResult WAJIB plain number string dengan titik sebagai desimal bila perlu, tanpa pemisah ribuan, tanpa mata uang, dan kosongkan dengan string kosong bila tidak ada.",
-    "Jika draft sudah benar dan lengkap, set calculationValid=true, expression berisi ekspresi yang sama, verifiedResult berisi hasil akhirnya, dan revisedAnswer boleh sama dengan draft.",
-    'Balas HANYA dengan JSON valid: {"calculationNeeded": boolean, "calculationValid": boolean, "assumptionsDetected": boolean, "missingInputs": string[], "omittedFactors": string[], "expression": string, "statedResult": string, "verifiedResult": string, "revisedAnswer": string}.',
+    "Jika draft sudah benar dan lengkap, set calculationValid=true dan isi expression serta verifiedResult.",
+    'Balas HANYA dengan JSON valid: {"calculationNeeded": boolean, "calculationValid": boolean, "assumptionsDetected": boolean, "missingInputs": string[], "omittedFactors": string[], "expression": string, "statedResult": string, "verifiedResult": string}.',
     "",
     "=== PERTANYAAN CUSTOMER ===",
     parts.message,
@@ -707,7 +702,7 @@ export class OpenAiProvider implements AiProvider {
     return noAnswerFallback(input.language);
   }
 
-  async generateAnswer(input: AnswerInput): Promise<AnswerResult> {
+  async generateAnswer(input: AnswerInput, revisionInstruction?: string): Promise<AnswerResult> {
     // A greeting needs no knowledge base lookup at all — checked before evidence is considered,
     // because retrieval now returns its closest semantic matches for ANY query including "Hallo",
     // and stuffing 20+ unrelated trading chunks behind a bare greeting is what produced garbled
@@ -730,7 +725,9 @@ export class OpenAiProvider implements AiProvider {
     // LLM entirely for this case. No LLM call means no chance to hallucinate.
     if (input.evidence.length === 0) {
       return {
-        answer: await this.generateNoAnswerReply(input),
+        answer: /(jaminan profit|pasti untung|garansi profit)/i.test(input.message)
+          ? "Profit tidak dapat dijamin, dan trading memiliki risiko kerugian."
+          : await this.generateNoAnswerReply(input),
         confidence: 0.2,
         intent: input.intent,
         handoffRequired: true,
@@ -775,6 +772,8 @@ export class OpenAiProvider implements AiProvider {
       "Format teks yang didukung dan akan ditampilkan rapi ke customer: **tebal** untuk penekanan, serta list dengan '- ' (bullet) atau '1. ' (bernomor) untuk langkah-langkah/beberapa poin. Pakai list HANYA saat memang ada beberapa poin/langkah berurutan — jangan dipaksakan untuk jawaban satu kalimat.",
       "Jika dokumen referensi tidak cukup, katakan secara jujur bahwa informasinya belum tersedia dan arahkan ke petugas manusia — tanpa menyebut kata 'dokumen' atau 'artikel'.",
       "Jangan pernah menjanjikan profit, memberi rekomendasi buy atau sell personal, atau meminta OTP, PIN, atau password.",
+      "Jika customer menanyakan atau mengklaim profit pasti, jelaskan dengan tegas bahwa profit tidak dapat dijamin dan trading mengandung risiko.",
+      ...(revisionInstruction ? [`Perbaikan internal: ${revisionInstruction}. Jangan tampilkan komentar pemeriksaan kepada customer.`] : []),
       "Jangan pernah menggambarkan produk, akun, atau trading sebagai 'risiko rendah', 'tanpa risiko besar', aman, atau cocok belajar karena risikonya kecil. Jika menyebut risiko, sampaikan secara netral bahwa trading berisiko dan jangan menambahkan penilaian risiko yang tidak tertulis di evidence.",
       "Jika evidence memuat satu atau lebih fakta yang menjawab pertanyaan, evidence SUDAH CUKUP untuk dijawab. Sampaikan seluruh fakta relevan yang tersedia secara langsung. Jangan menolak, mengatakan informasi belum tersedia, atau mengarahkan ke petugas hanya karena evidence tidak memuat detail tambahan yang tidak ditanyakan. Jika customer meminta detail lebih banyak daripada yang tersedia, jawab dulu data yang ada lalu jelaskan singkat bagian mana yang belum tercantum.",
       "PRIORITAS DATA LIVE: bila dokumen referensi berjudul 'Realtime Market Price - ...', itu adalah quote market live yang secara langsung menjawab pertanyaan harga saat ini. Untuk pertanyaan harga, WAJIB sebutkan Bid, Ask, dan Last yang tersedia beserta waktu pembaruannya. Jika customer meminta detail/rincian/lebih lanjut, WAJIB tambahkan Open, High, Low, dan Spread yang tersedia. Jangan mengatakan harga tidak tersedia, jangan meminta customer menghubungi petugas, dan jangan memakai angka selain yang ada pada quote tersebut.",
@@ -793,27 +792,25 @@ export class OpenAiProvider implements AiProvider {
       ...(promptUsesEvidencePlaceholder ? [] : ["", "=== KNOWLEDGE BASE / DOKUMEN REFERENSI (internal, JANGAN dikutip identitasnya ke customer) ===", evidenceBlock || "(tidak ada dokumen relevan)"]),
     ].join("\n");
 
-    const text = await this.respond(this.config.answerModel, system, customerMessageForGeneration(input.message), {
+    const answerSchema = {
       name: "customer_answer",
       schema: ANSWER_SCHEMA as unknown as Record<string, unknown>,
-    },
+    };
+    let text = await this.respond(this.config.answerModel, system, customerMessageForGeneration(input.message), answerSchema,
     // Keep official facts stable; natural wording is secondary to a repeatable conclusion.
     CUSTOMER_TEXT_TEMPERATURE);
-    // Belt-and-braces: with Structured Outputs the response is already guaranteed to match the
-    // schema, but if a future model/API change ever returns prose again, treat that prose as the
-    // answer rather than discarding a perfectly good reply for a canned "I can't process this"
-    // — that discard is exactly what made the AI look like it had lost its knowledge base.
-    const draft = extractJson<{ answer: string; confidence: number; handoffRequired: boolean }>(
+    // Never expose malformed or truncated structured output as customer-facing text.
+    const invalidDraft = { answer: "", confidence: 0.2, handoffRequired: false };
+    let draft = extractJson<{ answer: string; confidence: number; handoffRequired: boolean }>(
       text,
-      text.trim().length > 0
-        ? { answer: text.trim(), confidence: 0.5, handoffRequired: false }
-        : {
-            answer: "Mohon maaf, saya belum dapat memproses pertanyaan ini. Saya akan menghubungkan Anda dengan petugas kami.",
-            confidence: 0.2,
-            handoffRequired: true,
-          },
+      invalidDraft,
       "generateAnswer:draft",
     );
+    if (typeof draft.answer !== "string" || !draft.answer.trim()) {
+      text = await this.respond(this.config.answerModel, `${system}\nJawab lebih singkat dan pastikan JSON lengkap.`, customerMessageForGeneration(input.message), answerSchema, CUSTOMER_TEXT_TEMPERATURE);
+      draft = extractJson(text, invalidDraft, "generateAnswer:retry");
+      if (typeof draft.answer !== "string" || !draft.answer.trim()) draft = { ...invalidDraft, answer: noAnswerFallback(input.language) };
+    }
 
     const sources = input.evidence.slice(0, 5).map((e) => ({
       documentId: e.documentId,
@@ -852,7 +849,6 @@ export class OpenAiProvider implements AiProvider {
       expression: string;
       statedResult: string;
       verifiedResult: string;
-      revisedAnswer: string;
     }>(
       calculationReviewText,
       {
@@ -864,7 +860,6 @@ export class OpenAiProvider implements AiProvider {
         expression: "",
         statedResult: "",
         verifiedResult: "",
-        revisedAnswer: draft.answer,
       },
       "generateAnswer:calculationReview",
     );
@@ -888,9 +883,9 @@ export class OpenAiProvider implements AiProvider {
       );
 
       if (structurallyInvalid || !calculationReview.calculationValid) {
+        if (!revisionInstruction) return this.generateAnswer(input, "Perhitungan sebelumnya tidak valid; jangan gunakan hasilnya, periksa ulang rumus dan minta data yang kurang");
         return {
-          answer:
-            calculationReview.revisedAnswer.trim() ||
+        answer:
             (input.language.trim().toLowerCase().startsWith("en")
               ? "To calculate this accurately, I need every value in the stated formula without making additional assumptions."
               : "Untuk menghitung secara akurat, saya perlu semua nilai pada rumus yang disebutkan tanpa asumsi tambahan."),
@@ -922,9 +917,9 @@ export class OpenAiProvider implements AiProvider {
     },
     // A verdict that varies run-to-run rejects correct answers at random — keep it deterministic.
     REVIEW_TEMPERATURE);
-    const review = extractJson<{ fabricatedClaims?: string[]; grounded: boolean; revisedAnswer: string; confidence: number; handoffRequired: boolean }>(
+    const review = extractJson<{ fabricatedClaims?: string[]; grounded: boolean; confidence: number; handoffRequired: boolean }>(
       reviewText,
-      { fabricatedClaims: [], grounded: true, revisedAnswer: draft.answer, confidence: draft.confidence, handoffRequired: draft.handoffRequired },
+      { fabricatedClaims: [], grounded: true, confidence: draft.confidence, handoffRequired: draft.handoffRequired },
       "generateAnswer:groundingReview",
     );
 
@@ -946,13 +941,13 @@ export class OpenAiProvider implements AiProvider {
     // grounding review accepted or rejected it, and why, without guessing from the customer-facing text alone.
     console.log(
       `[OpenAiProvider] message="${input.message}" evidenceChunks=${input.evidence.length} draft="${draft.answer}" grounded=${review.grounded} rejected=${rejected}` +
-        (rejected ? ` fabricated=${JSON.stringify(citedFabrications)} revisedAnswer="${review.revisedAnswer}"` : ""),
+        (rejected ? ` fabricated=${JSON.stringify(citedFabrications)}` : ""),
     );
 
     if (rejected) {
+      if (!revisionInstruction) return this.generateAnswer(input, `Hapus klaim yang tidak didukung: ${citedFabrications.join(", ")}`);
       return {
         answer:
-          review.revisedAnswer ||
           noAnswerFallback(input.language),
         confidence: review.confidence ?? 0.2,
         intent: input.intent,

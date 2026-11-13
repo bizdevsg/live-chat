@@ -84,14 +84,14 @@ export class WidgetGateway implements OnGatewayInit, OnGatewayConnection {
       // Stuck in a timed-out "waiting for an agent" queue? Hand it back to the AI before posting,
       // so this message actually gets answered instead of vanishing into an unwatched queue.
       await this.conversations.autoReturnToAiIfAgentReplyTimedOut(body.conversationId).catch((error) => this.logger.error(error));
-      await this.conversations.postMessage({
+      const result = await this.conversations.postMessage({
         conversationId: body.conversationId,
         senderType: SenderType.VISITOR,
         content: body.content,
         messageType: MessageType.TEXT,
         clientMessageId: body.clientMessageId,
       });
-      this.aiOrchestrator.scheduleVisitorTurn(body.conversationId).catch((error) => this.logger.error(error));
+      if (result.created) this.aiOrchestrator.scheduleVisitorTurn(body.conversationId, result.message.id).catch((error) => this.logger.error(error));
     } catch {
       client.emit("error", { code: "FORBIDDEN", message: "Tidak dapat mengirim pesan." });
     }
