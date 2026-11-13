@@ -48,7 +48,7 @@ function renderInline(text: string, keyPrefix: string): ReactNode[] {
 }
 
 interface Block {
-  type: "paragraph" | "bullet-list" | "numbered-list";
+  type: "paragraph" | "bullet-list" | "numbered-list" | "heading";
   lines: string[];
 }
 
@@ -66,6 +66,12 @@ function toBlocks(content: string): Block[] {
       continue;
     }
 
+    const heading = line.match(/^#{1,6}\s+(.+?)\s*#*\s*$/);
+    if (heading) {
+      blocks.push({ type: "heading", lines: [heading[1]] });
+      afterBlankLine = false;
+      continue;
+    }
     const isBullet = /^[-•]\s+/.test(line);
     const isNumbered = /^\d+[.)]\s+/.test(line);
     const cleaned = isBullet ? line.replace(/^[-•]\s+/, "") : isNumbered ? line.replace(/^\d+[.)]\s+/, "") : line;
@@ -92,6 +98,9 @@ export function RichText({ content }: { content: string }) {
     <>
       {blocks.map((block, bi) => {
         const key = `b-${bi}`;
+        if (block.type === "heading") {
+          return <p key={key} className={bi === 0 ? "font-semibold" : "mt-2 font-semibold"}>{renderInline(block.lines[0], key)}</p>;
+        }
         if (block.type === "bullet-list") {
           return (
             <ul key={key} className="my-1 list-disc space-y-0.5 pl-4 first:mt-0">

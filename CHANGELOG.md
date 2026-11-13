@@ -3,6 +3,9 @@
 Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
+
+### Fixed
+- Menampilkan judul Markdown pada pesan di inbox dan widget sebagai judul tebal tanpa tanda pagar, agar jawaban AI lebih mudah dibaca.
 ### Changed
 - Memperbarui `apps/api/src/ai/ai-answer-source.spec.ts`.
 - Memperbarui `apps/api/src/ai/ai-orchestrator.service.ts`.
