@@ -22,6 +22,7 @@ import { RealtimeEmitterService } from "../realtime/realtime-emitter.service";
 import { MarketDataService } from "../market-data/market-data.service";
 import { ApiException } from "../common/errors/api.exception";
 import { AiRunRecorderService } from "../common/ai-run-recorder.service";
+import { messageContainsCredentials, withSensitiveDataNotice } from "./sensitive-data-notice";
 
 /**
  * Detects a timed-out/unreachable OpenAI call by message shape rather than an `instanceof` check —
@@ -367,6 +368,11 @@ export class AiOrchestratorService {
         });
       }
 
+      // Credentials pasted into the chat (password/PIN/OTP/card number): every reply below opens
+      // with a reminder not to share them, whatever the model wrote.
+      const sharedSensitiveData = classification.containsSensitiveData || messageContainsCredentials(lastVisitorMessage.content);
+      const customerReply = (text: string) => (sharedSensitiveData ? withSensitiveDataNotice(text) : text);
+
       // A prompt-injection attempt is refused politely and the AI keeps the conversation; it is
       // not a reason to hand off to an agent.
       if (classification.promptInjectionDetected) {
@@ -439,7 +445,7 @@ export class AiOrchestratorService {
         await this.conversations.postMessage({
           conversationId,
           senderType: SenderType.AI,
-          content: classification.handoffReply?.trim() || fallbackHandoffReply(handoffResolution.finalAction),
+          content: customerReply(classification.handoffReply?.trim() || fallbackHandoffReply(handoffResolution.finalAction)),
           messageType: MessageType.TEXT,
           metadata: { handoffDecision: handoffResolution },
         });
@@ -510,8 +516,9 @@ export class AiOrchestratorService {
       await this.conversations.postMessage({
         conversationId,
         senderType: SenderType.AI,
-        content:
+        content: customerReply(
           formatAnswerForCustomer(answer.answer ?? "", answer.sources, site.settings.showAiSourcesToCustomer, evidence.map((item) => item.content)) || EMPTY_ANSWER_FALLBACK,
+        ),
         messageType: MessageType.TEXT,
         aiRunId: aiRun.id,
         metadata: { confidence: answer.confidence, intent: answer.intent, sources: answer.sources, handoffDecision: handoffResolution },

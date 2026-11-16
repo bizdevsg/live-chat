@@ -3,6 +3,14 @@
 Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
+### Added
+- Menambahkan `apps/api/src/ai/sensitive-data-notice.spec.ts`.
+- Menambahkan `apps/api/src/ai/sensitive-data-notice.ts`.
+
+### Changed
+- Memperbarui `apps/api/src/ai/ai-orchestrator-handoff.spec.ts`.
+- Memperbarui `apps/api/src/ai/ai-orchestrator.service.ts`.
+- Memperbarui `packages/ai-core/src/providers/openai-provider.ts`.
 
 ### Fixed
 - Menampilkan judul Markdown pada pesan di inbox dan widget sebagai judul tebal tanpa tanda pagar, agar jawaban AI lebih mudah dibaca.
