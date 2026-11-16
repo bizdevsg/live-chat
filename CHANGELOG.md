@@ -3,6 +3,10 @@
 Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
+### Changed
+- Memperbarui `package.json`.
+
+## [0.29.3] - 2026-11-16
 ### Added
 - Menambahkan `apps/api/src/ai/sensitive-data-notice.spec.ts`.
 - Menambahkan `apps/api/src/ai/sensitive-data-notice.ts`.
@@ -1515,7 +1519,8 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 - Memperbarui `apps/dashboard/src/app/(dashboard)/knowledge/page.tsx`.
 - Memperbarui `package.json`.
 
-[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.29.2...HEAD
+[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.29.3...HEAD
+[0.29.3]: https://github.com/bizdevsg/live-chat/compare/v0.29.2...v0.29.3
 [0.29.2]: https://github.com/bizdevsg/live-chat/compare/v0.29.1...v0.29.2
 [0.29.1]: https://github.com/bizdevsg/live-chat/compare/v0.29.0...v0.29.1
 [0.29.0]: https://github.com/bizdevsg/live-chat/compare/v0.28.4...v0.29.0
