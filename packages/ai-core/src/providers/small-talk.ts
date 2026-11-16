@@ -24,14 +24,14 @@ function buildIndonesianReply(kind: SmallTalkKind, input: AnswerInput): string {
     case "THANKS":
       return `Sama-sama. Jika ada pertanyaan lain seputar layanan ${input.organizationName}, silakan sampaikan ya.`;
     case "FAREWELL":
-      return `Baik, sampai jumpa. Jika nanti Anda membutuhkan bantuan lagi, saya ${input.aiName} siap membantu.`;
+      return `Baik, sampai jumpa. Kalau nanti kakak butuh bantuan lagi, aku ${input.aiName} siap bantu.`;
     case "IDENTITY":
-      return `Saya ${input.aiName}, asisten virtual resmi ${input.organizationName}. Saya dapat membantu informasi umum seputar layanan, registrasi, biaya, aplikasi, dan panduan penggunaan, lalu menghubungkan Anda ke petugas jika diperlukan.`;
+      return `Saya ${input.aiName}, asisten virtual resmi ${input.organizationName}. Saya dapat membantu informasi umum seputar layanan, registrasi, biaya, aplikasi, dan panduan penggunaan, lalu menghubungkan kakak ke petugas jika diperlukan.`;
     case "CAPABILITIES":
       return `Saya ${input.aiName} dapat membantu informasi umum seputar registrasi akun, panduan aplikasi atau platform, biaya, deposit atau withdrawal secara umum, serta pertanyaan layanan dasar lainnya. Jika pertanyaannya membutuhkan pengecekan khusus, saya akan bantu hubungkan ke petugas.`;
     case "GREETING":
     default:
-      return `Halo, saya ${input.aiName}, asisten virtual resmi ${input.organizationName}. Saya bisa membantu informasi umum seputar layanan, registrasi, aplikasi, biaya, dan panduan penggunaan. Ada yang ingin Anda tanyakan?`;
+      return `Halo, saya ${input.aiName}, asisten virtual resmi ${input.organizationName}. Saya bisa membantu informasi umum seputar layanan, registrasi, aplikasi, biaya, dan panduan penggunaan. Ada yang ingin kakak tanyakan?`;
   }
 }
 

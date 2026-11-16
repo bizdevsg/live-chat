@@ -43,7 +43,7 @@ async function run(s: Scenario) {
       update: jest.fn().mockResolvedValue({}),
     },
     site: { findUnique: jest.fn().mockResolvedValue({ aiName: "Solid Prime AI", settings: { aiEnabled: true, showAiSourcesToCustomer: false } }) },
-    message: { findMany: jest.fn().mockResolvedValue([...turns].reverse()) },
+    message: { findMany: jest.fn().mockResolvedValue([...turns].reverse()), findFirst: jest.fn().mockResolvedValue(null) },
     aiPrompt: { findFirst: jest.fn().mockResolvedValue(null) },
     aiRun: { update: jest.fn().mockResolvedValue({}) },
   };
@@ -116,7 +116,7 @@ describe("AiOrchestratorService handoff vs. evidence", () => {
       evidence: EVIDENCE,
       before: [
         { senderType: "VISITOR", content: "ada masalah sama akun saya" },
-        { senderType: "AI", content: "Apakah Anda ingin saya menghubungkan Anda dengan petugas kami?" },
+        { senderType: "AI", content: "Mau aku hubungkan ke petugas kami, kak?" },
       ],
     });
     expect(r.decision).toMatchObject({ finalAction: "TRANSFER", overriddenByEvidence: false });

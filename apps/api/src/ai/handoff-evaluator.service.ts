@@ -2,8 +2,9 @@ import { Injectable } from "@nestjs/common";
 import { AiIntent, HandoffReason, type ClassificationResult } from "@solidchat/shared";
 
 const RULES: Array<{ reason: HandoffReason; test: (message: string, classification: ClassificationResult) => boolean }> = [
-  { reason: HandoffReason.PROMPT_INJECTION_DETECTED, test: (_m, c) => c.promptInjectionDetected },
-  { reason: HandoffReason.SENSITIVE_DATA_DETECTED, test: (_m, c) => c.containsSensitiveData },
+  // Prompt-injection and sensitive-data (e.g. a pasted password) rules removed: neither should
+  // force a handoff by itself. Injection gets a polite refusal in AiOrchestratorService, and a
+  // message containing a password is answered by the AI (remind not to share it, suggest reset).
   { reason: HandoffReason.SUSPECTED_FRAUD, test: (m) => /(penipuan|fraud|scam|dugaan tipu)/i.test(m) },
   { reason: HandoffReason.LEGAL_THREAT, test: (m) => /(polisi|somasi|tuntut|pengacara|lapor hukum)/i.test(m) },
   // Login / locked-account / forgot-password rules removed: the knowledge base has its own login

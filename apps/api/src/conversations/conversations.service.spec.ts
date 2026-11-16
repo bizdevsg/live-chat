@@ -227,6 +227,7 @@ describe("ConversationsService.requestAgent (agents handle up to 5 concurrent ch
         findUnique: jest.fn().mockResolvedValue({ id: "team-1" }),
       },
       site: { findUnique: jest.fn().mockResolvedValue({ organizationId: "org-1" }) },
+      message: { findFirst: jest.fn().mockResolvedValue(null) },
       siteSettings: { findUnique: jest.fn().mockResolvedValue({ agentReplyTimeoutSeconds: 60 }) },
       teamMember: {
         findMany: jest.fn().mockResolvedValue(
@@ -301,7 +302,7 @@ describe("ConversationsService.requestAgent (agents handle up to 5 concurrent ch
       expect.objectContaining({
         conversationId: "conv-1",
         senderType: "SYSTEM",
-        content: "Mohon maaf, saat ini belum ada agent yang sedang online. AI tetap siap membantu Anda.",
+        content: "Maaf kak, saat ini belum ada agent yang online. Aku tetap siap bantu pertanyaan lainnya ya.",
       }),
     );
     expect(prisma.conversation.update).not.toHaveBeenCalled();

@@ -19,10 +19,10 @@ function isReplyMessage(senderType: string) {
 function TicketSubmissionNotice({ ticketNumber, onSendAnother }: { ticketNumber: string; onSendAnother: () => void }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 bg-ink px-6 text-center">
-      <p className="text-sm font-semibold text-white">Tiket Anda sudah tercatat</p>
+      <p className="text-sm font-semibold text-white">Tiket kakak sudah tercatat</p>
       <p className="rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs font-medium tracking-wide text-zinc-300">{ticketNumber}</p>
       <p className="max-w-[85%] text-xs leading-relaxed text-zinc-500">
-        Tim kami akan menghubungi Anda melalui email atau telepon secepatnya.
+        Tim kami akan menghubungi kakak melalui email atau telepon secepatnya.
       </p>
       <button
         onClick={onSendAnother}

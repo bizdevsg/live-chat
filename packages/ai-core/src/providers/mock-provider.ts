@@ -96,7 +96,7 @@ export class MockAiProvider implements AiProvider {
     if (input.evidence.length === 0) {
       return {
         answer:
-          "Mohon maaf, saat ini saya belum memiliki informasi resmi yang cukup untuk menjawab pertanyaan tersebut. Saya akan menghubungkan Anda dengan petugas kami.",
+          "Maaf kak, saat ini aku belum punya informasi resmi yang cukup untuk menjawab pertanyaan itu. Aku hubungkan ke petugas kami ya.",
         confidence: 0.2,
         intent: input.intent,
         sources: [],
@@ -108,7 +108,7 @@ export class MockAiProvider implements AiProvider {
     const top = input.evidence[0]!;
     const answer = `Berdasarkan panduan resmi "${top.title}": ${top.content.slice(0, 400)}${
       top.content.length > 400 ? "…" : ""
-    }\n\nJika Anda memerlukan bantuan lebih lanjut, saya dapat menghubungkan Anda dengan petugas kami.`;
+    }\n\nKalau kakak butuh bantuan lebih lanjut, aku bisa hubungkan ke petugas kami.`;
 
     return {
       answer,

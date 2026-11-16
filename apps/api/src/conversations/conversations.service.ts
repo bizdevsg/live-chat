@@ -635,7 +635,14 @@ export class ConversationsService {
       select: { userId: true },
     });
     if (!onlineAgent) {
-      await this.postSystemMessage(conversationId, "Mohon maaf, saat ini belum ada agent yang sedang online. AI tetap siap membantu Anda.");
+      const offlineNotice = "Maaf kak, saat ini belum ada agent yang online. Aku tetap siap bantu pertanyaan lainnya ya.";
+      // Don't repeat the identical notice if it is already the latest system message.
+      const lastSystemMessage = await this.prisma.message.findFirst({
+        where: { conversationId, deletedAt: null, senderType: SenderType.SYSTEM },
+        orderBy: { createdAt: "desc" },
+        select: { content: true },
+      });
+      if (lastSystemMessage?.content !== offlineNotice) await this.postSystemMessage(conversationId, offlineNotice);
       await this.logEvent(conversationId, "handoff.unavailable_no_agent", "SYSTEM", null, { reason, source });
       // requestAgent cancelled the AI inactivity timers above; the AI keeps the conversation here,
       // so restart them (otherwise a silent visitor would never be auto-closed after 10 minutes).
@@ -1001,7 +1008,7 @@ export class ConversationsService {
     // warning -> auto close) must run again even if the visitor stays silent.
     await this.safelyRefreshAiInactivityTimeout(conversationId, new Date());
     await this.logEvent(conversationId, "conversation.returned_to_ai", "USER", agentId, {});
-    await this.postSystemMessage(conversationId, "Percakapan dikembalikan ke AI untuk membantu Anda kembali.");
+    await this.postSystemMessage(conversationId, "Percakapan dikembalikan ke AI supaya kakak tetap terbantu.");
     this.realtime.toConversation(conversationId, "conversation:updated", {
       conversationId,
       assignedAgentId: null,
@@ -1273,7 +1280,7 @@ export class ConversationsService {
       await this.postMessage({
         conversationId,
         senderType: SenderType.AI,
-        content: "Apakah masih ada hal yang ingin Anda tanyakan atau diskusikan?",
+        content: "Apakah masih ada hal yang ingin kakak tanyakan atau diskusikan?",
       });
       return true;
     }

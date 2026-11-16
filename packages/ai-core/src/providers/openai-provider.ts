@@ -125,10 +125,22 @@ function customerMessageForGeneration(message: string): string {
   return `[Required response language: ${outputLanguage}]\nCustomer message: ${message}`;
 }
 
-function noAnswerFallback(language: string): string {
+/** Short topic phrase taken from the customer's question, or null when it can't be extracted cleanly. */
+function topicFromMessage(message: string): string | null {
+  const topic = message
+    .trim()
+    .replace(/[?!.\s]+$/g, "")
+    .replace(/\s+(?:itu\s+)?(?:berapa|gimana|bagaimana|apa|apakah|kenapa|ya|dong|sih|kak)$/i, "")
+    .replace(/[?!.\s]+$/g, "")
+    .trim();
+  return topic.length >= 3 && topic.length <= 60 && !/[\r\n]/.test(topic) ? topic : null;
+}
+
+function noAnswerFallback(language: string, message = ""): string {
+  const topic = topicFromMessage(message);
   return language.trim().toLowerCase().startsWith("en")
-    ? "I’m sorry, this information is not available to me at the moment. I will connect you with our team for further assistance."
-    : "Mohon maaf, informasi ini belum tersedia untuk saya saat ini. Saya akan menghubungkan Anda dengan petugas kami agar bisa dibantu lebih lanjut.";
+    ? `I’m sorry, information about ${topic ?? "what you asked"} is not available to me at the moment. Would you like me to connect you with our team for further assistance?`
+    : `Maaf kak, info tentang ${topic ?? "yang kakak tanyakan"} belum tersedia buat aku saat ini. Mau aku hubungkan ke petugas kami supaya dibantu lebih lanjut?`;
 }
 
 /**
@@ -699,7 +711,7 @@ export class OpenAiProvider implements AiProvider {
     } catch (error) {
       console.warn(`[OpenAiProvider] no-answer reply generation failed: ${(error as Error).message}`);
     }
-    return noAnswerFallback(input.language);
+    return noAnswerFallback(input.language, input.message);
   }
 
   async generateAnswer(input: AnswerInput, revisionInstruction?: string): Promise<AnswerResult> {
@@ -809,7 +821,7 @@ export class OpenAiProvider implements AiProvider {
     if (typeof draft.answer !== "string" || !draft.answer.trim()) {
       text = await this.respond(this.config.answerModel, `${system}\nJawab lebih singkat dan pastikan JSON lengkap.`, customerMessageForGeneration(input.message), answerSchema, CUSTOMER_TEXT_TEMPERATURE);
       draft = extractJson(text, invalidDraft, "generateAnswer:retry");
-      if (typeof draft.answer !== "string" || !draft.answer.trim()) draft = { ...invalidDraft, answer: noAnswerFallback(input.language) };
+      if (typeof draft.answer !== "string" || !draft.answer.trim()) draft = { ...invalidDraft, answer: noAnswerFallback(input.language, input.message) };
     }
 
     const sources = input.evidence.slice(0, 5).map((e) => ({
@@ -948,7 +960,7 @@ export class OpenAiProvider implements AiProvider {
       if (!revisionInstruction) return this.generateAnswer(input, `Hapus klaim yang tidak didukung: ${citedFabrications.join(", ")}`);
       return {
         answer:
-          noAnswerFallback(input.language),
+          noAnswerFallback(input.language, input.message),
         confidence: review.confidence ?? 0.2,
         intent: input.intent,
         handoffRequired: true,

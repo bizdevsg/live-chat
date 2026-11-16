@@ -74,11 +74,11 @@ export function PreChatForm({
 
   return (
     <div className="flex min-h-full flex-col justify-center gap-3 bg-ink px-5 py-5">
-      <p className="mb-1 text-center text-sm text-zinc-300">Sebelum memulai, boleh kami tahu sedikit tentang Anda?</p>
+      <p className="mb-1 text-center text-sm text-zinc-300">Sebelum memulai, boleh kami tahu sedikit tentang kakak?</p>
       <input
         value={name}
         onChange={(e) => setName(e.target.value)}
-        placeholder="Nama Anda"
+        placeholder="Nama kakak"
         disabled={submitting || disabled}
         className="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white placeholder:text-zinc-500"
       />
@@ -101,7 +101,7 @@ export function PreChatForm({
       <textarea
         value={message}
         onChange={(e) => setMessage(e.target.value.slice(0, MESSAGE_MAX_LENGTH))}
-        placeholder="Tulis pesan pertama Anda"
+        placeholder="Tulis pesan pertama kakak"
         rows={3}
         maxLength={MESSAGE_MAX_LENGTH}
         disabled={submitting || disabled}

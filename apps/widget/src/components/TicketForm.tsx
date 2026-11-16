@@ -101,12 +101,12 @@ export function TicketForm({
         <div className="flex h-14 w-14 items-center justify-center rounded-full" style={{ backgroundColor: `${widgetColor}22` }}>
           <MailCheck className="h-7 w-7" style={{ color: widgetColor }} />
         </div>
-        <p className="text-sm font-semibold text-white">Tiket Anda berhasil dikirim</p>
+        <p className="text-sm font-semibold text-white">Tiket kakak berhasil dikirim</p>
         <p className="rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs font-medium tracking-wide text-zinc-300">
           {ticketNumber}
         </p>
         <p className="max-w-[85%] text-xs leading-relaxed text-zinc-500">
-          Tim kami sedang tidak online, tetapi akan menghubungi Anda melalui email atau telepon secepatnya.
+          Tim kami sedang tidak online, tetapi akan menghubungi kakak melalui email atau telepon secepatnya.
         </p>
         <button
           onClick={handleSendAnother}
@@ -123,13 +123,13 @@ export function TicketForm({
       <div className="mb-1 text-center">
         <p className="text-sm font-medium text-zinc-200">Tim kami sedang offline</p>
         <p className="mt-1 text-xs leading-relaxed text-zinc-500">
-          {offlineMessage || "Tinggalkan pesan Anda di bawah ini dan tim kami akan menghubungi Anda kembali."}
+          {offlineMessage || "Tinggalkan pesan di bawah ini dan tim kami akan menghubungi kakak kembali."}
         </p>
       </div>
       <input
         value={name}
         onChange={(e) => setName(e.target.value)}
-        placeholder="Nama Anda"
+        placeholder="Nama kakak"
         disabled={submitting}
         className="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white placeholder:text-zinc-500"
       />
@@ -171,7 +171,7 @@ export function TicketForm({
       <textarea
         value={description}
         onChange={(e) => setDescription(e.target.value)}
-        placeholder="Ceritakan kebutuhan Anda..."
+        placeholder="Ceritakan kebutuhan kakak..."
         rows={4}
         disabled={submitting}
         className="resize-none rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white placeholder:text-zinc-500"

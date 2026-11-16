@@ -34,17 +34,26 @@ function isTransientAiProviderError(error: unknown): boolean {
 }
 
 const EMPTY_ANSWER_FALLBACK =
-  "Maaf, saya belum dapat memberikan jawaban untuk pertanyaan tersebut. Silakan jelaskan lebih detail atau tekan Hubungi Agent agar dibantu petugas kami.";
+  "Maaf kak, aku belum bisa kasih jawaban untuk pertanyaan itu. Coba jelaskan lebih detail atau tekan Hubungi Agent biar dibantu petugas kami.";
+
+/** Handoff confirmation shown to the customer; `topic` falls back to "hal ini" when unknown. */
+export function handoffReplyText(topic?: string | null): string {
+  const subject = topic?.trim() && topic.trim().length <= 60 && !/[\r\n]/.test(topic) ? topic.trim() : "hal ini";
+  return `Baik kak, untuk ${subject} aku hubungkan ke petugas kami ya, supaya bisa dibantu lebih lanjut. Mohon tunggu sebentar.`;
+}
+
+const PROMPT_INJECTION_REFUSAL =
+  "Maaf kak, aku tidak bisa menampilkan atau mengubah instruksi internal. Kalau ada pertanyaan seputar layanan SGB, aku siap bantu ya.";
 
 /** Message used when the classifier picks a handoff action but leaves its reply blank. */
 export function fallbackHandoffReply(action: string): string {
   switch (action) {
     case "OUT_OF_SCOPE":
-      return "Maaf, saya hanya dapat membantu seputar layanan Solid Gold. Ada hal lain terkait layanan kami yang bisa saya bantu?";
+      return "Maaf kak, aku hanya bisa bantu seputar layanan Solid Gold. Ada hal lain terkait layanan kami yang bisa aku bantu?";
     case "OFFER":
-      return "Untuk hal ini dibutuhkan bantuan petugas kami. Apakah Anda ingin saya hubungkan dengan agent?";
+      return "Untuk hal ini perlu dibantu petugas kami. Mau aku hubungkan ke agent ya, kak?";
     case "TRANSFER":
-      return "Baik, saya akan menghubungkan Anda dengan petugas kami. Mohon tunggu sebentar ya.";
+      return handoffReplyText();
     default:
       return EMPTY_ANSWER_FALLBACK;
   }
@@ -358,10 +367,22 @@ export class AiOrchestratorService {
         });
       }
 
+      // A prompt-injection attempt is refused politely and the AI keeps the conversation; it is
+      // not a reason to hand off to an agent.
+      if (classification.promptInjectionDetected) {
+        await this.conversations.postMessage({
+          conversationId,
+          senderType: SenderType.AI,
+          content: PROMPT_INJECTION_REFUSAL,
+          messageType: MessageType.TEXT,
+        });
+        return;
+      }
+
       const forcedReason = this.handoffEvaluator.evaluate(lastVisitorMessage.content, classification);
       if (forcedReason) {
         await this.markAiRunHandoff(classificationRun.id);
-        await this.respondBeforeHandoff(conversationId, forcedReason, HandoffSource.SYSTEM_RULE);
+        await this.respondBeforeHandoff(conversationId, forcedReason, HandoffSource.SYSTEM_RULE, classification.retrievalQuery);
         return;
       }
 
@@ -516,14 +537,23 @@ export class AiOrchestratorService {
     }
   }
 
-  private async respondBeforeHandoff(conversationId: string, reason: HandoffReason, source: HandoffSource) {
-    await this.conversations.postMessage({
-      conversationId,
-      senderType: SenderType.AI,
-      content:
-        "Baik, untuk hal ini saya akan menghubungkan Anda dengan petugas kami agar dapat dibantu lebih lanjut. Mohon tunggu sebentar ya.",
-      messageType: MessageType.TEXT,
+  private async respondBeforeHandoff(conversationId: string, reason: HandoffReason, source: HandoffSource, topic?: string | null) {
+    const content = handoffReplyText(topic);
+    // Don't repeat the identical handoff text when the previous AI turn already said it
+    // (e.g. no agent online, so the AI kept the conversation and the visitor sent another message).
+    const lastAiMessage = await this.prisma.message.findFirst({
+      where: { conversationId, deletedAt: null, senderType: SenderType.AI },
+      orderBy: { createdAt: "desc" },
+      select: { content: true },
     });
+    if (lastAiMessage?.content !== content) {
+      await this.conversations.postMessage({
+        conversationId,
+        senderType: SenderType.AI,
+        content,
+        messageType: MessageType.TEXT,
+      });
+    }
     await this.conversations.requestAgent(conversationId, reason, source);
     await this.summarize(conversationId, "HANDOFF");
   }
