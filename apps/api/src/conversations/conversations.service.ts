@@ -489,7 +489,9 @@ export class ConversationsService {
           isInternal: input.isInternal ?? false,
           clientMessageId: input.clientMessageId,
           aiRunId: input.aiRunId,
-          metadata: input.metadata as object | undefined,
+          // The stored text is masked, so the "credentials were shared" flag travels in metadata
+          // for the AI to still open its reply with the security reminder.
+          metadata: (scan?.containsSensitiveData ? { ...input.metadata, containsCredentials: true } : input.metadata) as object | undefined,
           attachments: input.attachments?.length
             ? { create: input.attachments.map((attachment) => ({ ...attachment, isInternal: attachment.isInternal ?? false, scanStatus: "CLEAN" })) }
             : undefined,

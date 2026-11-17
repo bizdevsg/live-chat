@@ -4,6 +4,12 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
 ### Changed
+- Memperbarui `apps/api/src/ai/ai-orchestrator.service.ts`.
+- Memperbarui `apps/api/src/common/utils/content-guard.spec.ts`.
+- Memperbarui `apps/api/src/common/utils/content-guard.ts`.
+- Memperbarui `apps/api/src/conversations/conversations.service.ts`.
+- Memperbarui `apps/widget/src/components/PreChatForm.tsx`.
+- Memperbarui `docs/security.md`.
 - Memperbarui `package.json`.
 
 ## [0.29.4] - 2026-11-17

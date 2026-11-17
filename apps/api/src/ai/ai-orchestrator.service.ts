@@ -392,7 +392,8 @@ export class AiOrchestratorService {
 
       // Credentials pasted into the chat (password/PIN/OTP/card number): every reply below opens
       // with a reminder not to share them, whatever the model wrote.
-      const sharedSensitiveData = classification.containsSensitiveData || messageContainsCredentials(lastVisitorMessage.content);
+      const storedFlag = (lastVisitorMessage.metadata as { containsCredentials?: boolean } | null)?.containsCredentials === true;
+      const sharedSensitiveData = storedFlag || classification.containsSensitiveData || messageContainsCredentials(lastVisitorMessage.content);
       const customerReply = (text: string) => (sharedSensitiveData ? withSensitiveDataNotice(text) : text);
 
       // A prompt-injection attempt is refused politely and the AI keeps the conversation; it is

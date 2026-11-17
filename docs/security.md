@@ -20,7 +20,7 @@
 
 ## Sensitive data & prompt injection
 
-- Every visitor/customer message is scanned (`common/utils/content-guard.ts`) for OTP/PIN/password-shaped content and long digit runs (`SENSITIVE_DATA_PATTERNS` in `packages/shared`) before it is persisted or shown to the AI. Matches are masked (`[DIMASKING]`) in the stored/displayed content and raise a `SENSITIVE_DATA_DETECTED` security event.
+- Every visitor/customer message is scanned (`common/utils/content-guard.ts`) for OTP/PIN/password-shaped content and long digit runs (`SENSITIVE_DATA_PATTERNS` in `packages/shared`) before it is persisted or shown to the AI. The value after a keyword such as password/kata sandi/pin/otp (and card-like digit runs) is replaced with `••••••••` in the stored/displayed content, leaving the rest of the sentence intact. The message gets `metadata.containsCredentials = true` so the AI still opens its reply with the do-not-share reminder, and a `SENSITIVE_DATA_DETECTED` security event is raised.
 - The same message is scanned for prompt-injection phrasing (`PROMPT_INJECTION_PATTERNS`, English + Indonesian). A match forces an immediate handoff (`PROMPT_INJECTION_DETECTED`) rather than being sent to the AI provider.
 - Knowledge document content is only ever included in the AI provider's prompt as a labeled "reference data" block, never as instructions — see `docs/ai-policy.md`.
 
