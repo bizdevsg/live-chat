@@ -4,6 +4,10 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
 ### Changed
+- Memperbarui `package.json`.
+
+## [0.29.4] - 2026-11-17
+### Changed
 - Memperbarui `apps/api/src/ai/ai-orchestrator-handoff.spec.ts`.
 - Memperbarui `apps/api/src/ai/ai-orchestrator.service.ts`.
 - Memperbarui `apps/widget/src/components/PreChatForm.tsx`.
@@ -1525,7 +1529,8 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 - Memperbarui `apps/dashboard/src/app/(dashboard)/knowledge/page.tsx`.
 - Memperbarui `package.json`.
 
-[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.29.3...HEAD
+[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.29.4...HEAD
+[0.29.4]: https://github.com/bizdevsg/live-chat/compare/v0.29.3...v0.29.4
 [0.29.3]: https://github.com/bizdevsg/live-chat/compare/v0.29.2...v0.29.3
 [0.29.2]: https://github.com/bizdevsg/live-chat/compare/v0.29.1...v0.29.2
 [0.29.1]: https://github.com/bizdevsg/live-chat/compare/v0.29.0...v0.29.1
