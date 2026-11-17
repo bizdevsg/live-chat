@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { MailCheck } from "lucide-react";
 import { ApiError } from "../lib/api";
-import { isValidEmail, isValidPhone } from "../lib/validators";
+import { isValidEmail, isValidPhone, normalizePhone } from "../lib/validators";
 
 export interface TicketValues {
   name: string;
@@ -66,7 +66,7 @@ export function TicketForm({
       const number = await onSubmit({
         name: trimmedName,
         email: trimmedEmail,
-        phone: trimmedPhone,
+        phone: normalizePhone(trimmedPhone),
         subject: trimmedSubject,
         description: trimmedDescription,
         category,

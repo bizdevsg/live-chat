@@ -38,10 +38,32 @@ const EMPTY_ANSWER_FALLBACK =
   "Maaf kak, aku belum bisa kasih jawaban untuk pertanyaan itu. Coba jelaskan lebih detail atau tekan Hubungi Agent biar dibantu petugas kami.";
 
 /** Handoff confirmation shown to the customer; `topic` falls back to "hal ini" when unknown. */
-export function handoffReplyText(topic?: string | null): string {
+export function handoffReplyText(topic?: string | null, options: { empathy?: boolean } = {}): string {
   const subject = topic?.trim() && topic.trim().length <= 60 && !/[\r\n]/.test(topic) ? topic.trim() : "hal ini";
+  if (options.empathy) {
+    return `Maaf ya kak, aku paham ${subject} ini bikin tidak nyaman. Aku hubungkan ke petugas kami supaya segera dibantu lebih lanjut. Mohon tunggu sebentar.`;
+  }
   return `Baik kak, untuk ${subject} aku hubungkan ke petugas kami ya, supaya bisa dibantu lebih lanjut. Mohon tunggu sebentar.`;
 }
+
+/** Forced-handoff reasons where the customer has a problem or complaint, so the reply opens with empathy. */
+const EMPATHY_HANDOFF_REASONS = new Set<string>([
+  HandoffReason.DEPOSIT_ISSUE,
+  HandoffReason.WITHDRAWAL_ISSUE,
+  HandoffReason.TRANSACTION_DISPUTE,
+  HandoffReason.SECURITY_RISK,
+  HandoffReason.SUSPECTED_FRAUD,
+  HandoffReason.ANGRY_CUSTOMER,
+  HandoffReason.SERIOUS_COMPLAINT,
+]);
+
+/** Fixed topic wording for rule-based reasons; other reasons fall back to the classifier's retrieval query. */
+const HANDOFF_REASON_TOPICS: Record<string, string> = {
+  [HandoffReason.DEPOSIT_ISSUE]: "deposit",
+  [HandoffReason.WITHDRAWAL_ISSUE]: "penarikan dana",
+  [HandoffReason.TRANSACTION_DISPUTE]: "transaksi",
+  [HandoffReason.SECURITY_RISK]: "keamanan akun",
+};
 
 const PROMPT_INJECTION_REFUSAL =
   "Maaf kak, aku tidak bisa menampilkan atau mengubah instruksi internal. Kalau ada pertanyaan seputar layanan SGB, aku siap bantu ya.";
@@ -545,7 +567,7 @@ export class AiOrchestratorService {
   }
 
   private async respondBeforeHandoff(conversationId: string, reason: HandoffReason, source: HandoffSource, topic?: string | null) {
-    const content = handoffReplyText(topic);
+    const content = handoffReplyText(HANDOFF_REASON_TOPICS[reason] ?? topic, { empathy: EMPATHY_HANDOFF_REASONS.has(reason) });
     // Don't repeat the identical handoff text when the previous AI turn already said it
     // (e.g. no agent online, so the AI kept the conversation and the visitor sent another message).
     const lastAiMessage = await this.prisma.message.findFirst({

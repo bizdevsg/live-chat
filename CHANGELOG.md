@@ -4,7 +4,13 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
 ### Changed
+- Memperbarui `apps/api/src/ai/ai-orchestrator-handoff.spec.ts`.
+- Memperbarui `apps/api/src/ai/ai-orchestrator.service.ts`.
+- Memperbarui `apps/widget/src/components/PreChatForm.tsx`.
+- Memperbarui `apps/widget/src/components/TicketForm.tsx`.
+- Memperbarui `apps/widget/src/lib/validators.ts`.
 - Memperbarui `package.json`.
+- Memperbarui `packages/ai-core/src/providers/openai-provider.ts`.
 
 ## [0.29.3] - 2026-11-16
 ### Added

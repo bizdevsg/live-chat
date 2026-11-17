@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { ApiError } from "../lib/api";
-import { isValidEmail, isValidPhone } from "../lib/validators";
+import { isValidEmail, isValidPhone, normalizePhone } from "../lib/validators";
 
 export interface PreChatValues {
   name: string;
@@ -55,7 +55,7 @@ export function PreChatForm({
       await onSubmit({
         name: trimmedName,
         email: trimmedEmail,
-        phone: trimmedPhone,
+        phone: normalizePhone(trimmedPhone),
         message: trimmedMessage,
         consentGiven: consent,
       });

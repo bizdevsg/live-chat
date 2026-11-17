@@ -453,7 +453,8 @@ function buildCalculationReviewPrompt(parts: {
     "Untuk konversi mata uang, gunakan kurs/fixed rate yang tertulis eksplisit di DOKUMEN REFERENSI. Jika customer memberi nominal dan meminta nilai setara/hasil konversi, expression harus memuat nominal customer × atau ÷ rate sesuai arah konversi. Jangan hanya mengulang nominal awal sebagai hasil akhir.",
     "Untuk perbandingan batas minimum/maksimum dengan mata uang yang sama, WAJIB bandingkan nominal customer dengan batas yang tertulis. Gunakan expression berupa nominal customer - batas; verifiedResult positif atau nol berarti memenuhi, negatif berarti belum memenuhi. Jika mata uang berbeda, lakukan perbandingan hanya bila kurs eksplisit tersedia; jika tidak, jangan menyimpulkan memenuhi atau tidak memenuhi.",
     "PENTING: bila rumus/evidence memuat Contract Size dan n Lot, operasi Contract Size × n Lot WAJIB dihitung penuh. Jangan pernah menghilangkan salah satunya.",
-    "Kalau ada nilai input yang belum diberikan, set assumptionsDetected=true atau isi missingInputs dan set calculationValid=false.",
+    "Desimal berkoma pada pertanyaan customer adalah titik desimal (0,1 lot = 0.1 lot); tulis sebagai titik pada expression.",
+    "Kalau ada nilai input yang belum diberikan, set assumptionsDetected=true atau isi missingInputs dan set calculationValid=false. PENGECUALIAN: bila variabel opsional pada rumus (misalnya jumlah malam menginap) tidak disebut customer tetapi draft menampilkan skenario eksplisit dan berlabel (misalnya buka-tutup/0 malam dan 1 malam) dengan angka yang mengikuti rumus, itu BUKAN asumsi tersembunyi — verifikasi skenario tersebut; untuk expression/verifiedResult/statedResult pakai skenario terakhir pada draft.",
     "Kalau draft salah hitung atau ada faktor yang hilang, set calculationValid=false, isi omittedFactors, expression, dan verifiedResult.",
     "expression WAJIB berupa ekspresi numerik yang sudah disubstitusi penuh, hanya boleh berisi angka, spasi, kurung, dan operator + - * /. Jangan tulis huruf, mata uang, tanda persen, atau simbol lain di field itu.",
     "statedResult dan verifiedResult WAJIB plain number string dengan titik sebagai desimal bila perlu, tanpa pemisah ribuan, tanpa mata uang, dan kosongkan dengan string kosong bila tidak ada.",
@@ -896,12 +897,19 @@ export class OpenAiProvider implements AiProvider {
       );
 
       if (structurallyInvalid || !calculationReview.calculationValid) {
-        if (!revisionInstruction) return this.generateAnswer(input, "Perhitungan sebelumnya tidak valid; jangan gunakan hasilnya, periksa ulang rumus dan minta data yang kurang");
+        if (!revisionInstruction) {
+          return this.generateAnswer(
+            input,
+            "Perhitungan sebelumnya tidak valid; jangan gunakan hasilnya. Hitung ulang langkah demi langkah dari rumus resmi di dokumen referensi dengan angka dari customer (desimal koma = titik desimal, 0,1 lot = 0.1 lot). Bila ada variabel opsional yang tidak disebut customer (misalnya jumlah malam menginap), tampilkan hasil untuk skenario berlabel (buka-tutup/0 malam dan 1 malam) dan jangan menolak menghitung. Minta data hanya bila variabel itu benar-benar tidak bisa dibuat skenarionya.",
+          );
+        }
+        // Never show reviewer/internal wording to the customer: ask for exactly the missing values.
+        const missing = calculationReview.missingInputs.map((item) => item.trim()).filter(Boolean).slice(0, 3);
+        const english = input.language.trim().toLowerCase().startsWith("en");
         return {
-        answer:
-            (input.language.trim().toLowerCase().startsWith("en")
-              ? "To calculate this accurately, I need every value in the stated formula without making additional assumptions."
-              : "Untuk menghitung secara akurat, saya perlu semua nilai pada rumus yang disebutkan tanpa asumsi tambahan."),
+          answer: english
+            ? `I couldn't work out an exact figure yet. Could you tell me ${missing.length > 0 ? missing.join(", ") : "the amounts to use (for example lots and number of nights)"}?`
+            : `Maaf kak, aku belum bisa menghitungnya dengan pas. Boleh kakak sebutkan ${missing.length > 0 ? missing.join(", ") : "angka yang dipakai (misalnya jumlah lot dan jumlah malam menginap)"}?`,
           confidence: Math.min(draft.confidence, 0.6),
           intent: input.intent,
           handoffRequired: false,

@@ -138,6 +138,8 @@ describe("AiOrchestratorService handoff vs. evidence", () => {
     const r = await run({ message: "deposit saya belum masuk", classifierAction: "NONE", evidence: EVIDENCE, intent: AiIntent.DEPOSIT });
     expect(r.conversations.requestAgent).toHaveBeenCalled();
     expect(r.generateAnswer).not.toHaveBeenCalled();
+    // A complaint gets empathy and names the topic instead of the bare "untuk hal ini" handoff.
+    expect(r.posted[0]?.content).toMatch(/^Maaf ya kak, aku paham deposit ini/);
   });
 
   it("9. a pasted password is answered by the AI, opens with the do-not-share reminder, and never hands off or quotes it", async () => {
