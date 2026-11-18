@@ -4,6 +4,7 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
 ### Changed
+- Memperbarui `apps/widget/src/components/Composer.tsx`.
 - Memperbarui `package.json`.
 
 ## [0.29.7] - 2026-11-18

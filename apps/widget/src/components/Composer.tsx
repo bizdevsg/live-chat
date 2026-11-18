@@ -14,8 +14,8 @@ const COMPOSER_MAX_HEIGHT =
 
 /** Customer message cap. The API enforces a slightly larger one (apps/api widget.dto.ts). */
 const MESSAGE_MAX_LENGTH = 512;
-/** The counter only shows up when the visitor is getting close to the cap. */
-const COUNTER_THRESHOLD = 400;
+/** From this length the counter turns yellow as a heads-up; it turns red at the cap. */
+const COUNTER_WARNING_LENGTH = 400;
 
 const ALLOWED_IMAGE_TYPES =["image/png", "image/jpeg", "image/webp", "application/pdf"];
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
@@ -267,11 +267,9 @@ export function Composer({
           <Send className="h-4 w-4" strokeWidth={2.5} />
         </button>
       </div>
-      {value.length >= COUNTER_THRESHOLD ? (
-        <p className={`mt-1 text-right text-[10px] ${value.length >= MESSAGE_MAX_LENGTH ? "text-red-400" : "text-zinc-400"}`}>
-          {value.length}/{MESSAGE_MAX_LENGTH}
-        </p>
-      ) : null}
+      <p className={`mt-1 text-right text-[10px] ${value.length >= MESSAGE_MAX_LENGTH ? "text-red-400" : value.length >= COUNTER_WARNING_LENGTH ? "text-yellow-400" : "text-zinc-400"}`}>
+        {value.length}/{MESSAGE_MAX_LENGTH}
+      </p>
       {uploading ? <p className="mt-2 text-center text-[10px] text-zinc-400">Mengirim gambar...</p> : null}
       {uploadError ? <p role="alert" className="mt-2 text-center text-[10px] text-red-400">{uploadError}</p> : null}
       <p className="mt-2 text-center text-[10px] text-zinc-200">Percakapan dapat dibaca oleh AI dan petugas resmi Solid Gold.</p>
