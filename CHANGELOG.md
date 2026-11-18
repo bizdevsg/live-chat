@@ -4,6 +4,7 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
 ### Changed
+- Memperbarui `apps/widget/src/lib/rich-text.tsx`.
 - Memperbarui `package.json`.
 
 ## [0.29.5] - 2026-11-17

@@ -48,8 +48,17 @@ function renderInline(text: string, keyPrefix: string): ReactNode[] {
 }
 
 interface Block {
-  type: "paragraph" | "bullet-list" | "numbered-list" | "heading";
+  type: "paragraph" | "bullet-list" | "numbered-list" | "heading" | "table";
   lines: string[];
+  /** Table only: optional header cells and body rows. */
+  header?: string[];
+  rows?: string[][];
+}
+
+const TABLE_SEPARATOR = /^\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?$/;
+
+function parseTableRow(line: string): string[] {
+  return line.replace(/^\|/, "").replace(/\|$/, "").split("|").map((cell) => cell.trim());
 }
 
 function toBlocks(content: string): Block[] {
@@ -63,6 +72,23 @@ function toBlocks(content: string): Block[] {
     const line = rawLine.trim();
     if (line === "") {
       afterBlankLine = true;
+      continue;
+    }
+
+    if (line.startsWith("|")) {
+      const last = blocks[blocks.length - 1];
+      const continuing = last?.type === "table" && !afterBlankLine;
+      afterBlankLine = false;
+      if (TABLE_SEPARATOR.test(line)) {
+        // "|---|---|" marks the row above as the header.
+        if (continuing && last && !last.header && last.rows?.length === 1) last.header = last.rows.shift();
+        continue;
+      }
+      if (continuing && last) {
+        last.rows?.push(parseTableRow(line));
+      } else {
+        blocks.push({ type: "table", lines: [], rows: [parseTableRow(line)] });
+      }
       continue;
     }
 
@@ -100,6 +126,24 @@ export function RichText({ content }: { content: string }) {
         const key = `b-${bi}`;
         if (block.type === "heading") {
           return <p key={key} className={bi === 0 ? "font-semibold" : "mt-2 font-semibold"}>{renderInline(block.lines[0] ?? "", key)}</p>;
+        }
+        if (block.type === "table") {
+          // A bubble is too narrow for a real multi-column table, so each row becomes a small card
+          // that pairs every cell with its header.
+          return (
+            <div key={key} className="my-1 space-y-1.5">
+              {(block.rows ?? []).map((row, ri) => (
+                <div key={`${key}-${ri}`} className="rounded-lg bg-black/20 px-2.5 py-1.5 text-[0.92em]">
+                  {row.map((cell, ci) => (
+                    <div key={`${key}-${ri}-${ci}`}>
+                      {block.header?.[ci] ? <span className="opacity-60">{block.header[ci]}: </span> : null}
+                      {renderInline(cell, `${key}-${ri}-${ci}`)}
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          );
         }
         if (block.type === "bullet-list") {
           return (
