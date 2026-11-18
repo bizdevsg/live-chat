@@ -261,7 +261,7 @@ export function Composer({
           </button>
         </div>
       ) : null}
-      <div className="flex items-end gap-2">
+      <div className="flex items-end gap-2 pb-4">
         {canUploadImage ? (
           <button
             onClick={() => fileInputRef.current?.click()}
@@ -288,35 +288,35 @@ export function Composer({
               />
             </div>
           ) : null}
-          <div className="flex flex-1 flex-col items-end">
-            <textarea
-              ref={textareaRef}
-              value={value}
-              onChange={(e) => {
-                resizeTextarea(e.currentTarget);
-                handleChange(e.target.value);
-              }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  void submit();
-                }
-              }}
-              placeholder={
-                pendingImage
-                  ? "Tambahkan pesan (opsional)..."
-                  : "Tulis pesan..."
+          <textarea
+            ref={textareaRef}
+            value={value}
+            onChange={(e) => {
+              resizeTextarea(e.currentTarget);
+              handleChange(e.target.value);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                void submit();
               }
-              rows={1}
-              maxLength={MESSAGE_MAX_LENGTH}
-              className="scrollbar-composer block min-h-11 w-full resize-none rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-3 pr-10 text-sm leading-5 text-white placeholder:text-zinc-500 focus:border-gold focus:outline-none box-border"
-            />
-            <p
-              className={`mt-1 text-right text-[10px] ${value.length >= MESSAGE_MAX_LENGTH ? "text-red-400" : value.length >= COUNTER_WARNING_LENGTH ? "text-yellow-400" : "text-zinc-400"}`}
-            >
-              {value.length}/{MESSAGE_MAX_LENGTH}
-            </p>
-          </div>
+            }}
+            placeholder={
+              pendingImage
+                ? "Tambahkan pesan (opsional)..."
+                : "Tulis pesan..."
+            }
+            rows={1}
+            maxLength={MESSAGE_MAX_LENGTH}
+            className="scrollbar-composer block min-h-11 w-full resize-none rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-3 pr-10 text-sm leading-5 text-white placeholder:text-zinc-500 focus:border-gold focus:outline-none box-border"
+          />
+          {/* Hangs below the textarea without adding to the row height, so the emoji, attach and
+              send buttons stay aligned with the textarea (the row reserves room with pb-4). */}
+          <p
+            className={`absolute right-1 top-full mt-0.5 text-[10px] leading-none ${value.length >= MESSAGE_MAX_LENGTH ? "text-red-400" : value.length >= COUNTER_WARNING_LENGTH ? "text-yellow-400" : "text-zinc-400"}`}
+          >
+            {value.length}/{MESSAGE_MAX_LENGTH}
+          </p>
           <button
             type="button"
             onClick={() => setEmojiPickerOpen((open) => !open)}

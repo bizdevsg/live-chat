@@ -11,6 +11,8 @@ export interface PreChatValues {
 }
 
 const MESSAGE_MAX_LENGTH = 512;
+/** From this length the counter turns yellow as a heads-up; it turns red at the cap. */
+const COUNTER_WARNING_LENGTH = 400;
 
 export function PreChatForm({
   onSubmit,
@@ -119,6 +121,11 @@ export function PreChatForm({
         disabled={submitting || disabled}
         className="resize-none rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white placeholder:text-zinc-500"
       />
+      <p
+        className={`-mt-1 text-right text-[10px] ${message.length >= MESSAGE_MAX_LENGTH ? "text-red-400" : message.length >= COUNTER_WARNING_LENGTH ? "text-yellow-400" : "text-zinc-400"}`}
+      >
+        {message.length}/{MESSAGE_MAX_LENGTH}
+      </p>
       <label className="flex items-start gap-2 text-[11px] text-zinc-500">
         <input
           type="checkbox"
