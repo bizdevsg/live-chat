@@ -3,6 +3,10 @@
 Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
+### Changed
+- Memperbarui `package.json`.
+
+## [0.29.17] - 2026-11-18
 ### Added
 - Menambahkan `apps/api/src/ai/handoff-promise.spec.ts`.
 
@@ -1613,7 +1617,8 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 - Memperbarui `apps/dashboard/src/app/(dashboard)/knowledge/page.tsx`.
 - Memperbarui `package.json`.
 
-[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.29.16...HEAD
+[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.29.17...HEAD
+[0.29.17]: https://github.com/bizdevsg/live-chat/compare/v0.29.16...v0.29.17
 [0.29.16]: https://github.com/bizdevsg/live-chat/compare/v0.29.15...v0.29.16
 [0.29.15]: https://github.com/bizdevsg/live-chat/compare/v0.29.14...v0.29.15
 [0.29.14]: https://github.com/bizdevsg/live-chat/compare/v0.29.13...v0.29.14
