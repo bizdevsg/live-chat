@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import type { SiteConfig } from "../hooks/use-widget-session";
 import { FileText, Headset, ImagePlus, Send, Smile, X } from "lucide-react";
 
@@ -17,12 +23,23 @@ const MESSAGE_MAX_LENGTH = 512;
 /** From this length the counter turns yellow as a heads-up; it turns red at the cap. */
 const COUNTER_WARNING_LENGTH = 400;
 
-const ALLOWED_IMAGE_TYPES =["image/png", "image/jpeg", "image/webp", "application/pdf"];
+const ALLOWED_IMAGE_TYPES = [
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+  "application/pdf",
+];
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 const WIDGET_SURFACE_COLOR = "#2e2e2e";
 const EMOJI_MART_DATA_URL = "https://cdn.jsdelivr.net/npm/@emoji-mart/data";
 
-function EmojiMartPicker({ onSelect, onClose }: { onSelect: (emoji: string) => void; onClose: () => void }) {
+function EmojiMartPicker({
+  onSelect,
+  onClose,
+}: {
+  onSelect: (emoji: string) => void;
+  onClose: () => void;
+}) {
   const pickerHostRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -37,7 +54,8 @@ function EmojiMartPicker({ onSelect, onClose }: { onSelect: (emoji: string) => v
         previewPosition: "none",
         skinTonePosition: "none",
         maxFrequentRows: 2,
-        onEmojiSelect: (emoji: { native?: string }) => emoji.native && onSelect(emoji.native),
+        onEmojiSelect: (emoji: { native?: string }) =>
+          emoji.native && onSelect(emoji.native),
         onClickOutside: onClose,
       });
       pickerNode = picker as unknown as Node;
@@ -78,19 +96,27 @@ export function Composer({
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   // A picked image waits here until the visitor hits Send, so it goes out together with whatever
   // caption they type instead of firing off on its own the moment it's chosen.
-  const [pendingImage, setPendingImage] = useState<{ file: File; previewUrl: string } | null>(null);
+  const [pendingImage, setPendingImage] = useState<{
+    file: File;
+    previewUrl: string;
+  } | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
-  const agentButtonLabel = config.settings?.agentButtonLabel?.trim() || "Hubungi Agent Kami";
+  const agentButtonLabel =
+    config.settings?.agentButtonLabel?.trim() || "Hubungi Agent Kami";
 
   const resizeTextarea = useCallback((textarea: HTMLTextAreaElement | null) => {
     if (!textarea) return;
 
     textarea.style.height = "auto";
-    const nextHeight = Math.min(Math.max(textarea.scrollHeight, COMPOSER_MIN_HEIGHT), COMPOSER_MAX_HEIGHT);
+    const nextHeight = Math.min(
+      Math.max(textarea.scrollHeight, COMPOSER_MIN_HEIGHT),
+      COMPOSER_MAX_HEIGHT,
+    );
     textarea.style.height = `${nextHeight}px`;
-    textarea.style.overflowY = textarea.scrollHeight > COMPOSER_MAX_HEIGHT ? "auto" : "hidden";
+    textarea.style.overflowY =
+      textarea.scrollHeight > COMPOSER_MAX_HEIGHT ? "auto" : "hidden";
   }, []);
 
   useLayoutEffect(() => {
@@ -175,7 +201,11 @@ export function Composer({
         setValue("");
         onTyping(false);
       } catch (error) {
-        setUploadError(error instanceof Error ? error.message : "Gagal mengirim gambar. Coba lagi.");
+        setUploadError(
+          error instanceof Error
+            ? error.message
+            : "Gagal mengirim gambar. Coba lagi.",
+        );
       } finally {
         setUploading(false);
       }
@@ -188,10 +218,14 @@ export function Composer({
     onTyping(false);
   }
 
-  const canSubmit = !disabled && !uploading && (!!value.trim() || !!pendingImage);
+  const canSubmit =
+    !disabled && !uploading && (!!value.trim() || !!pendingImage);
 
   return (
-    <div className="border-t border-zinc-800 p-3" style={{ backgroundColor: WIDGET_SURFACE_COLOR }}>
+    <div
+      className="border-t border-zinc-800 p-3"
+      style={{ backgroundColor: WIDGET_SURFACE_COLOR }}
+    >
       {config.settings?.showAgentButton && canRequestAgent && (
         <button
           onClick={onRequestAgent}
@@ -206,10 +240,16 @@ export function Composer({
           {pendingImage.file.type === "application/pdf" ? (
             <FileText className="h-8 w-8 shrink-0 text-zinc-300" />
           ) : (
-            <img src={pendingImage.previewUrl} alt="" className="h-14 w-14 shrink-0 rounded-lg object-cover" />
+            <img
+              src={pendingImage.previewUrl}
+              alt=""
+              className="h-14 w-14 shrink-0 rounded-lg object-cover"
+            />
           )}
           <span className="min-w-0 flex-1 truncate text-xs text-zinc-400">
-            {pendingImage.file.type === "application/pdf" ? `${pendingImage.file.name} akan dikirim bersama pesan` : "Gambar akan dikirim bersama pesan"}
+            {pendingImage.file.type === "application/pdf"
+              ? `${pendingImage.file.name} akan dikirim bersama pesan`
+              : "Gambar akan dikirim bersama pesan"}
           </span>
           <button
             onClick={clearPendingImage}
@@ -223,36 +263,67 @@ export function Composer({
       ) : null}
       <div className="flex items-end gap-2">
         {canUploadImage ? (
-          <button onClick={() => fileInputRef.current?.click()} disabled={disabled || uploading || !!pendingImage} aria-label="Lampirkan gambar atau PDF" className="flex h-11 w-11 shrink-0 items-center justify-center self-end rounded-full border border-zinc-700 text-zinc-200 disabled:opacity-40">
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={disabled || uploading || !!pendingImage}
+            aria-label="Lampirkan gambar atau PDF"
+            className="flex h-11 w-11 shrink-0 items-center justify-center self-end rounded-full border border-zinc-700 text-zinc-200 disabled:opacity-40"
+          >
             <ImagePlus className="h-4 w-4" />
           </button>
         ) : null}
-        <input ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/webp,application/pdf" className="hidden" onChange={(event) => stageImage(event.target.files?.[0])} />
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/png,image/jpeg,image/webp,application/pdf"
+          className="hidden"
+          onChange={(event) => stageImage(event.target.files?.[0])}
+        />
         <div className="relative min-w-0 flex-1">
           {emojiPickerOpen ? (
             <div className="absolute bottom-12 right-0 z-20 w-[352px] max-w-[calc(100vw-3rem)] rounded-xl border border-zinc-700 bg-zinc-800 p-1 shadow-xl">
-              <EmojiMartPicker onSelect={insertEmoji} onClose={() => setEmojiPickerOpen(false)} />
+              <EmojiMartPicker
+                onSelect={insertEmoji}
+                onClose={() => setEmojiPickerOpen(false)}
+              />
             </div>
           ) : null}
-          <textarea
-            ref={textareaRef}
-            value={value}
-            onChange={(e) => {
-              resizeTextarea(e.currentTarget);
-              handleChange(e.target.value);
-            }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                void submit();
+          <div className="flex flex-1 flex-col items-end">
+            <textarea
+              ref={textareaRef}
+              value={value}
+              onChange={(e) => {
+                resizeTextarea(e.currentTarget);
+                handleChange(e.target.value);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  void submit();
+                }
+              }}
+              placeholder={
+                pendingImage
+                  ? "Tambahkan pesan (opsional)..."
+                  : "Tulis pesan..."
               }
-            }}
-            placeholder={pendingImage ? "Tambahkan pesan (opsional)..." : "Tulis pesan..."}
-            rows={1}
-            maxLength={MESSAGE_MAX_LENGTH}
-            className="scrollbar-composer block min-h-11 w-full resize-none rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-3 pr-10 text-sm leading-5 text-white placeholder:text-zinc-500 focus:border-gold focus:outline-none box-border"
-          />
-          <button type="button" onClick={() => setEmojiPickerOpen((open) => !open)} disabled={disabled || uploading} aria-label="Pilih emoji" className="absolute bottom-2 right-2 rounded p-1 text-zinc-400 hover:text-yellow-400 disabled:opacity-40">
+              rows={1}
+              maxLength={MESSAGE_MAX_LENGTH}
+              className="scrollbar-composer block min-h-11 w-full resize-none rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-3 pr-10 text-sm leading-5 text-white placeholder:text-zinc-500 focus:border-gold focus:outline-none box-border"
+            />
+            <p
+              className={`mt-1 text-right text-[10px] ${value.length >= MESSAGE_MAX_LENGTH ? "text-red-400" : value.length >= COUNTER_WARNING_LENGTH ? "text-yellow-400" : "text-zinc-400"}`}
+            >
+              {value.length}/{MESSAGE_MAX_LENGTH}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setEmojiPickerOpen((open) => !open)}
+            disabled={disabled || uploading}
+            aria-label="Pilih emoji"
+            className="absolute bottom-2 right-2 rounded p-1 text-zinc-400 hover:text-yellow-400 disabled:opacity-40"
+          >
             <Smile className="h-5 w-5" />
           </button>
         </div>
@@ -267,12 +338,20 @@ export function Composer({
           <Send className="h-4 w-4" strokeWidth={2.5} />
         </button>
       </div>
-      <p className={`mt-1 text-right text-[10px] ${value.length >= MESSAGE_MAX_LENGTH ? "text-red-400" : value.length >= COUNTER_WARNING_LENGTH ? "text-yellow-400" : "text-zinc-400"}`}>
-        {value.length}/{MESSAGE_MAX_LENGTH}
+
+      {uploading ? (
+        <p className="mt-2 text-center text-[10px] text-zinc-400">
+          Mengirim gambar...
+        </p>
+      ) : null}
+      {uploadError ? (
+        <p role="alert" className="mt-2 text-center text-[10px] text-red-400">
+          {uploadError}
+        </p>
+      ) : null}
+      <p className="mt-2 text-center text-[10px] text-zinc-200">
+        Percakapan dapat dibaca oleh AI dan petugas resmi Solid Gold.
       </p>
-      {uploading ? <p className="mt-2 text-center text-[10px] text-zinc-400">Mengirim gambar...</p> : null}
-      {uploadError ? <p role="alert" className="mt-2 text-center text-[10px] text-red-400">{uploadError}</p> : null}
-      <p className="mt-2 text-center text-[10px] text-zinc-200">Percakapan dapat dibaca oleh AI dan petugas resmi Solid Gold.</p>
     </div>
   );
 }
