@@ -139,15 +139,18 @@ private fun ChatContent(state: SolidChatState, accent: Color, client: SolidChatC
                 }
                 OutlinedTextField(
                     value = text,
-                    onValueChange = { text = it.take(4000); client.notifyTyping(it.isNotBlank()) },
+                    // Text over the cap is kept (not cut off) but cannot be sent until it is shortened.
+                    onValueChange = { text = it; client.notifyTyping(it.isNotBlank()) },
                     modifier = Modifier.weight(1f),
                     placeholder = { Text("Tulis pesan...") },
                     maxLines = 4,
                     enabled = state.connected,
+                    isError = text.length > MESSAGE_MAX_LENGTH,
+                    supportingText = { LengthSupport(text.length) },
                 )
                 Button(
                     onClick = { val outgoing = text; text = ""; client.notifyTyping(false); scope.launch { client.sendMessage(outgoing) } },
-                    enabled = text.isNotBlank() && state.connected,
+                    enabled = text.isNotBlank() && text.length <= MESSAGE_MAX_LENGTH && state.connected,
                     colors = ButtonDefaults.buttonColors(containerColor = accent),
                     modifier = Modifier.padding(start = 8.dp),
                 ) { Text("Kirim", color = Color.Black) }
@@ -173,12 +176,12 @@ private fun MessageBubble(message: ChatMessage, accent: Color) {
 private fun PreChatForm(accent: Color, onSubmit: (PreChatInput) -> Unit) {
     var name by remember { mutableStateOf("") }; var email by remember { mutableStateOf("") }
     var phone by remember { mutableStateOf("") }; var message by remember { mutableStateOf("") }; var consent by remember { mutableStateOf(false) }
-    val valid = name.isNotBlank() && EMAIL.matches(email.trim()) && phone.count(Char::isDigit) >= 8 && message.isNotBlank() && consent
+    val valid = name.isNotBlank() && EMAIL.matches(email.trim()) && phone.count(Char::isDigit) >= 8 && message.isNotBlank() && message.length <= MESSAGE_MAX_LENGTH && consent
     FormColumn("Sebelum memulai, boleh kami tahu sedikit tentang Anda?") {
         Field(name, { name = it.take(120) }, "Nama Anda")
         Field(email, { email = it.take(160) }, "Email", KeyboardType.Email)
         Field(phone, { phone = it.take(30) }, "No. Telepon / WhatsApp", KeyboardType.Phone)
-        Field(message, { message = it.take(2000) }, "Pesan pertama", lines = 3)
+        Field(message, { message = it }, "Pesan pertama", lines = 3, isError = message.length > MESSAGE_MAX_LENGTH, supporting = { LengthSupport(message.length) })
         Row(verticalAlignment = Alignment.CenterVertically) { Checkbox(consent, { consent = it }); Text("Saya menyetujui penggunaan data sesuai kebijakan privasi.", color = Color.LightGray, style = MaterialTheme.typography.bodySmall) }
         Button(onClick = { onSubmit(PreChatInput(name.trim(), email.trim(), phone.trim(), message.trim(), consent)) }, enabled = valid, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = accent)) { Text("Mulai Percakapan", color = Color.Black) }
     }
@@ -207,7 +210,26 @@ private fun TicketForm(state: SolidChatState, accent: Color, onSubmit: (TicketIn
 }
 
 @Composable private fun FormColumn(title: String, content: @Composable ColumnScope.() -> Unit) = Column(Modifier.fillMaxSize().padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) { Text(title, color = Color.LightGray); content() }
-@Composable private fun Field(value: String, onChange: (String) -> Unit, label: String, keyboard: KeyboardType = KeyboardType.Text, lines: Int = 1) = OutlinedTextField(value, onChange, Modifier.fillMaxWidth(), label = { Text(label) }, keyboardOptions = KeyboardOptions(keyboardType = keyboard), minLines = lines, maxLines = lines)
+@Composable private fun Field(value: String, onChange: (String) -> Unit, label: String, keyboard: KeyboardType = KeyboardType.Text, lines: Int = 1, isError: Boolean = false, supporting: (@Composable () -> Unit)? = null) = OutlinedTextField(value, onChange, Modifier.fillMaxWidth(), label = { Text(label) }, isError = isError, supportingText = supporting, keyboardOptions = KeyboardOptions(keyboardType = keyboard), minLines = lines, maxLines = lines)
+
+/** Customer message cap, same as the web widget. Over the cap the text stays but cannot be sent. */
+private const val MESSAGE_MAX_LENGTH = 512
+/** From this length the counter turns yellow as a heads-up; it turns red past the cap. */
+private const val COUNTER_WARNING_LENGTH = 400
+
+/** "0/512" counter plus a short error once the text is over the cap. */
+@Composable private fun LengthSupport(length: Int) {
+    val tooLong = length > MESSAGE_MAX_LENGTH
+    val color = when {
+        tooLong -> Color(0xFFF87171)
+        length >= COUNTER_WARNING_LENGTH -> Color(0xFFFACC15)
+        else -> Color.Gray
+    }
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Text(if (tooLong) "Maksimal $MESSAGE_MAX_LENGTH karakter." else "", color = color, style = MaterialTheme.typography.labelSmall)
+        Text("$length/$MESSAGE_MAX_LENGTH", color = color, style = MaterialTheme.typography.labelSmall)
+    }
+}
 @Composable private fun Notice(text: String) = Text(text, color = Color.Gray, style = MaterialTheme.typography.bodySmall, modifier = Modifier.fillMaxWidth().padding(8.dp))
 @Composable private fun CenterMessage(content: @Composable ColumnScope.() -> Unit) = Column(Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically), horizontalAlignment = Alignment.CenterHorizontally, content = content)
 

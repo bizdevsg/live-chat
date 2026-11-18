@@ -5,6 +5,9 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 ## [Unreleased]
 ### Changed
 - Memperbarui `package.json`.
+- Memperbarui `sdks/android/solidchat-sdk/src/main/kotlin/com/solidchat/sdk/ui/SolidChatScreen.kt`.
+- Memperbarui `sdks/flutter/lib/src/solidchat_view.dart`.
+- Memperbarui `sdks/ios/Sources/SolidChatSDK/SolidChatView.swift`.
 
 ## [0.29.13] - 2026-11-18
 ### Changed

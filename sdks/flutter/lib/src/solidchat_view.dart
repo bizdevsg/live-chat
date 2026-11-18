@@ -849,7 +849,11 @@ class _ComposerState extends State<_Composer> {
 
   Future<void> _send() async {
     final text = _textController.text.trim();
-    if (_disabled || (text.isEmpty && _pendingImage == null)) return;
+    if (_disabled ||
+        _textController.text.length > _messageMaxLength ||
+        (text.isEmpty && _pendingImage == null)) {
+      return;
+    }
     setState(() => _sending = true);
     final stagedImage = _pendingImage;
     final stagedBytes = _pendingImageBytes;
@@ -1090,7 +1094,6 @@ class _ComposerState extends State<_Composer> {
                           cursorColor: Color(0xFFD4AF37),
                           minLines: 1,
                           maxLines: 3,
-                          maxLength: 4000,
                           enabled: !_disabled,
                           onChanged: _handleTyping,
                           decoration: InputDecoration(
@@ -1137,6 +1140,7 @@ class _ComposerState extends State<_Composer> {
                       foregroundColor: const Color(0xFF111111),
                     ),
                     onPressed: _disabled ||
+                            _textController.text.length > _messageMaxLength ||
                             (_textController.text.trim().isEmpty &&
                                 _pendingImage == null)
                         ? null
@@ -1150,6 +1154,7 @@ class _ComposerState extends State<_Composer> {
                   ),
                 ],
               ),
+              _LengthCounter(length: _textController.text.length),
               if (_sending && _pendingImage != null)
                 const Padding(
                   padding: EdgeInsets.only(top: 8),
@@ -1261,7 +1266,8 @@ class _PreChatFormState extends State<_PreChatForm> {
                 controller: _message,
                 label: 'Tulis pesan pertama Anda',
                 lines: 3,
-                maxLength: 2000,
+                maxLength: _messageMaxLength,
+                onChanged: (_) => setState(() {}),
                 validator: _required,
               ),
               CheckboxListTile(
@@ -1282,7 +1288,11 @@ class _PreChatFormState extends State<_PreChatForm> {
                   foregroundColor: Colors.black,
                   minimumSize: const Size.fromHeight(48),
                 ),
-                onPressed: _consent && !_submitting ? _submit : null,
+                onPressed: _consent &&
+                        !_submitting &&
+                        _message.text.length <= _messageMaxLength
+                    ? _submit
+                    : null,
                 child: _submitting
                     ? const SizedBox.square(
                         dimension: 20,
@@ -1472,6 +1482,39 @@ class _TicketFormState extends State<_TicketForm> {
   }
 }
 
+/// Customer message cap, same as the web widget. Over the cap the text stays but cannot be sent.
+const int _messageMaxLength = 512;
+
+/// From this length the counter turns yellow as a heads-up; it turns red past the cap.
+const int _counterWarningLength = 400;
+
+/// "0/512" counter plus a short error once the text is over the cap.
+class _LengthCounter extends StatelessWidget {
+  const _LengthCounter({required this.length, this.max = _messageMaxLength});
+  final int length;
+  final int max;
+  @override
+  Widget build(BuildContext context) {
+    final tooLong = length > max;
+    final color = tooLong
+        ? const Color(0xFFF87171)
+        : length >= _counterWarningLength
+            ? const Color(0xFFFACC15)
+            : const Color(0xFF71717A);
+    final style = TextStyle(fontSize: 10, color: color);
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Row(
+        children: [
+          if (tooLong) Text('Maksimal $max karakter.', style: style),
+          const Spacer(),
+          Text('$length/$max', style: style),
+        ],
+      ),
+    );
+  }
+}
+
 class _FormField extends StatelessWidget {
   const _FormField({
     required this.controller,
@@ -1479,29 +1522,46 @@ class _FormField extends StatelessWidget {
     this.keyboardType,
     this.lines = 1,
     this.maxLength,
+    this.onChanged,
     this.validator,
   });
   final TextEditingController controller;
   final String label;
   final TextInputType? keyboardType;
   final int lines;
+
+  /// Soft cap: the text is never cut off, it only shows a counter and fails validation when over.
   final int? maxLength;
+  final ValueChanged<String>? onChanged;
   final String? Function(String?)? validator;
   @override
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.only(bottom: 12),
-        child: TextFormField(
-          controller: controller,
-          style: const TextStyle(color: Colors.white),
-          cursorColor: const Color(0xFFD4AF37),
-          keyboardType: keyboardType,
-          minLines: lines,
-          maxLines: lines,
-          maxLength: maxLength,
-          validator: validator,
-          decoration: _fieldDecoration(label).copyWith(
-            counterText: maxLength == null ? null : '',
-          ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            TextFormField(
+              controller: controller,
+              style: const TextStyle(color: Colors.white),
+              cursorColor: const Color(0xFFD4AF37),
+              keyboardType: keyboardType,
+              minLines: lines,
+              maxLines: lines,
+              onChanged: onChanged,
+              validator: maxLength == null
+                  ? validator
+                  : (value) => (value ?? '').length > maxLength!
+                      ? 'Maksimal $maxLength karakter.'
+                      : validator?.call(value),
+              decoration: _fieldDecoration(label),
+            ),
+            if (maxLength != null)
+              ValueListenableBuilder<TextEditingValue>(
+                valueListenable: controller,
+                builder: (context, value, _) =>
+                    _LengthCounter(length: value.text.length, max: maxLength!),
+              ),
+          ],
         ),
       );
 }

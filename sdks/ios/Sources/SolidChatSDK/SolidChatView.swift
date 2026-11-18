@@ -84,17 +84,21 @@ private struct ChatContentView: View {
                     Button(client.state.site?.settings?.agentButtonLabel ?? "Hubungi Agent") { Task { try? await client.requestAgent() } }
                         .buttonStyle(.bordered).tint(accent).padding(.top, 6)
                 }
+                VStack(spacing: 0) {
                 HStack(alignment: .bottom, spacing: 8) {
                     if client.state.agentHandling && client.state.site?.settings?.allowAttachments == true, let imageProvider {
                         Button("Foto") { Task { if let image = await imageProvider() { try? await client.uploadImage(data: image.data, fileName: image.fileName, mimeType: image.mimeType, caption: image.caption) } } }.tint(accent)
                     }
                     TextField("Tulis pesan...", text: $text, axis: .vertical)
                         .lineLimit(1...4).textFieldStyle(.roundedBorder)
-                        .onChange(of: text) { value in if value.count > 4000 { text = String(value.prefix(4000)) }; client.notifyTyping(!value.isEmpty) }
+                        // Text over the cap is kept (not cut off) but cannot be sent until it is shortened.
+                        .onChange(of: text) { value in client.notifyTyping(!value.isEmpty) }
                     Button("Kirim") {
                         let outgoing = text; text = ""; client.notifyTyping(false); Task { try? await client.sendMessage(outgoing) }
-                    }.buttonStyle(.borderedProminent).tint(accent).disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !client.state.connected)
-                }.padding(8).background(Color(red: 0.095, green: 0.095, blue: 0.106))
+                    }.buttonStyle(.borderedProminent).tint(accent).disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || text.count > messageMaxLength || !client.state.connected)
+                }.padding(8)
+                LengthCounter(length: text.count).padding(.horizontal, 12).padding(.bottom, 6)
+                }.background(Color(red: 0.095, green: 0.095, blue: 0.106))
             }
         }
     }
@@ -116,17 +120,36 @@ private struct MessageBubble: View {
     }
 }
 
+/// Customer message cap, same as the web widget. Over the cap the text stays but cannot be sent.
+private let messageMaxLength = 512
+/// From this length the counter turns yellow as a heads-up; it turns red past the cap.
+private let counterWarningLength = 400
+
+/// "0/512" counter plus a short error once the text is over the cap.
+private struct LengthCounter: View {
+    let length: Int
+    private var color: Color { length > messageMaxLength ? .red : (length >= counterWarningLength ? .yellow : .secondary) }
+    var body: some View {
+        HStack {
+            if length > messageMaxLength { Text("Maksimal \(messageMaxLength) karakter.") }
+            Spacer()
+            Text("\(length)/\(messageMaxLength)")
+        }.font(.caption2).foregroundStyle(color)
+    }
+}
+
 private struct PreChatFormView: View {
     @ObservedObject var client: SolidChatClient; let accent: Color
     @State private var name = ""; @State private var email = ""; @State private var phone = ""; @State private var message = ""; @State private var consent = false
-    private var valid: Bool { !name.isEmpty && email.isEmail && phone.filter(\.isNumber).count >= 8 && !message.isEmpty && consent }
+    private var valid: Bool { !name.isEmpty && email.isEmail && phone.filter(\.isNumber).count >= 8 && !message.isEmpty && message.count <= messageMaxLength && consent }
     var body: some View {
         Form {
             Section("Sebelum memulai, boleh kami tahu sedikit tentang Anda?") {
                 TextField("Nama Anda", text: $name); TextField("Email", text: $email).keyboardType(.emailAddress).textInputAutocapitalization(.never)
                 TextField("No. Telepon / WhatsApp", text: $phone).keyboardType(.phonePad); TextField("Pesan pertama", text: $message, axis: .vertical).lineLimit(3...5)
+                LengthCounter(length: message.count)
                 Toggle("Saya menyetujui penggunaan data sesuai kebijakan privasi.", isOn: $consent)
-                Button("Mulai Percakapan") { Task { try? await client.submitPreChat(.init(name: name, email: email, phone: phone, message: String(message.prefix(2000)), consentGiven: consent)) } }.disabled(!valid).tint(accent)
+                Button("Mulai Percakapan") { Task { try? await client.submitPreChat(.init(name: name, email: email, phone: phone, message: message, consentGiven: consent)) } }.disabled(!valid).tint(accent)
             }
         }.scrollContentBackground(.hidden)
     }
