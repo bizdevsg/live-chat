@@ -5,6 +5,10 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 ## [Unreleased]
 ### Changed
 - Memperbarui `package.json`.
+
+## [0.29.14] - 2026-11-18
+### Changed
+- Memperbarui `package.json`.
 - Memperbarui `sdks/android/solidchat-sdk/src/main/kotlin/com/solidchat/sdk/ui/SolidChatScreen.kt`.
 - Memperbarui `sdks/flutter/lib/src/solidchat_view.dart`.
 - Memperbarui `sdks/ios/Sources/SolidChatSDK/SolidChatView.swift`.
@@ -1587,7 +1591,8 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 - Memperbarui `apps/dashboard/src/app/(dashboard)/knowledge/page.tsx`.
 - Memperbarui `package.json`.
 
-[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.29.13...HEAD
+[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.29.14...HEAD
+[0.29.14]: https://github.com/bizdevsg/live-chat/compare/v0.29.13...v0.29.14
 [0.29.13]: https://github.com/bizdevsg/live-chat/compare/v0.29.12...v0.29.13
 [0.29.12]: https://github.com/bizdevsg/live-chat/compare/v0.29.11...v0.29.12
 [0.29.11]: https://github.com/bizdevsg/live-chat/compare/v0.29.10...v0.29.11
