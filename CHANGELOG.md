@@ -4,6 +4,10 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
 ### Changed
+- Memperbarui `package.json`.
+
+## [0.29.8] - 2026-11-18
+### Changed
 - Memperbarui `apps/widget/src/components/Composer.tsx`.
 - Memperbarui `package.json`.
 
@@ -1552,7 +1556,8 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 - Memperbarui `apps/dashboard/src/app/(dashboard)/knowledge/page.tsx`.
 - Memperbarui `package.json`.
 
-[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.29.7...HEAD
+[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.29.8...HEAD
+[0.29.8]: https://github.com/bizdevsg/live-chat/compare/v0.29.7...v0.29.8
 [0.29.7]: https://github.com/bizdevsg/live-chat/compare/v0.29.6...v0.29.7
 [0.29.6]: https://github.com/bizdevsg/live-chat/compare/v0.29.5...v0.29.6
 [0.29.5]: https://github.com/bizdevsg/live-chat/compare/v0.29.4...v0.29.5
