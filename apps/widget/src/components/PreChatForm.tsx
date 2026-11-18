@@ -80,7 +80,7 @@ export function PreChatForm({
       <input
         value={name}
         onChange={(e) => setName(e.target.value)}
-        placeholder="Nama kakak"
+        placeholder="Nama"
         disabled={submitting || disabled}
         className="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white placeholder:text-zinc-500"
       />
@@ -113,7 +113,7 @@ export function PreChatForm({
         onChange={(e) =>
           setMessage(e.target.value.slice(0, MESSAGE_MAX_LENGTH))
         }
-        placeholder="Tulis pesan pertama kakak"
+        placeholder="Tulis pesan pertama"
         rows={3}
         maxLength={MESSAGE_MAX_LENGTH}
         disabled={submitting || disabled}
