@@ -115,24 +115,27 @@ export function PreChatForm({
       ) : null}
       <textarea
         value={message}
-        onChange={(e) =>
-          setMessage(e.target.value)
-        }
+        onChange={(e) => setMessage(e.target.value)}
         placeholder="Tulis pesan pertama"
         rows={3}
         disabled={submitting || disabled}
         className="resize-none rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white placeholder:text-zinc-500"
       />
-      <p
-        className={`-mt-1 text-right text-[10px] ${tooLong ? "text-red-400" : message.length >= COUNTER_WARNING_LENGTH ? "text-yellow-400" : "text-zinc-400"}`}
-      >
-        {message.length}/{MESSAGE_MAX_LENGTH}
-      </p>
-      {tooLong ? (
-        <p role="alert" className="-mt-1 text-[11px] text-rose-400">
-          Maksimal {MESSAGE_MAX_LENGTH} karakter.
+
+      <div className="flex items-center justify-between text-[10px]">
+        {tooLong ? (
+          <p role="alert" className="text-[11px] text-rose-400">
+            Maksimal {MESSAGE_MAX_LENGTH} karakter.
+          </p>
+        ) : null}
+
+        <p
+          className={`ml-auto ${tooLong ? "text-red-400" : message.length >= COUNTER_WARNING_LENGTH ? "text-yellow-400" : "text-zinc-400"}`}
+        >
+          {message.length}/{MESSAGE_MAX_LENGTH}
         </p>
-      ) : null}
+      </div>
+
       <label className="flex items-start gap-2 text-[11px] text-zinc-500">
         <input
           type="checkbox"

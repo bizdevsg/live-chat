@@ -221,10 +221,7 @@ export function Composer({
   // Text over the cap is kept (not cut off) but cannot be sent until the visitor shortens it.
   const tooLong = value.length > MESSAGE_MAX_LENGTH;
   const canSubmit =
-    !disabled &&
-    !uploading &&
-    !tooLong &&
-    (!!value.trim() || !!pendingImage);
+    !disabled && !uploading && !tooLong && (!!value.trim() || !!pendingImage);
 
   return (
     <div
@@ -307,9 +304,7 @@ export function Composer({
               }
             }}
             placeholder={
-              pendingImage
-                ? "Tambahkan pesan (opsional)..."
-                : "Tulis pesan..."
+              pendingImage ? "Tambahkan pesan (opsional)..." : "Tulis pesan..."
             }
             rows={1}
             className="scrollbar-composer block min-h-11 w-full resize-none rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-3 pr-10 text-sm leading-5 text-white placeholder:text-zinc-500 focus:border-gold focus:outline-none box-border"
@@ -321,6 +316,7 @@ export function Composer({
           >
             {value.length}/{MESSAGE_MAX_LENGTH}
           </p>
+
           <button
             type="button"
             onClick={() => setEmojiPickerOpen((open) => !open)}
