@@ -10,7 +10,7 @@ export interface PreChatValues {
   consentGiven: boolean;
 }
 
-const MESSAGE_MAX_LENGTH = 2000;
+const MESSAGE_MAX_LENGTH = 512;
 
 export function PreChatForm({
   onSubmit,

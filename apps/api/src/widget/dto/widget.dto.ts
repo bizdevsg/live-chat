@@ -42,7 +42,9 @@ export class CreateWidgetSessionDto {
 
 export class SendWidgetMessageDto {
   @IsString()
-  @MaxLength(4000)
+  // The widget caps customer messages at 512 characters; the extra room keeps a normal send
+  // from failing while still stopping oversized requests made directly against the API.
+  @MaxLength(600)
   content!: string;
 
   @IsOptional()

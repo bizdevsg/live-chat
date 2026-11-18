@@ -12,7 +12,12 @@ const COMPOSER_MAX_HEIGHT =
   COMPOSER_VERTICAL_PADDING +
   COMPOSER_BORDER;
 
-const ALLOWED_IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp", "application/pdf"];
+/** Customer message cap. The API enforces a slightly larger one (apps/api widget.dto.ts). */
+const MESSAGE_MAX_LENGTH = 512;
+/** The counter only shows up when the visitor is getting close to the cap. */
+const COUNTER_THRESHOLD = 400;
+
+const ALLOWED_IMAGE_TYPES =["image/png", "image/jpeg", "image/webp", "application/pdf"];
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 const WIDGET_SURFACE_COLOR = "#2e2e2e";
 const EMOJI_MART_DATA_URL = "https://cdn.jsdelivr.net/npm/@emoji-mart/data";
@@ -111,7 +116,7 @@ export function Composer({
   }, [canUploadImage]);
 
   function handleChange(v: string) {
-    setValue(v);
+    setValue(v.slice(0, MESSAGE_MAX_LENGTH));
     onTyping(true);
     if (typingTimeout.current) clearTimeout(typingTimeout.current);
     typingTimeout.current = setTimeout(() => onTyping(false), 1500);
@@ -244,6 +249,7 @@ export function Composer({
             }}
             placeholder={pendingImage ? "Tambahkan pesan (opsional)..." : "Tulis pesan..."}
             rows={1}
+            maxLength={MESSAGE_MAX_LENGTH}
             className="scrollbar-composer block min-h-11 w-full resize-none rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-3 pr-10 text-sm leading-5 text-white placeholder:text-zinc-500 focus:border-gold focus:outline-none box-border"
           />
           <button type="button" onClick={() => setEmojiPickerOpen((open) => !open)} disabled={disabled || uploading} aria-label="Pilih emoji" className="absolute bottom-2 right-2 rounded p-1 text-zinc-400 hover:text-yellow-400 disabled:opacity-40">
@@ -261,6 +267,11 @@ export function Composer({
           <Send className="h-4 w-4" strokeWidth={2.5} />
         </button>
       </div>
+      {value.length >= COUNTER_THRESHOLD ? (
+        <p className={`mt-1 text-right text-[10px] ${value.length >= MESSAGE_MAX_LENGTH ? "text-red-400" : "text-zinc-400"}`}>
+          {value.length}/{MESSAGE_MAX_LENGTH}
+        </p>
+      ) : null}
       {uploading ? <p className="mt-2 text-center text-[10px] text-zinc-400">Mengirim gambar...</p> : null}
       {uploadError ? <p role="alert" className="mt-2 text-center text-[10px] text-red-400">{uploadError}</p> : null}
       <p className="mt-2 text-center text-[10px] text-zinc-200">Percakapan dapat dibaca oleh AI dan petugas resmi Solid Gold.</p>

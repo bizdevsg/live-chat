@@ -4,6 +4,9 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
 ### Changed
+- Memperbarui `apps/api/src/widget/dto/widget.dto.ts`.
+- Memperbarui `apps/widget/src/components/Composer.tsx`.
+- Memperbarui `apps/widget/src/components/PreChatForm.tsx`.
 - Memperbarui `package.json`.
 
 ## [0.29.6] - 2026-11-18
