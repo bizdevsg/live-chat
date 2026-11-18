@@ -4,6 +4,8 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
 ### Changed
+- Memperbarui `apps/api/src/agent/dto/agent.dto.ts`.
+- Memperbarui `apps/dashboard/src/app/(dashboard)/inbox/[conversationId]/page.tsx`.
 - Memperbarui `package.json`.
 
 ## [0.29.17] - 2026-11-18

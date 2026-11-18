@@ -3,9 +3,9 @@ import { AgentAvailability } from "@solidchat/shared";
 
 export class SendAgentMessageDto {
   @IsString()
-  // The inbox caps agent replies at 512 characters; the extra room keeps a normal send from failing
+  // The inbox caps agent replies at 1000 characters; the extra room keeps a normal send from failing
   // while still stopping oversized requests made directly against the API.
-  @MaxLength(600)
+  @MaxLength(1200)
   content!: string;
 
   @IsOptional()

@@ -24,10 +24,10 @@ import { ArrowRightLeft, Download, FileText, ImagePlus, PanelRightClose, PanelRi
 
 const ALLOWED_IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp", "application/pdf"];
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
-/** Agent reply cap, same as the customer side in the widget. Over the cap the text stays but cannot be sent. */
-const REPLY_MAX_LENGTH = 512;
+/** Agent reply cap (higher than the customer's 512: replies carry explanations, templates and suggested replies). Over the cap the text stays but cannot be sent. */
+const REPLY_MAX_LENGTH = 1000;
 /** From this length the counter turns yellow as a heads-up; it turns red past the cap. */
-const REPLY_WARNING_LENGTH = 400;
+const REPLY_WARNING_LENGTH = 800;
 
 /** A non-image (PDF) attachment: a chip that swaps the attachment id for a signed URL and opens it on click. */
 function FileAttachment({ conversationId, attachment }: { conversationId: string; attachment: NonNullable<MessageItem["attachments"]>[number] }) {
