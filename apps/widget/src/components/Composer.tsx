@@ -142,7 +142,7 @@ export function Composer({
   }, [canUploadImage]);
 
   function handleChange(v: string) {
-    setValue(v.slice(0, MESSAGE_MAX_LENGTH));
+    setValue(v);
     onTyping(true);
     if (typingTimeout.current) clearTimeout(typingTimeout.current);
     typingTimeout.current = setTimeout(() => onTyping(false), 1500);
@@ -189,7 +189,7 @@ export function Composer({
   }
 
   async function submit() {
-    if (disabled || uploading) return;
+    if (disabled || uploading || value.length > MESSAGE_MAX_LENGTH) return;
     const trimmed = value.trim();
 
     if (pendingImage) {
@@ -218,8 +218,13 @@ export function Composer({
     onTyping(false);
   }
 
+  // Text over the cap is kept (not cut off) but cannot be sent until the visitor shortens it.
+  const tooLong = value.length > MESSAGE_MAX_LENGTH;
   const canSubmit =
-    !disabled && !uploading && (!!value.trim() || !!pendingImage);
+    !disabled &&
+    !uploading &&
+    !tooLong &&
+    (!!value.trim() || !!pendingImage);
 
   return (
     <div
@@ -307,13 +312,12 @@ export function Composer({
                 : "Tulis pesan..."
             }
             rows={1}
-            maxLength={MESSAGE_MAX_LENGTH}
             className="scrollbar-composer block min-h-11 w-full resize-none rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-3 pr-10 text-sm leading-5 text-white placeholder:text-zinc-500 focus:border-gold focus:outline-none box-border"
           />
           {/* Hangs below the textarea without adding to the row height, so the emoji, attach and
               send buttons stay aligned with the textarea (the row reserves room with pb-4). */}
           <p
-            className={`absolute right-1 top-full mt-0.5 text-[10px] leading-none ${value.length >= MESSAGE_MAX_LENGTH ? "text-red-400" : value.length >= COUNTER_WARNING_LENGTH ? "text-yellow-400" : "text-zinc-400"}`}
+            className={`absolute right-1 top-full mt-0.5 text-[10px] leading-none ${tooLong ? "text-red-400" : value.length >= COUNTER_WARNING_LENGTH ? "text-yellow-400" : "text-zinc-400"}`}
           >
             {value.length}/{MESSAGE_MAX_LENGTH}
           </p>

@@ -37,6 +37,8 @@ export function PreChatForm({
   const trimmedMessage = message.trim();
   const emailValid = isValidEmail(trimmedEmail);
   const phoneValid = isValidPhone(trimmedPhone);
+  // Text over the cap is kept (not cut off) but cannot be sent until the visitor shortens it.
+  const tooLong = message.length > MESSAGE_MAX_LENGTH;
   const canSubmit =
     trimmedName.length > 0 &&
     trimmedEmail.length > 0 &&
@@ -44,6 +46,7 @@ export function PreChatForm({
     trimmedMessage.length > 0 &&
     emailValid &&
     phoneValid &&
+    !tooLong &&
     consent &&
     !disabled &&
     !submitting;
@@ -113,16 +116,15 @@ export function PreChatForm({
       <textarea
         value={message}
         onChange={(e) =>
-          setMessage(e.target.value.slice(0, MESSAGE_MAX_LENGTH))
+          setMessage(e.target.value)
         }
         placeholder="Tulis pesan pertama"
         rows={3}
-        maxLength={MESSAGE_MAX_LENGTH}
         disabled={submitting || disabled}
         className="resize-none rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white placeholder:text-zinc-500"
       />
       <p
-        className={`-mt-1 text-right text-[10px] ${message.length >= MESSAGE_MAX_LENGTH ? "text-red-400" : message.length >= COUNTER_WARNING_LENGTH ? "text-yellow-400" : "text-zinc-400"}`}
+        className={`-mt-1 text-right text-[10px] ${tooLong ? "text-red-400" : message.length >= COUNTER_WARNING_LENGTH ? "text-yellow-400" : "text-zinc-400"}`}
       >
         {message.length}/{MESSAGE_MAX_LENGTH}
       </p>
