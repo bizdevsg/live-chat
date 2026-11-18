@@ -24,6 +24,10 @@ import { ArrowRightLeft, Download, FileText, ImagePlus, PanelRightClose, PanelRi
 
 const ALLOWED_IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp", "application/pdf"];
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+/** Agent reply cap, same as the customer side in the widget. Over the cap the text stays but cannot be sent. */
+const REPLY_MAX_LENGTH = 512;
+/** From this length the counter turns yellow as a heads-up; it turns red past the cap. */
+const REPLY_WARNING_LENGTH = 400;
 
 /** A non-image (PDF) attachment: a chip that swaps the attachment id for a signed URL and opens it on click. */
 function FileAttachment({ conversationId, attachment }: { conversationId: string; attachment: NonNullable<MessageItem["attachments"]>[number] }) {
@@ -745,6 +749,7 @@ export default function ConversationDetailPage() {
                 if (!canReply) return;
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
+                  if (draft.length > REPLY_MAX_LENGTH) return;
                   if (pendingImage) {
                     uploadImage.mutate({ file: pendingImage.file, content: draft.trim() });
                     return;
@@ -766,9 +771,9 @@ export default function ConversationDetailPage() {
             <div className="flex flex-col items-center justify-between gap-1.5">
               <Button
                 className="sm:self-end"
-                disabled={!canReply || uploadImage.isPending || (!draft.trim() && !pendingImage)}
+                disabled={!canReply || uploadImage.isPending || draft.length > REPLY_MAX_LENGTH || (!draft.trim() && !pendingImage)}
                 onClick={() => {
-                  if (!canReply || uploadImage.isPending) return;
+                  if (!canReply || uploadImage.isPending || draft.length > REPLY_MAX_LENGTH) return;
                   if (pendingImage) {
                     uploadImage.mutate({ file: pendingImage.file, content: draft.trim() });
                     return;
@@ -786,6 +791,17 @@ export default function ConversationDetailPage() {
                 <ImagePlus />
               </Button>
             </div>
+          </div>
+
+          <div className="mt-1 flex items-center justify-between text-[11px]">
+            {draft.length > REPLY_MAX_LENGTH ? (
+              <span role="alert" className="text-red-400">Maksimal {REPLY_MAX_LENGTH} karakter.</span>
+            ) : (
+              <span />
+            )}
+            <span className={draft.length > REPLY_MAX_LENGTH ? "text-red-400" : draft.length >= REPLY_WARNING_LENGTH ? "text-yellow-400" : "text-zinc-500"}>
+              {draft.length}/{REPLY_MAX_LENGTH}
+            </span>
           </div>
 
           {pendingImage ? (

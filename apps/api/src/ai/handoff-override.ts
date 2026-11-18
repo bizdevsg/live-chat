@@ -40,6 +40,23 @@ export function asksForHuman(message: string): boolean {
   return HUMAN_REQUEST_PATTERN.test(message);
 }
 
+const PROMISE_VERB = String.raw`(?:menghubungkan|menyambungkan|mengalihkan|meneruskan|hubungkan|sambungkan|alihkan|teruskan)`;
+const HANDOFF_PROMISE_PATTERN = new RegExp(String.raw`\b${PROMISE_VERB}\b.{0,60}\b${HUMAN_TARGET}\b`, "i");
+/** Negations and offer/condition words: "tidak bisa menghubungkan", "kalau mau, aku bisa hubungkan ..." are not promises. */
+const NOT_A_PROMISE_PATTERN = /\b(?:tidak|tak|belum|gak|nggak|bukan|jangan|kalau|jika|bila|apabila|bisa|dapat|mau|ingin|apakah|boleh|silakan|silahkan)\b/i;
+
+/**
+ * True when the AI's own reply promises to connect the customer to a person ("Saya akan
+ * menghubungkan kakak dengan tim customer service kami"). The model sometimes says this in a normal
+ * answer without any handoff having been triggered, leaving the customer waiting for nobody.
+ * Questions, offers, conditions and negations are skipped, so only a plain statement counts.
+ */
+export function promisesHandoff(answer: string): boolean {
+  return answer
+    .split(/(?<=[.!?])\s+|\n+/)
+    .some((sentence) => !sentence.includes("?") && HANDOFF_PROMISE_PATTERN.test(sentence) && !NOT_A_PROMISE_PATTERN.test(sentence));
+}
+
 /** A clear first-person request for a person that is not negated. */
 export function directlyAsksForHuman(message: string): boolean {
   return DIRECT_HUMAN_REQUEST_PATTERN.test(message) && !NEGATED_WANT_PATTERN.test(message);

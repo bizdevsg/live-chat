@@ -13,11 +13,13 @@ interface Scenario {
   before?: Array<{ senderType: string; content: string }>;
   intent?: AiIntent;
   injection?: boolean;
+  /** What the answer model returns; defaults to a plain knowledge answer. */
+  answerText?: string;
 }
 
 async function run(s: Scenario) {
   const posted: Array<{ content: string; metadata?: { handoffDecision?: Record<string, unknown> } }> = [];
-  const generateAnswer = jest.fn().mockResolvedValue({ answer: "Jawaban dari knowledge.", confidence: 0.9, intent: AiIntent.GENERAL_INQUIRY, handoffRequired: false, sources: [] });
+  const generateAnswer = jest.fn().mockResolvedValue({ answer: s.answerText ?? "Jawaban dari knowledge.", confidence: 0.9, intent: AiIntent.GENERAL_INQUIRY, handoffRequired: false, sources: [] });
   const provider = {
     name: "mock",
     classifyIntent: jest.fn().mockResolvedValue({
@@ -149,6 +151,27 @@ describe("AiOrchestratorService handoff vs. evidence", () => {
     expect(r.posted[0]?.content.startsWith("Kak, jangan kirim password")).toBe(true);
     expect(r.posted[0]?.content).toContain("Jawaban dari knowledge.");
     expect(r.posted[0]?.content).not.toContain("Contoh123");
+  });
+
+  it("11. an answer that promises a handoff really requests an agent", async () => {
+    const r = await run({
+      message: "makasih infonya, tapi masih bingung",
+      classifierAction: "NONE",
+      evidence: EVIDENCE,
+      answerText: "Tentu, kak! Saya akan menghubungkan kakak langsung dengan tim customer service kami. Mohon tunggu sebentar ya.",
+    });
+    expect(r.posted[0]?.content).toContain("menghubungkan kakak");
+    expect(r.conversations.requestAgent).toHaveBeenCalledTimes(1);
+  });
+
+  it("12. an answer that only offers a handoff does not request an agent", async () => {
+    const r = await run({
+      message: "makasih infonya",
+      classifierAction: "NONE",
+      evidence: EVIDENCE,
+      answerText: "Sama-sama, kak. Mau aku hubungkan ke petugas kami supaya dibantu lebih lanjut?",
+    });
+    expect(r.conversations.requestAgent).not.toHaveBeenCalled();
   });
 
   it("10. a prompt-injection message gets a polite refusal and no handoff", async () => {

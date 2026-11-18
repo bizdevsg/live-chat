@@ -16,7 +16,7 @@ import { ConversationsService } from "../conversations/conversations.service";
 import { RetrievalService } from "../knowledge/retrieval.service";
 import { AiProviderFactory } from "./ai-provider.factory";
 import { HandoffEvaluatorService } from "./handoff-evaluator.service";
-import { resolveHandoffAction } from "./handoff-override";
+import { promisesHandoff, resolveHandoffAction } from "./handoff-override";
 import { SecurityEventService } from "../common/security/security-event.service";
 import { RealtimeEmitterService } from "../realtime/realtime-emitter.service";
 import { MarketDataService } from "../market-data/market-data.service";
@@ -536,16 +536,27 @@ export class AiOrchestratorService {
       });
       activeAiRunId = aiRun.id;
 
+      const answerText = customerReply(
+        formatAnswerForCustomer(answer.answer ?? "", answer.sources, site.settings.showAiSourcesToCustomer, evidence.map((item) => item.content)) || EMPTY_ANSWER_FALLBACK,
+      );
       await this.conversations.postMessage({
         conversationId,
         senderType: SenderType.AI,
-        content: customerReply(
-          formatAnswerForCustomer(answer.answer ?? "", answer.sources, site.settings.showAiSourcesToCustomer, evidence.map((item) => item.content)) || EMPTY_ANSWER_FALLBACK,
-        ),
+        content: answerText,
         messageType: MessageType.TEXT,
         aiRunId: aiRun.id,
         metadata: { confidence: answer.confidence, intent: answer.intent, sources: answer.sources, handoffDecision: handoffResolution },
       });
+
+      // Safety net: the model sometimes writes "Saya akan menghubungkan kakak dengan petugas kami" in a
+      // normal answer although no handoff was triggered above, leaving the customer waiting for nobody.
+      // When the reply makes that promise, keep it by actually requesting an agent.
+      if (promisesHandoff(answerText)) {
+        await this.conversations
+          .requestAgent(conversationId, HandoffReason.CUSTOMER_REQUESTED_HUMAN, HandoffSource.AI_DECISION)
+          .then(() => this.summarize(conversationId, "HANDOFF"))
+          .catch((handoffError) => console.error(`[AiOrchestratorService] promised handoff failed for conversation ${conversationId}:`, handoffError));
+      }
     } catch (error) {
       // Every step above (classification, handoff decision, retrieval, the answer call itself)
       // can throw on a transient provider/DB hiccup. Both callers of scheduleVisitorTurn/
