@@ -4,6 +4,10 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
 ### Changed
+- Memperbarui `package.json`.
+
+## [0.29.6] - 2026-11-18
+### Changed
 - Memperbarui `apps/widget/src/lib/rich-text.tsx`.
 - Memperbarui `package.json`.
 
@@ -1540,7 +1544,8 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 - Memperbarui `apps/dashboard/src/app/(dashboard)/knowledge/page.tsx`.
 - Memperbarui `package.json`.
 
-[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.29.5...HEAD
+[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.29.6...HEAD
+[0.29.6]: https://github.com/bizdevsg/live-chat/compare/v0.29.5...v0.29.6
 [0.29.5]: https://github.com/bizdevsg/live-chat/compare/v0.29.4...v0.29.5
 [0.29.4]: https://github.com/bizdevsg/live-chat/compare/v0.29.3...v0.29.4
 [0.29.3]: https://github.com/bizdevsg/live-chat/compare/v0.29.2...v0.29.3
