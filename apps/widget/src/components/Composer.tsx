@@ -348,6 +348,11 @@ export function Composer({
           Mengirim gambar...
         </p>
       ) : null}
+      {tooLong ? (
+        <p role="alert" className="mt-2 text-center text-[10px] text-red-400">
+          Maksimal {MESSAGE_MAX_LENGTH} karakter.
+        </p>
+      ) : null}
       {uploadError ? (
         <p role="alert" className="mt-2 text-center text-[10px] text-red-400">
           {uploadError}

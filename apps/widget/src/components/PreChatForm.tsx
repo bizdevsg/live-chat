@@ -128,6 +128,11 @@ export function PreChatForm({
       >
         {message.length}/{MESSAGE_MAX_LENGTH}
       </p>
+      {tooLong ? (
+        <p role="alert" className="-mt-1 text-[11px] text-rose-400">
+          Maksimal {MESSAGE_MAX_LENGTH} karakter.
+        </p>
+      ) : null}
       <label className="flex items-start gap-2 text-[11px] text-zinc-500">
         <input
           type="checkbox"
