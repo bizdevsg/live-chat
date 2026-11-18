@@ -3,7 +3,11 @@
 Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
+### Added
+- Menambahkan `apps/api/src/ai/handoff-override.spec.ts`.
+
 ### Changed
+- Memperbarui `apps/api/src/ai/handoff-override.ts`.
 - Memperbarui `package.json`.
 
 ## [0.29.15] - 2026-11-18

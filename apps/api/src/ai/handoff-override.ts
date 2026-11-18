@@ -2,7 +2,19 @@ import type { ChatTurn } from "@solidchat/shared";
 
 export type HandoffAction = "NONE" | "OFFER" | "TRANSFER" | "OUT_OF_SCOPE";
 
-const HUMAN_TARGET = String.raw`(?:manusia|orang\s+asli|agent|agen|cs|customer\s*service|petugas|operator|admin|staf|staff|human|live\s*agent)`;
+// "-nya" is allowed ("petugasnya", "csnya"); without it \b after the target never matched them.
+const HUMAN_TARGET = String.raw`(?:(?:manusia|orang\s+asli|agent|agen|cs|customer\s*service|petugas|operator|admin|staf|staff|human|live\s*agent)(?:nya)?)`;
+
+/**
+ * A first-person "I want to talk to a person" ("saya mau ngobrol langsung sama petugasnya"). Strict on
+ * purpose: it may force a handoff even when the classifier said NONE, so it needs both a want-word
+ * and a talk-word, and is dropped when negated ("gak mau bicara sama CS").
+ */
+const DIRECT_HUMAN_REQUEST_PATTERN = new RegExp(
+  String.raw`\b(?:mau|ingin|pengen|pingin|minta|butuh|perlu)\b.{0,20}\b(?:bicara|berbicara|ngobrol|ngomong|chat|bertemu|telepon\w*|telp\w*|hubung\w*|sambung\w*)\b.{0,30}\b${HUMAN_TARGET}\b`,
+  "i",
+);
+const NEGATED_WANT_PATTERN = /\b(?:tidak|nggak|ngga|gak|ga|bukan|jangan|belum)\s+(?:usah\s+)?(?:mau|ingin|pengen|pingin|perlu|butuh)\b/i;
 
 /** The visitor explicitly asks for a person ("mau bicara dengan CS", "hubungkan ke agent", "talk to a human"). */
 const HUMAN_REQUEST_PATTERN = new RegExp(
@@ -26,6 +38,11 @@ const OFFER_TO_CONNECT_PATTERN = new RegExp(
 
 export function asksForHuman(message: string): boolean {
   return HUMAN_REQUEST_PATTERN.test(message);
+}
+
+/** A clear first-person request for a person that is not negated. */
+export function directlyAsksForHuman(message: string): boolean {
+  return DIRECT_HUMAN_REQUEST_PATTERN.test(message) && !NEGATED_WANT_PATTERN.test(message);
 }
 
 /** True when `message` is a bare "yes" AND the AI turn right before it offered a handoff. */
@@ -65,6 +82,11 @@ export function resolveHandoffAction(input: {
   const base = { classifierAction, evidenceCount };
   if (/(jaminan profit|pasti untung|garansi profit)/i.test(message) && !asksForHuman(message)) {
     return { ...base, finalAction: "NONE", overriddenByEvidence: classifierAction !== "NONE" };
+  }
+  // The classifier sometimes answers NONE or OFFER to a plain "I want to talk to your staff" and the
+  // AI then promises a handoff in prose that never happens. A clear request always transfers.
+  if (classifierAction !== "TRANSFER" && directlyAsksForHuman(message)) {
+    return { ...base, finalAction: "TRANSFER", overriddenByEvidence: false };
   }
   if (classifierAction === "NONE" || evidenceCount === 0) {
     return { ...base, finalAction: classifierAction, overriddenByEvidence: false };
