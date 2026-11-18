@@ -4,6 +4,10 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 
 ## [Unreleased]
 ### Changed
+- Memperbarui `package.json`.
+
+## [0.29.11] - 2026-11-18
+### Changed
 - Memperbarui `apps/widget/src/components/Composer.tsx`.
 - Memperbarui `apps/widget/src/components/PreChatForm.tsx`.
 - Memperbarui `package.json`.
@@ -1568,7 +1572,8 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di file ini.
 - Memperbarui `apps/dashboard/src/app/(dashboard)/knowledge/page.tsx`.
 - Memperbarui `package.json`.
 
-[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.29.10...HEAD
+[Unreleased]: https://github.com/bizdevsg/live-chat/compare/v0.29.11...HEAD
+[0.29.11]: https://github.com/bizdevsg/live-chat/compare/v0.29.10...v0.29.11
 [0.29.10]: https://github.com/bizdevsg/live-chat/compare/v0.29.9...v0.29.10
 [0.29.9]: https://github.com/bizdevsg/live-chat/compare/v0.29.8...v0.29.9
 [0.29.8]: https://github.com/bizdevsg/live-chat/compare/v0.29.7...v0.29.8
